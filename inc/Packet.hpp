@@ -1,5 +1,7 @@
 #pragma once
 
+// test stuff
+
 enum PacketID
 {
 	Connect,
@@ -7,4 +9,21 @@ enum PacketID
 	Disconnect
 };
 
-char*	createMessage(PacketID packet_id, const std::string& message);
+// actual class
+
+#include <string>
+
+class Packet
+{
+
+	private:
+		std::string		m_http_header;
+		std::string		m_body;
+
+
+
+	public:
+
+		int		sendTo(int socket);
+
+};

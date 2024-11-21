@@ -4,7 +4,9 @@
 
 Server::Server(const std::string& ip, int port) 
 {
-	// should read config file and initialize all server variables
+	// should read config file and initialize all server variables here
+	// read more about config files for NGINX
+
 	m_address = ip;
 	m_port = port;
 }
@@ -12,21 +14,28 @@ Server::Server(const std::string& ip, int port)
 Server::~Server()
 {
 	// always close all open sockets on exit
-	if (m_socket >= 0)
-		close(m_socket);
-	if (m_new_socket >= 0)
-		close(m_new_socket);
+
+	closeServer();
 }
 
 int	Server::startServer()
 {
 	log("Starting Server on " + m_address + ":" + std::to_string(m_port) + "...");
+
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
 	{
 		logError("Server failed to open socket!");
 		return 0;
 	}
+
+    int opt = 1;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        perror("setsockopt failed");
+        close(m_socket);
+        return 0;
+    }
 
 	m_socket_addr.sin_family = AF_INET;
 	m_socket_addr.sin_addr.s_addr = INADDR_ANY;
@@ -47,8 +56,11 @@ int	Server::startServer()
 void	Server::closeServer()
 {
 	log("Closing server...");
-	close(m_socket);
-	close(m_new_socket);
+	if (m_socket >= 0)
+		close(m_socket);
+	if (m_new_socket >= 0)
+		close(m_new_socket);
+	usleep(10000);
 	log("Server closed!");
 	exit(0);
 }
@@ -66,14 +78,16 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-void	Server::handleClient(int client_socket)
+std::string	parseRequest(int client_socket)
 {
 	char	buffer[1024];
+	memset(buffer, 0, 1024);
 	int		bytes_read = read(client_socket, buffer, 1024);
 
-	// - parsing would happen here -
-	// handle http header
-	// build response -> send
+	// - parsing would happen here, this only temporary -
+	// read http request
+	// parse tags
+	// save response tags / varables to a class/struct
 
 	if (bytes_read > 8)
 	{
@@ -94,7 +108,7 @@ void	Server::handleClient(int client_socket)
 		id = ntohl(id);
 		len = ntohl(len);
 
-		if (id < 10) // custom ID message
+		if (id < 10) // custom ID message, we wont use this for http
 		{
 			std::cout << "Msg received: " 
 						<< "\n\tID: " << id 
@@ -104,21 +118,37 @@ void	Server::handleClient(int client_socket)
 		} else {
 			std::cout << buffer << std::endl;
 		}
-
-		send(client_socket, buffer, bytes_read, 0);
-		log("Msg sent back to client\n");
 	}
 	else
 	{
-		logError("Received Invalid message");
+		logError("Received Invalid message: ");
 	}
 
+	// for now, return the received message
+	return std::string(buffer);
+}
+
+void	Server::handleClient(int client_socket)
+{
+	// temporary string for response
+	std::string	request = parseRequest(client_socket);
+	
+	// temporary response
+	std::string response = request; // buildResponse();
+
+	if (response.size() > 0)
+	{
+		send(client_socket, response.c_str(), response.size(), 0);
+		log("Sent response\n");
+	}
+
+	// should only close if requests did not contain keep-alive
 	close(client_socket);
 }
 
 void	Server::update()
 {
-	// should check poll() and non blocking i/o
+	// should read about poll() and non blocking i/o
 
 	m_new_socket = accept(m_socket, (struct sockaddr*)&m_client_addr, &m_client_addr_len);
 	if (m_new_socket < 0)
@@ -127,7 +157,7 @@ void	Server::update()
 		return ;
 	}
 
-	log("Client connected!");
+	log("Accepted client!");
 	handleClient(m_new_socket);
 
 }
