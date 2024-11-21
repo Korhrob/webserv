@@ -1,25 +1,28 @@
-CC			=	c++
-CFLAGS		=	#-Wall -Werror -Wextra -g
+CXX			=	c++
+CXXFLAGS	=	-Iinc #-Wall -Werror -Wextra -g
 LDFLAG		=	#-g -fsanitize=address
 SNAME		=	server
 CNAME		=	client
-SSRC		=	Server.cpp
-CSRC		=	Client.cpp
-SOBJ		=	$(SSRC:.cpp=.o)
-COBJ		=	$(CSRC:.cpp=.o)
+SSRC		=	src/Server.cpp src/main.cpp
+CSRC		=	src/Client.cpp
+SOBJ		=	$(patsubst src/%.cpp, obj/%.o, $(SSRC)) # $(SSRC:.cpp=.o)
+COBJ		=	$(patsubst src/%.cpp, obj/%.o, $(CSRC)) 
 
 all: $(SNAME) $(CNAME)
 
 $(SNAME): $(SOBJ)
-	$(CC) -o $(SNAME) $(SOBJ) $(LDFLAG)
-	@echo $(SNAME)
+	$(CXX) $(CXXFLAGS) -o $(SNAME) $(SOBJ) $(LDFLAG)
+	@echo "Built $(SNAME)"
 
 $(CNAME): $(COBJ)
-	$(CC) -o $(CNAME) $(COBJ) $(LDFLAG)
-	@echo $(CNAME)
+	$(CXX) $(CXXFLAGS) -o $(CNAME) $(COBJ) $(LDFLAG)
+	@echo "Built $(CNAME)"
 
-%.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+obj/%.o: src/%.cpp | obj/
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+obj/:
+	mkdir -p obj
 
 clean:
 	rm -f $(SOBJ)
@@ -28,6 +31,7 @@ clean:
 fclean: clean
 	rm -f $(SNAME)
 	rm -f $(CNAME)
+	rm -rf obj
 
 re: fclean all
 
