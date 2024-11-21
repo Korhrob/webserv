@@ -94,11 +94,16 @@ void	Server::handleClient(int client_socket)
 		id = ntohl(id);
 		len = ntohl(len);
 
-		std::cout << "Msg received: " 
-					<< "\n\tID: " << id 
-					<< "\n\tLen: " << len
-					<< "\n\tMsg: " << std::string(ptr)
-					<< std::endl;
+		if (id < 10) // custom ID message
+		{
+			std::cout << "Msg received: " 
+						<< "\n\tID: " << id 
+						<< "\n\tLen: " << len
+						<< "\n\tMsg: " << std::string(ptr)
+						<< std::endl;
+		} else {
+			std::cout << buffer << std::endl;
+		}
 
 		send(client_socket, buffer, bytes_read, 0);
 		log("Msg sent back to client\n");
