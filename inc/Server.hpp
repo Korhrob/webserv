@@ -46,6 +46,6 @@ class Server
 		void	closeServer();
 		void	startListen();
 		void	handleClient(int id);
-		std::string	parseRequest(int id);
+		bool	parseRequest(int id, std::string *request);
 		void	update();
 };

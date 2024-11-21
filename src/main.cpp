@@ -16,7 +16,7 @@ void	handleSigint(int sig)
 int	main()
 {
 	signal(SIGINT, handleSigint);
-	Server tcpServer("127.0.0.1", 8080);
+	Server tcpServer("0.0.0.0", 8080);
 
 	g_serv = &tcpServer;
 	tcpServer.startServer();

@@ -92,62 +92,64 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-std::string	Server::parseRequest(int id)
+bool	Server::parseRequest(int id, std::string *request)
 {
 	char	buffer[1024];
 	memset(buffer, 0, 1024);
 
 	// see recv instead of read, also use size_t
-	int		bytes_read = read(m_sockets[id].fd, buffer, 1024);
-
-	// - parsing would happen here, this only temporary -
-	// read http request
-	// parse tags
-	// save response tags / varables to a class/struct
+	size_t	bytes_read = recv(m_sockets[id].fd, buffer, 1024, 0);
 
 	if (bytes_read > 0)
 	{
+		*request = std::string(buffer);
 		std::cout << buffer << std::endl;
-	}
-	else
-	{
-		return "";
+		return true;
 	}
 
-	// for now, return the received message
-	return std::string(buffer);
+	return false;
 }
 
 void	Server::handleClient(int id)
 {
-	std::string	request = parseRequest(id);
-	
-	// temporary response
-	if (!request.empty())
+
+	std::string	request;
+	std::string response;
+
+	if (!parseRequest(id, &request))
 	{
-		m_sockets[id].revents = POLLOUT;
-		send(m_sockets[id].fd, request.c_str(), request.size(), 0);
-		m_files_sent[id]++;
-		log("Sent response");
-	}
-	else
-	{
-		logError("Client disconnected or error ");
+		logError("Client disconnected or error occured");
 		close(m_sockets[id].fd);
 		m_sockets[id] = m_sockets[--m_sock_count];
 		return;
 	}
 
-	// we should only close if requests did not contain keep-alive
-	// or incase all the requested files were received
-	// this implies we should cache the number of file per .html document on startup
-	// int		page_files = 2;
-	// if (m_files_sent[id] >= page_files)
-	// {
-		close(m_sockets[id].fd);
-		m_sockets[id] = m_sockets[--m_sock_count];
-		std::cout << "closed socket" << std::endl;
-	// }
+	m_sockets[id].revents = POLLOUT;
+
+	// temporary response
+	if (request.find("GET / ") != std::string::npos)
+	{
+		response = "HTTP/1.1 200 OK\r\n";
+		response += "Content-Type: text/html\r\n";
+		response += "Connection: keep-alive\r\n";  // Allow persistent connection
+		response += "\r\n";
+		response += "<html>initial response</html>";
+	} else {
+		response = "HTTP/1.1 200 OK\r\n";
+		response += "Content-Type: text/html\r\n";
+		response += "Connection: keep-alive\r\n";
+		response += "\r\n";
+		response += "some other type of file";
+	}
+
+	m_files_sent[id]++;
+	int bytes_sent = send(m_sockets[id].fd, response.c_str(), response.size(), 0);
+	std::cout << "\n\n-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
+
+
+	// this implementation of server doesnt work without closing the socket after each send
+	close(m_sockets[id].fd);
+	m_sockets[m_sock_count--].fd = -1;
 }
 
 void	Server::update()
@@ -189,19 +191,19 @@ void	Server::update()
 
 	for (int i = 1; i < m_sock_count; i++)
 	{
-		std::cout << "-- check fd " << i << std::endl;
-		if (m_sockets[i].fd != -1 && m_sockets[i].revents & POLLIN)
+		//std::cout << "-- check fd " << i << std::endl;
+		if (m_sockets[i].fd != -1)
 		{
-			handleClient(i);
-			m_sockets[i].revents = 0;
-			std::cout << "-- server handled POLLIN --" << std::endl;
+			if (m_sockets[i].revents & POLLIN)
+			{
+				handleClient(i);
+			}
+			else if (m_sockets[i].revents & POLLOUT)
+			{
+				std::cout << "handle pollout" << std::endl;
+				m_sockets[i].revents = 0;
+			}
 		}
-		// else if (m_sockets[i].revents & POLLOUT)
-		// {
-		// 	handleClient(i);
-		// 	m_sockets[i].revents = 0;
-		// 	std::cout << "-- server handled POLLOUT --" << std::endl;
-		// }
 	}
 
 }
