@@ -6,12 +6,14 @@
 #include <unistd.h> // close
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
+#include <poll.h>
 
 #include <string.h>
 #include <sstream>
 
 #include "ILog.hpp"
 #include "Packet.hpp"
+#include "WebClient.hpp"
 
 typedef struct sockaddr_in t_sockaddr_in;
 
@@ -25,14 +27,16 @@ class Server
 		int					m_new_socket;
 		long				m_inc_msg;
 		t_sockaddr_in		m_socket_addr;
-		t_sockaddr_in		m_client_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		unsigned int		m_client_addr_len = sizeof(t_sockaddr_in);
 
 		std::string			m_server_msg;
 
-
-		static const size_t	BufferSize;
+		
+		struct pollfd		m_sockets[16];
+		int					m_sock_count;
+		int					m_max_sockets = 16;
+		int					m_files_sent[16];
+		
 
 	public:
 		Server(const std::string& ip, int port);
@@ -41,6 +45,7 @@ class Server
 		int		startServer();
 		void	closeServer();
 		void	startListen();
-		void	handleClient(int client_socket);
+		void	handleClient(int id);
+		std::string	parseRequest(int id);
 		void	update();
 };

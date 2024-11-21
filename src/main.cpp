@@ -24,7 +24,6 @@ int	main()
 	while (1)
 	{
 		tcpServer.update();
-		usleep(10000);
 	}
 
 	tcpServer.closeServer();

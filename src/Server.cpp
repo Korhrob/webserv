@@ -2,6 +2,9 @@
 #include "Server.hpp"
 #include <string>
 
+#include <poll.h>
+#include <fcntl.h>
+
 Server::Server(const std::string& ip, int port) 
 {
 	// should read config file and initialize all server variables here
@@ -9,6 +12,7 @@ Server::Server(const std::string& ip, int port)
 
 	m_address = ip;
 	m_port = port;
+	m_sock_count = 1;
 }
 
 Server::~Server()
@@ -50,6 +54,11 @@ int	Server::startServer()
 
 	log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
+
+	m_sockets[0].fd = m_socket;
+	m_sockets[0].events = POLLIN;
+	m_sockets[0].revents = 0;
+
 	return 1;
 }
 
@@ -60,6 +69,11 @@ void	Server::closeServer()
 		close(m_socket);
 	if (m_new_socket >= 0)
 		close(m_new_socket);
+	for (int i = 0; i < m_sock_count; i++)
+	{
+		if (m_sockets[i].fd >= 0)
+			close(m_sockets[i].fd);
+	}
 	usleep(10000);
 	log("Server closed!");
 	exit(0);
@@ -78,86 +92,116 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-std::string	parseRequest(int client_socket)
+std::string	Server::parseRequest(int id)
 {
 	char	buffer[1024];
 	memset(buffer, 0, 1024);
-	int		bytes_read = read(client_socket, buffer, 1024);
+
+	// see recv instead of read, also use size_t
+	int		bytes_read = read(m_sockets[id].fd, buffer, 1024);
 
 	// - parsing would happen here, this only temporary -
 	// read http request
 	// parse tags
 	// save response tags / varables to a class/struct
 
-	if (bytes_read > 8)
+	if (bytes_read > 0)
 	{
-		char *ptr = buffer;
-
-		int	id = 0;
-		int	len = 0;
-		std::string	msg;
-
-		memcpy(&id, ptr, 4);
-		ptr += 4;
-
-		memcpy(&len, ptr, 4);
-		ptr += 4;
-
-		// check if bytes read totals to header_size + len
-
-		id = ntohl(id);
-		len = ntohl(len);
-
-		if (id < 10) // custom ID message, we wont use this for http
-		{
-			std::cout << "Msg received: " 
-						<< "\n\tID: " << id 
-						<< "\n\tLen: " << len
-						<< "\n\tMsg: " << std::string(ptr)
-						<< std::endl;
-		} else {
-			std::cout << buffer << std::endl;
-		}
+		std::cout << buffer << std::endl;
 	}
 	else
 	{
-		logError("Received Invalid message: ");
+		return "";
 	}
 
 	// for now, return the received message
 	return std::string(buffer);
 }
 
-void	Server::handleClient(int client_socket)
+void	Server::handleClient(int id)
 {
-	// temporary string for response
-	std::string	request = parseRequest(client_socket);
+	std::string	request = parseRequest(id);
 	
 	// temporary response
-	std::string response = request; // buildResponse();
-
-	if (response.size() > 0)
+	if (!request.empty())
 	{
-		send(client_socket, response.c_str(), response.size(), 0);
-		log("Sent response\n");
+		m_sockets[id].revents = POLLOUT;
+		send(m_sockets[id].fd, request.c_str(), request.size(), 0);
+		m_files_sent[id]++;
+		log("Sent response");
+	}
+	else
+	{
+		logError("Client disconnected or error ");
+		close(m_sockets[id].fd);
+		m_sockets[id] = m_sockets[--m_sock_count];
+		return;
 	}
 
-	// should only close if requests did not contain keep-alive
-	close(client_socket);
+	// we should only close if requests did not contain keep-alive
+	// or incase all the requested files were received
+	// this implies we should cache the number of file per .html document on startup
+	// int		page_files = 2;
+	// if (m_files_sent[id] >= page_files)
+	// {
+		close(m_sockets[id].fd);
+		m_sockets[id] = m_sockets[--m_sock_count];
+		std::cout << "closed socket" << std::endl;
+	// }
 }
 
 void	Server::update()
 {
 	// should read about poll() and non blocking i/o
 
-	m_new_socket = accept(m_socket, (struct sockaddr*)&m_client_addr, &m_client_addr_len);
-	if (m_new_socket < 0)
+	int	r = poll(m_sockets, m_sock_count, 1000);
+
+	if (r == -1)
+		return;
+
+	if (m_sockets[0].revents & POLLIN)
 	{
-		logError("Accept failed");
-		return ;
+		std::cout << "-- server new POLLIN --" << std::endl;
+
+		t_sockaddr_in client_addr = {};
+		int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
+		//int new_client = accept(m_socket, NULL, NULL);
+
+		if (client_fd >= 0)
+		{
+			// find empty socket to bind
+
+			// set non blocking fd
+			int flags = fcntl(client_fd, F_GETFL, 0);
+    		fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
+
+			m_files_sent[m_sock_count] = 0;
+			m_sockets[m_sock_count].fd = client_fd;
+			m_sockets[m_sock_count].events = POLLIN;
+			m_sock_count++;
+		}
+		else
+		{
+			// failed or no space
+		}
+		m_sockets[0].revents = 0;
 	}
 
-	log("Accepted client!");
-	handleClient(m_new_socket);
+	for (int i = 1; i < m_sock_count; i++)
+	{
+		std::cout << "-- check fd " << i << std::endl;
+		if (m_sockets[i].fd != -1 && m_sockets[i].revents & POLLIN)
+		{
+			handleClient(i);
+			m_sockets[i].revents = 0;
+			std::cout << "-- server handled POLLIN --" << std::endl;
+		}
+		// else if (m_sockets[i].revents & POLLOUT)
+		// {
+		// 	handleClient(i);
+		// 	m_sockets[i].revents = 0;
+		// 	std::cout << "-- server handled POLLOUT --" << std::endl;
+		// }
+	}
 
 }

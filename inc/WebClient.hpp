@@ -1,14 +1,10 @@
 #pragma once
 
-class WebClient
+struct WebClient
 {
 
-	private:
-		int		m_socket;
-		int		m_num_requests;
-
-	public:
-
-		
+	int		m_socket;
+	short	m_events;
+	short	m_revents;
 
 };
