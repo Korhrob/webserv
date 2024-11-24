@@ -112,7 +112,6 @@ bool	Server::parseRequest(int id, std::string *request)
 	{
 		*request = std::string(buffer);
 
-		// things to parse for
 		// request method, like GET and its target, if no target default to index.html
 
 		// connection type, so we know if client no longer needs to keep connection alive
