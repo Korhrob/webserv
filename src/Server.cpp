@@ -59,6 +59,9 @@ int	Server::startServer()
 	m_sockets[0].events = POLLIN;
 	m_sockets[0].revents = 0;
 
+	for (int i = 1; i < m_max_sockets; i++)
+		m_sockets[i].fd = -1;
+
 	return 1;
 }
 
@@ -125,41 +128,45 @@ void	Server::handleClient(int id)
 	}
 
 	m_sockets[id].revents = POLLOUT;
+	std::string body;
 
 	// temporary response
 	if (request.find("GET / ") != std::string::npos)
 	{
+		body = "<html>initial response</html>";
+
 		response = "HTTP/1.1 200 OK\r\n";
 		response += "Content-Type: text/html\r\n";
+		response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
 		response += "Connection: keep-alive\r\n";  // Allow persistent connection
 		response += "\r\n";
-		response += "<html>initial response</html>";
+		response += body;
 	} else {
+		body = "some other type of file";
+
 		response = "HTTP/1.1 200 OK\r\n";
 		response += "Content-Type: text/html\r\n";
+		response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
 		response += "Connection: keep-alive\r\n";
 		response += "\r\n";
-		response += "some other type of file";
+		response += body;
 	}
 
 	m_files_sent[id]++;
 	int bytes_sent = send(m_sockets[id].fd, response.c_str(), response.size(), 0);
 	std::cout << "\n\n-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
-
-
-	// this implementation of server doesnt work without closing the socket after each send
-	close(m_sockets[id].fd);
-	m_sockets[m_sock_count--].fd = -1;
 }
 
 void	Server::update()
 {
 	// should read about poll() and non blocking i/o
 
-	int	r = poll(m_sockets, m_sock_count, 1000);
+	int	r = poll(m_sockets, m_sock_count, 5000);
 
 	if (r == -1)
 		return;
+
+	auto now = std::chrono::steady_clock::now();
 
 	if (m_sockets[0].revents & POLLIN)
 	{
@@ -167,19 +174,25 @@ void	Server::update()
 
 		t_sockaddr_in client_addr = {};
 		int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
-		//int new_client = accept(m_socket, NULL, NULL);
 
 		if (client_fd >= 0)
 		{
 			// find empty socket to bind
+			int i = 1;
+			for (i = 1; i < m_max_sockets; i++)
+			{
+				if (m_sockets[i].fd <= 0)
+					break;
+			}
 
 			// set non blocking fd
 			int flags = fcntl(client_fd, F_GETFL, 0);
     		fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
 
-			m_files_sent[m_sock_count] = 0;
-			m_sockets[m_sock_count].fd = client_fd;
-			m_sockets[m_sock_count].events = POLLIN;
+			m_files_sent[i] = 0;
+			m_sockets[i].fd = client_fd;
+			m_sockets[i].events = POLLIN;
+			m_last_activity[i] = now;
 			m_sock_count++;
 		}
 		else
@@ -189,7 +202,7 @@ void	Server::update()
 		m_sockets[0].revents = 0;
 	}
 
-	for (int i = 1; i < m_sock_count; i++)
+	for (int i = 1; i < m_max_sockets; i++)
 	{
 		//std::cout << "-- check fd " << i << std::endl;
 		if (m_sockets[i].fd != -1)
@@ -197,11 +210,24 @@ void	Server::update()
 			if (m_sockets[i].revents & POLLIN)
 			{
 				handleClient(i);
+				m_last_activity[i] = now;
 			}
 			else if (m_sockets[i].revents & POLLOUT)
 			{
 				std::cout << "handle pollout" << std::endl;
 				m_sockets[i].revents = 0;
+				m_last_activity[i] = now;
+			} 
+			else
+			{
+				std::cout << "No events for client " << i << std::endl;
+				if (std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity[i]).count() > 5000)
+				{
+					std::cout << "Client " << i << " timeout\n\n" << std::endl;
+					close(m_sockets[i].fd);
+					m_sockets[i].fd = -1;
+					m_sock_count--;
+				}
 			}
 		}
 	}

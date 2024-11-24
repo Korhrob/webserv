@@ -15,7 +15,10 @@
 #include "Packet.hpp"
 #include "WebClient.hpp"
 
+#include <chrono>
+
 typedef struct sockaddr_in t_sockaddr_in;
+typedef std::chrono::steady_clock::time_point t_time;
 
 class Server
 {
@@ -36,6 +39,7 @@ class Server
 		int					m_sock_count;
 		int					m_max_sockets = 16;
 		int					m_files_sent[16];
+		t_time				m_last_activity[16];	
 		
 
 	public:
