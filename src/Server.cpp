@@ -8,7 +8,7 @@
 Server::Server(const std::string& ip, int port) 
 {
 	// should read config file and initialize all server variables here
-	// read more about config files for NGINX
+	// read more about config files for NGINX for reference
 
 	m_address = ip;
 	m_port = port;
@@ -18,7 +18,6 @@ Server::Server(const std::string& ip, int port)
 Server::~Server()
 {
 	// always close all open sockets on exit
-
 	closeServer();
 }
 
@@ -60,7 +59,10 @@ int	Server::startServer()
 	m_sockets[0].revents = 0;
 
 	for (int i = 1; i < m_max_sockets; i++)
+	{
 		m_sockets[i].fd = -1;
+		m_sockets[i].events = POLLIN & POLLOUT;
+	}
 
 	return 1;
 }
@@ -77,7 +79,7 @@ void	Server::closeServer()
 		if (m_sockets[i].fd >= 0)
 			close(m_sockets[i].fd);
 	}
-	usleep(10000);
+	usleep(10000); // wait a little bit for close() before exit
 	log("Server closed!");
 	exit(0);
 }
@@ -97,15 +99,25 @@ void	Server::startListen()
 
 bool	Server::parseRequest(int id, std::string *request)
 {
+	// read a bit about max request size for HTTP/1.1
 	char	buffer[1024];
 	memset(buffer, 0, 1024);
 
 	// see recv instead of read, also use size_t
 	size_t	bytes_read = recv(m_sockets[id].fd, buffer, 1024, 0);
 
+	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
+
 	if (bytes_read > 0)
 	{
 		*request = std::string(buffer);
+
+		// things to parse for
+		// request method, like GET and its target, if no target default to index.html
+
+		// connection type, so we know if client no longer needs to keep connection alive
+		// Connection: close
+		
 		std::cout << buffer << std::endl;
 		return true;
 	}
@@ -133,13 +145,26 @@ void	Server::handleClient(int id)
 	// temporary response
 	if (request.find("GET / ") != std::string::npos)
 	{
+		// read the contents of GET request for body
 		body = "<html>initial response</html>";
 
+		// standard success first line
 		response = "HTTP/1.1 200 OK\r\n";
+
+		// content type could be based on file extensions
 		response += "Content-Type: text/html\r\n";
+
+		// always get the size of body, if size is too large consider 'chunking' the data
+		// important to get content-length right, as client will hang and wait indefinitely
 		response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-		response += "Connection: keep-alive\r\n";  // Allow persistent connection
+
+		// allow persistent connection, usually handled by client
+		//response += "Connection: keep-alive\r\n";  
+
+		// empty line
 		response += "\r\n";
+		
+		// body
 		response += body;
 	} else {
 		body = "some other type of file";
@@ -154,7 +179,7 @@ void	Server::handleClient(int id)
 
 	m_files_sent[id]++;
 	int bytes_sent = send(m_sockets[id].fd, response.c_str(), response.size(), 0);
-	std::cout << "\n\n-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
+	std::cout << "-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
 }
 
 void	Server::update()
@@ -168,10 +193,10 @@ void	Server::update()
 
 	auto now = std::chrono::steady_clock::now();
 
+	// check for events in listenning socket (server socket)
 	if (m_sockets[0].revents & POLLIN)
 	{
-		std::cout << "-- server new POLLIN --" << std::endl;
-
+		// accept new connection
 		t_sockaddr_in client_addr = {};
 		int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
@@ -184,41 +209,48 @@ void	Server::update()
 				if (m_sockets[i].fd <= 0)
 					break;
 			}
+			// NOTE: should also check if we even have space for new clients
+			// if not, we could also decline the connection
 
-			// set non blocking fd
+			// set up non blocking fd
 			int flags = fcntl(client_fd, F_GETFL, 0);
     		fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
 
+			// reinitialize client information
 			m_files_sent[i] = 0;
 			m_sockets[i].fd = client_fd;
 			m_sockets[i].events = POLLIN;
 			m_last_activity[i] = now;
 			m_sock_count++;
+
+			std::cout << "New connection in slot " << i << std::endl;
 		}
 		else
 		{
-			// failed or no space
+			// accept failed
 		}
 		m_sockets[0].revents = 0;
 	}
 
+	// listen for all poll events
 	for (int i = 1; i < m_max_sockets; i++)
 	{
-		//std::cout << "-- check fd " << i << std::endl;
+		// only for sockets with a connection (open fd)
 		if (m_sockets[i].fd != -1)
 		{
-			if (m_sockets[i].revents & POLLIN)
+			if (m_sockets[i].revents & POLLIN) // incoming
 			{
 				handleClient(i);
 				m_last_activity[i] = now;
 			}
-			else if (m_sockets[i].revents & POLLOUT)
+			else if (m_sockets[i].revents & POLLOUT) // outgoing
 			{
-				std::cout << "handle pollout" << std::endl;
+				// there might be specific cases where you want to do something after sending data
+				std::cout << "-- handle pollout --" << std::endl;
 				m_sockets[i].revents = 0;
 				m_last_activity[i] = now;
 			} 
-			else
+			else // no events, check for timeout so we can free up sockets for new connections
 			{
 				std::cout << "No events for client " << i << std::endl;
 				if (std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity[i]).count() > 5000)
