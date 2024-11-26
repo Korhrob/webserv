@@ -34,8 +34,8 @@ Server::~Server()
 {
 	closeServer();
 
-	// while (m_sockets.size() > 0)
-	// 	delete m_sockets.pop_back();
+	m_pollfd.clear();
+	m_clients.clear();
 }
 
 int	Server::startServer()
@@ -83,15 +83,14 @@ void	Server::closeServer()
 	if (m_socket >= 0)
 		close(m_socket);
 
-	for (auto& client : m_clients)
+	for (auto& pollfd : m_pollfd)
 	{
-		if (client->isAlive())
-			client->disconnect();
+		if (pollfd.fd > 0)
+			close(pollfd.fd);
 	}
 
 	usleep(10000); // wait a little bit for close() before exit
 	log("Server closed!");
-	exit(0);
 }
 
 void	Server::startListen()

@@ -11,12 +11,10 @@ void	handleSigint(int sig)
 {
 	// graceful close for ctrl + C
 	is_running = false;
-	exit(0);
 }
 
-int	main()
+void	program()
 {
-	signal(SIGINT, handleSigint);
 	Server tcpServer("0.0.0.0", 8080);
 
 	tcpServer.startServer();
@@ -27,7 +25,13 @@ int	main()
 		tcpServer.update();
 	}
 
-	tcpServer.closeServer();
+	// tcpServer.closeServer();
+}
+
+int	main()
+{
+	signal(SIGINT, handleSigint);
+	program();
 
 	std::cout << "Clean exit" << std::endl;
 
