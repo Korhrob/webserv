@@ -4,11 +4,11 @@ LDFLAG		=	#-g -fsanitize=address
 SNAME		=	server
 CNAME		=	client
 SSRC		=	src/Server.cpp src/main.cpp
-CSRC		=	src/Client.cpp
+CSRC		=	
 SOBJ		=	$(patsubst src/%.cpp, obj/%.o, $(SSRC)) # $(SSRC:.cpp=.o)
 COBJ		=	$(patsubst src/%.cpp, obj/%.o, $(CSRC)) 
 
-all: $(SNAME) $(CNAME)
+all: $(SNAME) #$(CNAME)
 
 $(SNAME): $(SOBJ)
 	$(CXX) $(CXXFLAGS) -o $(SNAME) $(SOBJ) $(LDFLAG)

@@ -6,16 +6,18 @@
 #include <unistd.h> // close
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
-#include <poll.h>
+#include <poll.h> // pollfd
 
 #include <string.h>
 #include <sstream>
+#include <chrono> // time
+#include <vector> // vector
+#include <memory> // unique ptr
 
 #include "ILog.hpp"
 #include "Packet.hpp"
-#include "WebClient.hpp"
+#include "Client.hpp"
 
-#include <chrono>
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
@@ -27,21 +29,15 @@ class Server
 		std::string			m_address;
 		int					m_port;
 		int					m_socket;
-		int					m_new_socket;
-		long				m_inc_msg;
 		t_sockaddr_in		m_socket_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
+		struct pollfd*		m_listener;	// shortcut
 
-		std::string			m_server_msg;
-
+		int											m_sock_count;
+		int											m_max_sockets = 16;	// get from config
+		std::vector<struct pollfd>					m_pollfd;
+		std::vector<std::shared_ptr<Client>>		m_clients;
 		
-		struct pollfd		m_sockets[16];
-		int					m_sock_count;
-		int					m_max_sockets = 16;
-		int					m_files_sent[16];
-		t_time				m_last_activity[16];	
-		
-
 	public:
 		Server(const std::string& ip, int port);
 		~Server();
@@ -49,7 +45,12 @@ class Server
 		int		startServer();
 		void	closeServer();
 		void	startListen();
-		void	handleClient(int id);
-		bool	parseRequest(int id, std::string *request);
+		void	handleClient(std::shared_ptr<Client> client);
+		bool	parseRequest(std::shared_ptr<Client> client, std::string *request);
+		void	handleClients();
+		void	handleEvents();
 		void	update();
+
+		std::string	get();
+		std::string	post();
 };

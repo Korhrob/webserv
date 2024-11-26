@@ -3,13 +3,14 @@
 
 #include <iostream>
 #include <signal.h>
+#include <atomic>
 
-static Server* g_serv;
+std::atomic<bool> is_running(false);
 
 void	handleSigint(int sig)
 {
 	// graceful close for ctrl + C
-	g_serv->closeServer();
+	is_running = false;
 	exit(0);
 }
 
@@ -18,15 +19,17 @@ int	main()
 	signal(SIGINT, handleSigint);
 	Server tcpServer("0.0.0.0", 8080);
 
-	g_serv = &tcpServer;
 	tcpServer.startServer();
+	is_running = true;
 
-	while (1)
+	while (is_running)
 	{
 		tcpServer.update();
 	}
 
 	tcpServer.closeServer();
+
+	std::cout << "Clean exit" << std::endl;
 
 	return 0;
 }
