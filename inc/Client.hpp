@@ -18,6 +18,8 @@
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
 
+// TODO: move inline function to their own .cpp file
+
 class Client
 {
 

@@ -1,6 +1,7 @@
 
 #include "Client.hpp"
 #include "Server.hpp"
+#include "Parse.hpp"
 #include <string>
 
 #include <poll.h>
@@ -104,29 +105,7 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-std::string	Server::get()
-{
-	log("GET method");
-
-	std::string	response;
-
-	// get requested filepath
-
-	return response;
-}
-
-std::string	Server::post()
-{
-	log("POST method");
-
-	std::string	response;
-
-	/// ???
-
-	return response;
-}
-
-bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *request)
+bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *response)
 {
 	log("parseRequest");
 
@@ -139,83 +118,129 @@ bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *request)
 
 	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
 
-	if (bytes_read > 0)
+	if (bytes_read <= 0)
+		return false;
+
+	std::string temp = std::string(buffer);
+	std::cout << buffer << std::endl;
+
+	// first line
+	// check request method, like GET and its target, if no target default to index.html
+	size_t pos = temp.find('\n');
+
+	if (pos == std::string::npos)
 	{
-		*request = std::string(buffer);
-
-		// first line
-		// check request method, like GET and its target, if no target default to index.html
-		
-		// other important info, such as Connection: close, so we know to close the connection
-
-		std::cout << buffer << std::endl;
-		return true;
+		// no new line found, faulty request
+		logError("invalid request header, no nl");
+		return false;
 	}
 
-	return false;
+	std::string first_line = temp.substr(0, pos);
+	std::vector<std::string> info;
+
+	log(first_line);
+
+	size_t start = 0;
+	size_t end = first_line.find(' ');
+
+	while (end != std::string::npos) {
+		info.push_back(first_line.substr(start, end - start));
+		start = end + 1;
+		end = first_line.find(' ', start);
+	}
+
+	if (info.size() != 2)
+	{
+		// invalid request header(?)
+		logError("invalid request header");
+		return false;
+	}
+
+	// check method type
+	if (info[0] == "GET")
+	{
+		std::string body = getBody(info[1]);
+		std::string header = getHeader(body.size());
+
+		*response = header + body;
+
+	} else {
+
+		logError("Method not implemented!!");
+		return false;
+
+	}
+	
+	// other important info, such as Connection: close, etc etc
+
+	return true;
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
+	std::string response = "";
 
-	std::string	request;
-	std::string response;
-
-	if (!parseRequest(client, &request))
+	if (!parseRequest(client, &response))
 	{
 		logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
-	//m_sockets[id].revents = POLLOUT;
-	std::string body;
-
-	// temporary response
-	if (request.find("GET / ") != std::string::npos)
+	if (response.size() > 0)
 	{
-		// read the contents of GET request for body
-		body = "<html>initial response</html>";
+		client->respond(response);
+		//m_sockets[id].revents = POLLOUT;
+	}
+	else
+	{
+		logError("Invalid response");	
+	}
+}
 
-		// standard success first line
-		response = "HTTP/1.1 200 OK\r\n";
+bool	Server::tryRegisterClient(t_time time)
+{
+		// accept new connection
+	t_sockaddr_in client_addr = {};
+	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
-		// content type could be based on file extensions
-		response += "Content-Type: text/html\r\n";
+	if (client_fd >= 0)
+	{
+		bool	success = false;
 
-		// always get the size of body, if size is too large consider 'chunking' the data
-		// important to get content-length right, as client will hang and wait indefinitely
-		response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-
-		// allow persistent connection, usually handled by client
-		// response += "Connection: keep-alive\r\n";  
-
-		// empty line
-		response += "\r\n";
-		
-		// body
-		response += body;
-	} else {
-		body = "some other type of file";
-
-		response = "HTTP/1.1 200 OK\r\n";
-		response += "Content-Type: text/html\r\n";
-		response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-		//response += "Connection: keep-alive\r\n";
-		response += "\r\n";
-		response += body;
+		for (auto& client : m_clients)
+		{
+			if (client->isAlive())
+				continue;
+			
+			success = client->connect(client_fd, client_addr, time);
+			m_sock_count++;
+			break;
+		}
+		if (!success)
+		{
+			// failed to connect
+			logError("Failed to connect client");
+			return false;
+		}
+	}
+	else
+	{
+		// accept failed
+		logError("Accept failed");
+		return false;
 	}
 
-	client->respond(response);
+	return true;
 }
 
 void	Server::handleClients()
 {
-	auto now = std::chrono::steady_clock::now();
+	auto time = std::chrono::steady_clock::now();
 
 	for (auto& client : m_clients)
 	{
-		if (client->isAlive() && client->timeout(now))
+		if (client->isAlive() && client->timeout(time))
 		{
 			log("Client time out!");
 			client->disconnect();
@@ -229,36 +254,7 @@ void	Server::handleClients()
 	if (m_sock_count >= m_max_sockets)
 		return;
 
-	log("new listener event");
-
-	// accept new connection
-	t_sockaddr_in client_addr = {};
-	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
-
-	if (client_fd >= 0)
-	{
-		bool	success = false;
-
-		for (auto& client : m_clients)
-		{
-			if (client->isAlive())
-				continue;
-			
-			success = client->connect(client_fd, client_addr, now);
-			m_sock_count++;
-			break;
-		}
-		if (!success)
-		{
-			// failed to connect
-			logError("Failed to connect client");
-		}
-	}
-	else
-	{
-		// accept failed
-		logError("Accept failed");
-	}
+	tryRegisterClient(time);
 
 	m_listener->revents = 0;
 }

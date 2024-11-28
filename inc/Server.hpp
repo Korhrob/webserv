@@ -15,9 +15,7 @@
 #include <memory> // unique ptr
 
 #include "ILog.hpp"
-#include "Packet.hpp"
 #include "Client.hpp"
-
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
@@ -45,12 +43,10 @@ class Server
 		int		startServer();
 		void	closeServer();
 		void	startListen();
+		bool	tryRegisterClient(t_time time);
 		void	handleClient(std::shared_ptr<Client> client);
 		bool	parseRequest(std::shared_ptr<Client> client, std::string *request);
 		void	handleClients();
 		void	handleEvents();
 		void	update();
-
-		std::string	get();
-		std::string	post();
 };
