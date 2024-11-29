@@ -7,16 +7,11 @@
 
 std::string	getBody(const std::string& path)
 {
-	std::string	filepath = path.substr(1, path.size());
-
 	// temporary response
-	if (filepath.empty())
-	{
-		std::cout << "getBody " << path << std::endl;
+	if (path.empty()) // get index.html
 		return "<html><body>this is a temporary response</body></html>";
-	}
 
-	std::ifstream file(filepath);
+	std::ifstream file(path, std::ios::binary);
 
 	if (!file)
 		return "";
@@ -27,38 +22,27 @@ std::string	getBody(const std::string& path)
 	return buffer.str();
 }
 
-std::string	getHeader(const size_t& len)
+std::string	getHeaderSingle(const size_t& len)
 {
 	std::string	header;
 
-	if (len > 0)
-		header = "HTTP/1.1 200 OK\r\n";
-	else
-		header = "HTTP/1.1 404 FAIL\r\n";
-
-	// content type could be based on file extensions
+	header = "HTTP/1.1 200 OK\r\n";
 	header += "Content-Type: text/html\r\n";
-
-	// always get the size of body, if size is too large consider 'chunking' the data
-	// important to get content-length right, as client will hang and wait indefinitely
-	// if len is too large, we can leave this line out and use chunk encoding
-	if (len < 1024)
-		header += "Content-Length: " + std::to_string(len) + "\r\n";
-	else
-		header += "Transfer-Encoding: chunked\r\n";
-
-	// allow persistent connection, usually handled by client
-	// response += "Connection: keep-alive\r\n";  
-
-	// empty line
+	header += "Content-Length: " + std::to_string(len) + "\r\n";
 	header += "\r\n";
 
 	return header;
 }
 
-std::string	post()
+std::string	getHeaderChunk()
 {
-	std::string	temp = "";
+	std::string	header;
 
-	return temp;
+	header = "HTTP/1.1 200 OK\r\n";
+	header += "Content-Type: text/html\r\n";
+	header += "Transfer-Encoding: chunked\r\n";
+	header += "\r\n";
+
+	return header;
+		
 }

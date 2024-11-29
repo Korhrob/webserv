@@ -2,10 +2,13 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Parse.hpp"
+#include "Response.hpp"
+#include "Const.hpp"
+
 #include <string>
 #include <algorithm> // min
 #include <sstream> //
-
+#include <fstream>
 #include <poll.h>
 #include <fcntl.h>
 
@@ -107,109 +110,53 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *header, std::string *response)
-{
-	log("parseRequest");
-
-	// read a bit about max request size for HTTP/1.1
-	char	buffer[BUFFER_SIZE];
-	memset(buffer, 0, BUFFER_SIZE);
-	size_t	bytes_read = recv(client->fd(), buffer, BUFFER_SIZE, 0);
-
-	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
-
-	if (bytes_read <= 0)
-		return false;
-
-	std::string temp = std::string(buffer);
-	std::cout << buffer << std::endl;
-
-	// check request method, like GET and its target, if no target default to index.html
-	size_t pos = temp.find('\n');
-
-	if (pos == std::string::npos)
-	{
-		// no new line found, faulty request
-		logError("invalid request header, no nl");
-		return false;
-	}
-
-	std::string first_line = temp.substr(0, pos);
-	std::vector<std::string> info;
-	size_t start = 0;
-	size_t end = first_line.find(' ');
-
-	while (end != std::string::npos) {
-		info.push_back(first_line.substr(start, end - start));
-		start = end + 1;
-		end = first_line.find(' ', start);
-	}
-
-	if (info.size() != 2)
-	{
-		logError("Invalid request header");
-		return false;
-	}
-
-	// check method type
-	if (info[0] == "GET")
-	{
-		*response = getBody(info[1]);
-		*header = getHeader(response->size());
-		return true;
-	}
-
-	logError("Method not implemented!!");
-	return false;
-}
-
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	std::string	header = "";
-	std::string body = "";
+	Response	http_response(client);
 
-	if (!parseRequest(client, &header, &body))
+	if (!http_response.getSuccess())
 	{
 		logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
-	std::string	response = header + body;
-
-	if (response.size() <= 0)
+	if (http_response.getSendType() == SINGLE)
 	{
-		logError("Invalid response");
-		return;
-	}
-
-	if (body.size() < MAX_RESPONSE_SIZE)
-	{
-		log("send single");
-		client->respond(response);
+		client->respond(http_response.str());
 		//m_sockets[id].revents = POLLOUT;
 	}
-	else
+	else if (http_response.getSendType() == CHUNK)
 	{
-		log("send chunk");
-		client->respond(header);
+		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
 
-		size_t start = 0;
-		size_t length = BUFFER_SIZE; // CHUNK_SIZE
-		while (start < body.size())
-		{
-			size_t		size = std::min((size_t)BUFFER_SIZE, body.size() - start);
+		std::ifstream file(http_response.path(), std::ios::binary);
+
+		char buffer[PACKET_SIZE];
+		while (file.read(buffer, PACKET_SIZE) || file.gcount() > 0) {
 			std::ostringstream	oss;
-			oss << std::hex << size << "\r\n";
-			oss << body.substr(start, size);
+			oss << std::hex << file.gcount() << "\r\n";
+			oss.write(buffer, file.gcount());
 			oss << "\r\n";
-
 			client->respond(oss.str());
-			start += size;
 		}
 
-		// chunk ending
+		// replace this portion with read from file directly into chunks
+		// size_t start = 0;
+		// size_t length = PACKET_SIZE; // CHUNK_SIZE
+		// while (start < http_response.size())
+		// {
+		// 	size_t		size = std::min((size_t)BUFFER_SIZE, http_response.size() - start);
+		// 	std::ostringstream	oss;
+		// 	oss << std::hex << size << "\r\n";
+		// 	oss << http_response.body().substr(start, size);
+		// 	oss << "\r\n";
+
+		// 	client->respond(oss.str());
+		// 	start += size;
+		// }
+
 		client->respond("0\r\n\r\n");
 	}
 }

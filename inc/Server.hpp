@@ -16,8 +16,7 @@
 
 #include "ILog.hpp"
 #include "Client.hpp"
-
-#define BUFFER_SIZE 1024
+#include "Const.hpp"
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
@@ -48,7 +47,6 @@ class Server
 		void	startListen();
 		bool	tryRegisterClient(t_time time);
 		void	handleClient(std::shared_ptr<Client> client);
-		bool	parseRequest(std::shared_ptr<Client> client, std::string *header, std::string *body);
 		void	handleClients();
 		void	handleEvents();
 		void	update();
