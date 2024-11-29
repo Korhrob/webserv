@@ -8,159 +8,109 @@
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
 
 #include <string.h> // strlen
-
+#include <poll.h> // pollfd
+#include <fcntl.h> // fnctl
+#include <chrono> // time
 #include <sstream>
+
 #include "ILog.hpp" // log,  logError
-#include "Packet.hpp" // PacketID
 
 typedef struct sockaddr_in t_sockaddr_in;
+typedef std::chrono::steady_clock::time_point t_time;
+
+// TODO: move inline function to their own .cpp file
 
 class Client
 {
 
 	private:
-		std::string			m_address;
-		int					m_port;
-		int					m_socket;
-		t_sockaddr_in		m_server_addr;
-		unsigned int		m_server_addr_len = sizeof(t_sockaddr_in);
-
 		bool				m_alive;
+		struct pollfd*		m_pollfd;
+		t_sockaddr_in		m_addr;
+		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
+		unsigned int		m_files_sent;
+		t_time				m_last_activity;
 
 	public:
-		Client(std::string ip, int port)
+
+		Client(struct pollfd* fd) : m_pollfd(fd)
 		{
-			m_address = ip;
-			m_port = port;
+			m_pollfd->fd = -1;
+			m_pollfd->events = POLLIN | POLLOUT;
+			m_pollfd->revents = 0;
+			m_alive = false;
 		}
-		~Client()
-		{
-			close(m_socket);
-		}
+		~Client() {}
+
+		static const unsigned int CLIENT_TIMEOUT = 5000;
 
 		bool	isAlive() { return m_alive; }
+		bool	incoming() { return m_pollfd->revents & POLLIN; }
+		bool	outgoing() { return m_pollfd->revents & POLLOUT; }
 
-		int	startClient()
+		int		fd() { return m_pollfd->fd; }
+		struct pollfd* getPollfd() { return m_pollfd; }
+
+		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
 		{
-			log("Starting  Client...");
-			m_socket = socket(AF_INET, SOCK_STREAM, 0);
-			if (m_socket <= 0)
-			{
-				logError("Client failed to open socket!");
-				return 0;
-			}
+			// set up non blocking fd
+			int flags = fcntl(fd, F_GETFL, 0);
+    		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-			m_server_addr.sin_family = AF_INET;
-			m_server_addr.sin_port = htons(m_port);
+			// check fcntl errors
 
-			if (inet_pton(AF_INET, m_address.c_str(), &m_server_addr.sin_addr) <= 0)
-			{
-				logError("Invalid address");
-				close(m_socket);
-				return 0;
-			}
-
-			if (connect(m_socket, (struct sockaddr*)&m_server_addr, sizeof(m_server_addr)) < 0)
-			{
-				logError("Connection to server failed");
-				closeClient(); // could retry a few times
-				return 0;
-			}
-
-			log("Connected to server!");
+			// reinitialize client information
+			m_pollfd->fd = fd;
+			m_pollfd->events = POLLIN | POLLOUT;
+			m_pollfd->revents = 0;
 			m_alive = true;
 
-			return 1;
+			m_addr = sock_addr;
+			m_files_sent = 0;
+			m_last_activity = time;
+
+			log("Client connected!");
+
+			return true;
 		}
 
-		void	update()
+
+		void	disconnect()
 		{
-			if (!m_alive)
-				return;
-
-			char	buffer[1024];
-			int		bytes_read = read(m_socket, buffer, 1024);
-
-			if (bytes_read < 0)
-			{
-				logError("Invalid Package");
-				closeClient();
-				return;
-			}
-
-			if (bytes_read > 8)
-			{
-				char *ptr = buffer;
-
-				int	id = 0;
-				int	len = 0;
-				std::string	msg;
-
-				memcpy(&id, ptr, 4);
-				ptr += 4;
-
-				memcpy(&len, ptr, 4);
-				ptr += 4;
-
-				// check if bytes_read totals to header_size + len
-
-				id = ntohl(id);
-				len = ntohl(len);
-
-				std::cout << "Msg received: " 
-							<< "\n\tID: " << id 
-							<< "\n\tLen: " << len
-							<< "\n\tMsg: " << std::string(ptr)
-							<< std::endl;
-
-			}
-
-			// temporary kill
+			close(m_pollfd->fd);
+			m_pollfd->fd = -1;
+			m_pollfd->revents = 0;
 			m_alive = false;
 
-		}
-
-		void	closeClient()
-		{
-			log("Closing client...");
-			m_alive = false;
-			close(m_socket);
 			log("Client closed!");
 		}
-		
-		// should make a generic method to send packets
-		void	sendMessage(PacketID packet_id, const std::string& message)
+
+		void	update(t_time time)
 		{
-			if (!m_alive)
-				return;
-
-			const int	id_size = 4;
-			const int	len_size = 4;
-			int			header_size = id_size + len_size; // id + len
-			int			msg_size = message.size() + 1;
-
-			// note: not very safe, should probably use a const buffer
-			char *packet = new char[header_size + msg_size];
-
-			// write id to packet
-			int	id = htonl(packet_id);
-			memcpy(packet, &id, id_size);
-			std::cout << "wrote id " << packet_id << " to packet (size " << id_size << ")" << std::endl;
-
-			// write msg length to packet
-			int	len = htonl(msg_size);
-			memcpy(packet + id_size, &len, len_size);
-			std::cout << "wrote len " << msg_size << " to packet (size " << len_size << ")" << std::endl;
-
-			// write content to packet
-			memcpy(packet + header_size, message.c_str(), msg_size);
-			std::cout << "wrote msg " << message.c_str() << " to packet  (size " << msg_size << ")" << std::endl;
-
-			send(m_socket, packet, header_size + msg_size, 0);
-			log("sent message to " + m_address + ":" + std::to_string(m_port));
-
-			// check if send returns < 0 (fail)
-
-			delete[] packet; // see note on declaration
+			m_last_activity = time;
 		}
+
+		int	respond(const std::string& response)
+		{
+			int bytes_sent = send(m_pollfd->fd, response.c_str(), response.size(), 0);
+			std::cout << "-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
+			m_files_sent++;
+
+			m_pollfd->revents = POLLOUT;
+
+			return (bytes_sent > 0);
+		}
+
+		bool	timeout(t_time now)
+		{
+			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
+			
+			return (diff > CLIENT_TIMEOUT);
+		}
+
+		void	resetEvents()
+		{
+			m_pollfd->revents = 0;
+		}
+
 };

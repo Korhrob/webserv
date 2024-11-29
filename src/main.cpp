@@ -3,31 +3,37 @@
 
 #include <iostream>
 #include <signal.h>
+#include <atomic>
 
-static Server* g_serv;
+std::atomic<bool> is_running(false);
 
 void	handleSigint(int sig)
 {
 	// graceful close for ctrl + C
-	g_serv->closeServer();
-	exit(0);
+	is_running = false;
+}
+
+void	program()
+{
+	Server tcpServer("0.0.0.0", 8080);
+
+	tcpServer.startServer();
+	is_running = true;
+
+	while (is_running)
+	{
+		tcpServer.update();
+	}
+
+	// tcpServer.closeServer();
 }
 
 int	main()
 {
 	signal(SIGINT, handleSigint);
-	Server tcpServer("127.0.0.1", 8080);
+	program();
 
-	g_serv = &tcpServer;
-	tcpServer.startServer();
-
-	while (1)
-	{
-		tcpServer.update();
-		usleep(10000);
-	}
-
-	tcpServer.closeServer();
+	std::cout << "Clean exit" << std::endl;
 
 	return 0;
 }

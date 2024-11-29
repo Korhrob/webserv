@@ -1,21 +1,47 @@
 
+#include "Client.hpp"
 #include "Server.hpp"
+#include "Parse.hpp"
+#include "Response.hpp"
+#include "Const.hpp"
+
 #include <string>
+#include <algorithm> // min
+#include <sstream> //
+#include <fstream>
+#include <poll.h>
+#include <fcntl.h>
 
 Server::Server(const std::string& ip, int port) 
 {
 	// should read config file and initialize all server variables here
-	// read more about config files for NGINX
+	// read more about config files for NGINX for reference
 
 	m_address = ip;
 	m_port = port;
+	m_sock_count = 1;
+
+	m_pollfd.resize(m_max_sockets + 1);
+
+	m_pollfd[0] = { m_socket, POLLIN, 0 };
+	m_listener = &m_pollfd[0];
+
+	for (int i = 0; i < m_max_sockets; i++)
+	{
+		auto client = std::make_shared<Client>(&m_pollfd[i + 1]);
+		m_clients.push_back(client);
+	}
+
+	log("Server constructor done");
+	std::cout << "m_pollfd size " << m_pollfd.size() << std::endl;
 }
 
 Server::~Server()
 {
-	// always close all open sockets on exit
-
 	closeServer();
+
+	m_pollfd.clear();
+	m_clients.clear();
 }
 
 int	Server::startServer()
@@ -48,28 +74,34 @@ int	Server::startServer()
 		return 0;
 	}
 
+	m_listener->fd = m_socket;
+
 	log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
+
 	return 1;
 }
 
 void	Server::closeServer()
 {
 	log("Closing server...");
+
 	if (m_socket >= 0)
 		close(m_socket);
-	if (m_new_socket >= 0)
-		close(m_new_socket);
-	usleep(10000);
+
+	for (auto& pollfd : m_pollfd)
+	{
+		if (pollfd.fd > 0)
+			close(pollfd.fd);
+	}
+
+	usleep(10000); // wait a little bit for close() before exit
 	log("Server closed!");
-	exit(0);
 }
 
 void	Server::startListen()
 {
-	// max number of client 5 should come from config
-
-	if (listen(m_socket, 5) < 0)
+	if (listen(m_socket, m_max_backlog) < 0)
 	{
 		logError("Listen failed");
 		closeServer();
@@ -78,86 +110,131 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-std::string	parseRequest(int client_socket)
+void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	char	buffer[1024];
-	memset(buffer, 0, 1024);
-	int		bytes_read = read(client_socket, buffer, 1024);
+	Response	http_response(client);
 
-	// - parsing would happen here, this only temporary -
-	// read http request
-	// parse tags
-	// save response tags / varables to a class/struct
-
-	if (bytes_read > 8)
+	if (!http_response.getSuccess())
 	{
-		char *ptr = buffer;
+		logError("Client disconnected or error occured");
+		client->disconnect();
+		return;
+	}
 
-		int	id = 0;
-		int	len = 0;
-		std::string	msg;
+	if (http_response.getSendType() == SINGLE)
+	{
+		client->respond(http_response.str());
+		//m_sockets[id].revents = POLLOUT;
+	}
+	else if (http_response.getSendType() == CHUNK)
+	{
+		client->respond(http_response.header());
+		//m_sockets[id].revents = POLLOUT;
 
-		memcpy(&id, ptr, 4);
-		ptr += 4;
+		std::ifstream file(http_response.path(), std::ios::binary);
 
-		memcpy(&len, ptr, 4);
-		ptr += 4;
+		char buffer[PACKET_SIZE];
+		while (file.read(buffer, PACKET_SIZE) || file.gcount() > 0) {
+			std::ostringstream	oss;
+			oss << std::hex << file.gcount() << "\r\n";
+			oss.write(buffer, file.gcount());
+			oss << "\r\n";
+			client->respond(oss.str());
+		}
 
-		// check if bytes read totals to header_size + len
+		client->respond("0\r\n\r\n");
+	}
+}
 
-		id = ntohl(id);
-		len = ntohl(len);
+bool	Server::tryRegisterClient(t_time time)
+{
+	t_sockaddr_in client_addr = {};
+	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
-		if (id < 10) // custom ID message, we wont use this for http
+	if (client_fd >= 0)
+	{
+		bool	success = false;
+
+		for (auto& client : m_clients)
 		{
-			std::cout << "Msg received: " 
-						<< "\n\tID: " << id 
-						<< "\n\tLen: " << len
-						<< "\n\tMsg: " << std::string(ptr)
-						<< std::endl;
-		} else {
-			std::cout << buffer << std::endl;
+			if (client->isAlive())
+				continue;
+			
+			success = client->connect(client_fd, client_addr, time);
+			m_sock_count++;
+			break;
+		}
+		if (!success)
+		{
+			// failed to connect
+			logError("Failed to connect client");
+			return false;
 		}
 	}
 	else
 	{
-		logError("Received Invalid message: ");
+		// accept failed
+		logError("Accept failed");
+		return false;
 	}
 
-	// for now, return the received message
-	return std::string(buffer);
+	return true;
 }
 
-void	Server::handleClient(int client_socket)
+void	Server::handleClients()
 {
-	// temporary string for response
-	std::string	request = parseRequest(client_socket);
-	
-	// temporary response
-	std::string response = request; // buildResponse();
+	auto time = std::chrono::steady_clock::now();
 
-	if (response.size() > 0)
+	for (auto& client : m_clients)
 	{
-		send(client_socket, response.c_str(), response.size(), 0);
-		log("Sent response\n");
+		if (client->isAlive() && client->timeout(time))
+		{
+			log("Client time out!");
+			client->disconnect();
+			m_sock_count--;
+		}
 	}
 
-	// should only close if requests did not contain keep-alive
-	close(client_socket);
+	if (!(m_listener->revents & POLLIN))
+		return;
+
+	if (m_sock_count >= m_max_sockets)
+		return;
+
+	tryRegisterClient(time);
+
+	m_listener->revents = 0;
+}
+
+void	Server::handleEvents()
+{
+	auto now = std::chrono::steady_clock::now();
+
+	for (auto& client : m_clients)
+	{
+		if (!client->isAlive())
+			continue;
+
+		if (client->incoming())
+		{
+			handleClient(client);
+			client->update(now);
+			client->resetEvents();
+		}
+	}
+
 }
 
 void	Server::update()
 {
-	// should read about poll() and non blocking i/o
+	int	r = poll(m_pollfd.data(), m_max_sockets, 5000);
 
-	m_new_socket = accept(m_socket, (struct sockaddr*)&m_client_addr, &m_client_addr_len);
-	if (m_new_socket < 0)
-	{
-		logError("Accept failed");
-		return ;
-	}
+	// could handle timeouts here
 
-	log("Accepted client!");
-	handleClient(m_new_socket);
+	if (r == -1)
+		return;
+
+	handleClients();
+	handleEvents();
 
 }
