@@ -142,21 +142,6 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			client->respond(oss.str());
 		}
 
-		// replace this portion with read from file directly into chunks
-		// size_t start = 0;
-		// size_t length = PACKET_SIZE; // CHUNK_SIZE
-		// while (start < http_response.size())
-		// {
-		// 	size_t		size = std::min((size_t)BUFFER_SIZE, http_response.size() - start);
-		// 	std::ostringstream	oss;
-		// 	oss << std::hex << size << "\r\n";
-		// 	oss << http_response.body().substr(start, size);
-		// 	oss << "\r\n";
-
-		// 	client->respond(oss.str());
-		// 	start += size;
-		// }
-
 		client->respond("0\r\n\r\n");
 	}
 }
