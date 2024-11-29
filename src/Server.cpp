@@ -3,6 +3,8 @@
 #include "Server.hpp"
 #include "Parse.hpp"
 #include <string>
+#include <algorithm> // min
+#include <sstream> //
 
 #include <poll.h>
 #include <fcntl.h>
@@ -96,7 +98,7 @@ void	Server::closeServer()
 
 void	Server::startListen()
 {
-	if (listen(m_socket, 5) < 0)
+	if (listen(m_socket, m_max_backlog) < 0)
 	{
 		logError("Listen failed");
 		closeServer();
@@ -105,16 +107,14 @@ void	Server::startListen()
 	log("Server is listenning...");
 }
 
-bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *response)
+bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *header, std::string *response)
 {
 	log("parseRequest");
 
 	// read a bit about max request size for HTTP/1.1
-	char	buffer[1024];
-	memset(buffer, 0, 1024);
-
-	// see recv instead of read, also use size_t
-	size_t	bytes_read = recv(client->fd(), buffer, 1024, 0);
+	char	buffer[BUFFER_SIZE];
+	memset(buffer, 0, BUFFER_SIZE);
+	size_t	bytes_read = recv(client->fd(), buffer, BUFFER_SIZE, 0);
 
 	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
 
@@ -124,7 +124,6 @@ bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *response)
 	std::string temp = std::string(buffer);
 	std::cout << buffer << std::endl;
 
-	// first line
 	// check request method, like GET and its target, if no target default to index.html
 	size_t pos = temp.find('\n');
 
@@ -137,9 +136,6 @@ bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *response)
 
 	std::string first_line = temp.substr(0, pos);
 	std::vector<std::string> info;
-
-	log(first_line);
-
 	size_t start = 0;
 	size_t end = first_line.find(' ');
 
@@ -151,56 +147,75 @@ bool	Server::parseRequest(std::shared_ptr<Client> client, std::string *response)
 
 	if (info.size() != 2)
 	{
-		// invalid request header(?)
-		logError("invalid request header");
+		logError("Invalid request header");
 		return false;
 	}
 
 	// check method type
 	if (info[0] == "GET")
 	{
-		std::string body = getBody(info[1]);
-		std::string header = getHeader(body.size());
-
-		*response = header + body;
-
-	} else {
-
-		logError("Method not implemented!!");
-		return false;
-
+		*response = getBody(info[1]);
+		*header = getHeader(response->size());
+		return true;
 	}
-	
-	// other important info, such as Connection: close, etc etc
 
-	return true;
+	logError("Method not implemented!!");
+	return false;
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	std::string response = "";
+	std::string	header = "";
+	std::string body = "";
 
-	if (!parseRequest(client, &response))
+	if (!parseRequest(client, &header, &body))
 	{
 		logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
-	if (response.size() > 0)
+	std::string	response = header + body;
+
+	if (response.size() <= 0)
 	{
+		logError("Invalid response");
+		return;
+	}
+
+	if (body.size() < MAX_RESPONSE_SIZE)
+	{
+		log("send single");
 		client->respond(response);
 		//m_sockets[id].revents = POLLOUT;
 	}
 	else
 	{
-		logError("Invalid response");	
+		log("send chunk");
+		client->respond(header);
+		//m_sockets[id].revents = POLLOUT;
+
+		size_t start = 0;
+		size_t length = BUFFER_SIZE; // CHUNK_SIZE
+		while (start < body.size())
+		{
+			size_t		size = std::min((size_t)BUFFER_SIZE, body.size() - start);
+			std::ostringstream	oss;
+			oss << std::hex << size << "\r\n";
+			oss << body.substr(start, size);
+			oss << "\r\n";
+
+			client->respond(oss.str());
+			start += size;
+		}
+
+		// chunk ending
+		client->respond("0\r\n\r\n");
 	}
 }
 
 bool	Server::tryRegisterClient(t_time time)
 {
-		// accept new connection
 	t_sockaddr_in client_addr = {};
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
@@ -263,7 +278,6 @@ void	Server::handleEvents()
 {
 	auto now = std::chrono::steady_clock::now();
 
-	// listen for all poll events
 	for (auto& client : m_clients)
 	{
 		if (!client->isAlive())

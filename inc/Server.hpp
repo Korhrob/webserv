@@ -17,6 +17,8 @@
 #include "ILog.hpp"
 #include "Client.hpp"
 
+#define BUFFER_SIZE 1024
+
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
 
@@ -31,6 +33,7 @@ class Server
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 		struct pollfd*		m_listener;	// shortcut
 
+		int											m_max_backlog = 8;
 		int											m_sock_count;
 		int											m_max_sockets = 16;	// get from config
 		std::vector<struct pollfd>					m_pollfd;
@@ -45,7 +48,7 @@ class Server
 		void	startListen();
 		bool	tryRegisterClient(t_time time);
 		void	handleClient(std::shared_ptr<Client> client);
-		bool	parseRequest(std::shared_ptr<Client> client, std::string *request);
+		bool	parseRequest(std::shared_ptr<Client> client, std::string *header, std::string *body);
 		void	handleClients();
 		void	handleEvents();
 		void	update();
