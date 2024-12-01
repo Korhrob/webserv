@@ -44,8 +44,6 @@ void	Response::readRequest(int fd)
 {
 	// read a bit about max request size for HTTP/1.1
 	char	buffer[BUFFER_SIZE];
-	//memset(buffer, 0, BUFFER_SIZE); // not required
-
 	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");

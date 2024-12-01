@@ -134,10 +134,20 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 		std::ifstream file(http_response.path(), std::ios::binary);
 
 		char buffer[PACKET_SIZE];
-		while (file.read(buffer, PACKET_SIZE) || file.gcount() > 0) {
+		while (true) {
+
+			file.read(buffer, PACKET_SIZE);
+			std::streamsize count = file.gcount();
+
+			if (count <= 0)
+				break;
+
+			if (count < PACKET_SIZE)
+				buffer[count] = '\0';
+
 			std::ostringstream	oss;
-			oss << std::hex << file.gcount() << "\r\n";
-			oss.write(buffer, file.gcount());
+			oss << std::hex << count << "\r\n";
+			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
 		}
