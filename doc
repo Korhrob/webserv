@@ -2,11 +2,12 @@
 TODO:
 
 Server:
-	- handle receiving chunk encoded data
+	- handle receiving chunk encoded data (potentially via POST method)
 	- (optional) implement data compression for large files
 	- (optional) switch poll() to epoll()
 	- stress test
-	- handle timeouts faster, even if client still requests Connection keep-open
+	- handle timeouts faster, even if client still requests Connection keep-open (potentially caching web pages)
+	- implement cache and cookies
 
 Parsing:
 	GET
@@ -18,8 +19,10 @@ Parsing:
 	DELETE
 		- parse DELETE method request
 
+	- Upgrade h2c and Connection Upgrade response with 505 HTTP version not supported
+
 	Config
-		- read config file on server startup, initialize server variables
+		- read config file on server startup, initialize server variables (check NGINX)
 
 CGI:
-	???
+	- idk
