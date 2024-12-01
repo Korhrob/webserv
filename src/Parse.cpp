@@ -13,7 +13,7 @@ std::string	getBody(const std::string& path)
 
 	std::ifstream file(path, std::ios::binary);
 
-	if (!file)
+	if (!file.good())
 		return "";
 
 	std::stringstream buffer;

@@ -95,6 +95,27 @@ void	Response::parseRequest()
 		// cut the '/' out
 		m_path = info[1].substr(1, info[1].size());
 
+		// test for 'path', 'path.html', 'path/index.html' 
+		// what if path is empty
+		const std::vector<std::string> alt { ".html", "/index.html" };
+
+		std::ifstream file(m_path);
+		if (!file.good())
+		{
+			for (auto& it : alt)
+			{
+				std::string	new_path = m_path + it;
+				log("Try " + new_path);
+				file.clear();
+				file = std::ifstream(new_path);
+				if (file.good())
+				{
+					m_path = new_path;
+					break;
+				}
+			}
+		}
+
 		try
 		{
 			m_size = std::filesystem::file_size(m_path);
@@ -104,13 +125,13 @@ void	Response::parseRequest()
 			m_size = 0;
 			std::cerr << e.what() << '\n';
 		}
+
 	}
 	else 
 	{
 		// post
 		// delete
-		// etc
-		logError(m_method + " not implemented!!");
+		logError(info[0] + " not implemented!!");
 	}
 
 }
