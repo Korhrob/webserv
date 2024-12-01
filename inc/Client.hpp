@@ -104,7 +104,7 @@ class Client
 		bool	timeout(t_time now)
 		{
 			if (m_pollfd->revents)
-				return true;
+				return false;
 
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
 			
