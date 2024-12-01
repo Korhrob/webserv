@@ -19,7 +19,7 @@ Server::Server(const std::string& ip, int port)
 
 	m_address = ip;
 	m_port = port;
-	m_sock_count = 1;
+	m_sock_count = 0;
 
 	m_pollfd.resize(m_max_sockets + 1);
 
@@ -33,7 +33,6 @@ Server::Server(const std::string& ip, int port)
 	}
 
 	log("Server constructor done");
-	std::cout << "m_pollfd size " << m_pollfd.size() << std::endl;
 }
 
 Server::~Server()
@@ -131,6 +130,7 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
 
+		// try catch block
 		std::ifstream file(http_response.path(), std::ios::binary);
 
 		char buffer[PACKET_SIZE];
@@ -151,34 +151,28 @@ bool	Server::tryRegisterClient(t_time time)
 	t_sockaddr_in client_addr = {};
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
-	if (client_fd >= 0)
+	if (client_fd < 0)
 	{
-		bool	success = false;
-
-		for (auto& client : m_clients)
-		{
-			if (client->isAlive())
-				continue;
-			
-			success = client->connect(client_fd, client_addr, time);
-			m_sock_count++;
-			break;
-		}
-		if (!success)
-		{
-			// failed to connect
-			logError("Failed to connect client");
-			return false;
-		}
-	}
-	else
-	{
-		// accept failed
 		logError("Accept failed");
 		return false;
 	}
 
-	return true;
+	bool	success = false;
+
+	for (auto& client : m_clients)
+	{
+		if (client->isAlive())
+			continue;
+		
+		success = client->connect(client_fd, client_addr, time);
+		m_sock_count++;
+		break;
+	}
+
+	if (!success)
+		logError("Failed to connect client");
+
+	return success;
 }
 
 void	Server::handleClients()

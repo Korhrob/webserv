@@ -1,0 +1,24 @@
+
+TODO:
+
+Server
+	- handle receiving chunk encoded data
+	- (optional) implement data compression for large files
+	- (optional) switch poll() to epoll()
+	- stress test
+	- 
+
+Parsing
+	GET
+		- check requested filepath, if filepath is a folder, check for index.html file
+		- if path doesn't exist set header to 404 
+		- 
+	POST
+		- parse POST method request
+	DELETE
+		- parse DELETE method request
+
+	Config
+		- read config file on server startup, initialize server variables
+
+CGI

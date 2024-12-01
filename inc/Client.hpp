@@ -25,7 +25,7 @@ class Client
 
 	private:
 		bool				m_alive;
-		struct pollfd*		m_pollfd;
+		struct pollfd*		m_pollfd; // shortcut
 		t_sockaddr_in		m_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int		m_files_sent;
@@ -82,7 +82,7 @@ class Client
 			m_pollfd->revents = 0;
 			m_alive = false;
 
-			log("Client closed!");
+			log("Client disconnected!");
 		}
 
 		void	update(t_time time)
@@ -93,7 +93,7 @@ class Client
 		int	respond(const std::string& response)
 		{
 			int bytes_sent = send(m_pollfd->fd, response.c_str(), response.size(), 0);
-			std::cout << "-- BYTES SENT " << bytes_sent << "--\n\n" << std::endl;
+			log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
 
 			m_pollfd->revents = POLLOUT;
@@ -103,6 +103,9 @@ class Client
 
 		bool	timeout(t_time now)
 		{
+			if (m_pollfd->revents)
+				return true;
+
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
 			
 			return (diff > CLIENT_TIMEOUT);

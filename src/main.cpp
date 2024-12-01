@@ -1,5 +1,6 @@
 
 #include "Server.hpp"
+#include "ILog.hpp"
 
 #include <iostream>
 #include <signal.h>
@@ -33,7 +34,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	std::cout << "Clean exit" << std::endl;
+	log("Clean Exit!");
 
 	return 0;
 }
