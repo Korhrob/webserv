@@ -95,19 +95,18 @@ class Client
 			int bytes_sent = send(m_pollfd->fd, response.c_str(), response.size(), 0);
 			log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
-
-			m_pollfd->revents = POLLOUT;
+			m_pollfd->revents = POLLOUT; 
 
 			return (bytes_sent > 0);
 		}
 
 		bool	timeout(t_time now)
 		{
-			if (m_pollfd->revents)
+			if (m_pollfd->revents & POLLIN)
 				return false;
 
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
-			
+
 			return (diff > CLIENT_TIMEOUT);
 		}
 

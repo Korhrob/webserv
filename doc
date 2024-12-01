@@ -1,14 +1,14 @@
 
 TODO:
 
-Server
+Server:
 	- handle receiving chunk encoded data
 	- (optional) implement data compression for large files
 	- (optional) switch poll() to epoll()
 	- stress test
-	- 
+	- handle timeouts faster, even if client still requests Connection keep-open
 
-Parsing
+Parsing:
 	GET
 		- check requested filepath, if filepath is a folder, check for index.html file
 		- if path doesn't exist set header to 404 
@@ -21,4 +21,5 @@ Parsing
 	Config
 		- read config file on server startup, initialize server variables
 
-CGI
+CGI:
+	???

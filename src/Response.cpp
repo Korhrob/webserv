@@ -55,6 +55,7 @@ void	Response::readRequest(int fd)
 		return;
 	}
 
+	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
 
 	log(buffer);
