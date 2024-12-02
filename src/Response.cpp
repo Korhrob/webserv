@@ -26,14 +26,14 @@ Response::Response(std::shared_ptr<Client> client)
 		m_size = m_body.size();
 		m_header = getHeaderSingle(m_size);
 
-		std::cout << "== SINGLE RESPONSE ==\n" << str() << "\n\n" << std::endl;
+		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
 		m_send_type = CHUNK;
 		m_header = getHeaderChunk();
 
-		std::cout << "== CHUNK RESPONSE ==" << std::endl;
+		log("== CHUNK RESPONSE ==");
 	}
 
 	m_success = true;
@@ -44,11 +44,9 @@ void	Response::readRequest(int fd)
 {
 	// read a bit about max request size for HTTP/1.1
 	char	buffer[BUFFER_SIZE];
-	memset(buffer, 0, BUFFER_SIZE);
-
 	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
 
-	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
+	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read <= 0)
 	{
@@ -57,10 +55,10 @@ void	Response::readRequest(int fd)
 		return;
 	}
 
-	m_request = std::string(buffer);
+	buffer[bytes_read] = '\0';
+	m_request = std::string(buffer, bytes_read);
 
-	// debug
-	std::cout << buffer << std::endl;
+	log(buffer);
 }
 
 void	Response::parseRequest()
@@ -91,23 +89,51 @@ void	Response::parseRequest()
 	}
 
 	if (info[0] == "GET")
+	{
 		m_method = GET;
-	// post
-	// delete
-	// etc
 
-	// cut the '/' out
-	m_path = info[1].substr(1, info[1].size());
+		// cut the '/' out
+		m_path = info[1].substr(1, info[1].size());
 
-	try
-	{
-		m_size = std::filesystem::file_size(m_path);
+		// test for 'path', 'path.html', 'path/index.html' 
+		// what if path is empty
+		const std::vector<std::string> alt { ".html", "/index.html" };
+
+		std::ifstream file(m_path);
+		if (!file.good())
+		{
+			for (auto& it : alt)
+			{
+				std::string	new_path = m_path + it;
+				log("Try " + new_path);
+				file.clear();
+				file = std::ifstream(new_path);
+				if (file.good())
+				{
+					m_path = new_path;
+					break;
+				}
+			}
+		}
+
+		try
+		{
+			m_size = std::filesystem::file_size(m_path);
+		}
+		catch(const std::exception& e)
+		{
+			m_size = 0;
+			std::cerr << e.what() << '\n';
+		}
+
 	}
-	catch(const std::exception& e)
+	else 
 	{
-		m_size = 0;
-		std::cerr << e.what() << '\n';
+		// post
+		// delete
+		logError(info[0] + " not implemented!!");
 	}
+
 }
 
 std::string	Response::str()
