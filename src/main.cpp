@@ -10,6 +10,7 @@ std::atomic<bool> is_running(false);
 
 void	handleSigint(int sig)
 {
+	(void) sig;
 	// graceful close for ctrl + C
 	is_running = false;
 }

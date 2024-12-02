@@ -7,7 +7,6 @@
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
 #include <poll.h> // pollfd
-
 #include <string.h>
 #include <sstream>
 #include <chrono> // time
