@@ -4,13 +4,14 @@
 #include "Const.hpp"
 #include "Client.hpp"
 
-#include <memory>
+#include <memory> // shared_ptr
 #include <string>
 #include <algorithm> // min
 #include <iostream>
 #include <sstream>
-#include <fstream>
-#include <filesystem>
+#include <fstream> // ifstream
+#include <filesystem> // filesize
+#include <vector> // vector
 
 Response::Response(std::shared_ptr<Client> client)
 {
