@@ -12,6 +12,7 @@
 #include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
+//#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
 #include "Const.hpp"
@@ -31,6 +32,8 @@ class Client
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int		m_files_sent;
 		t_time				m_last_activity;
+
+		//std::ofstream		m_output_file;
 
 	public:
 

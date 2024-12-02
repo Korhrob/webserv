@@ -15,8 +15,11 @@
 
 Response::Response(std::shared_ptr<Client> client)
 {
-	readRequest(client->fd());
-	parseRequest();
+	if (readRequest(client->fd()))
+		parseRequest();
+
+	if (m_send_type == NONE)
+		return;
 
 	// WRITE HEADER AND BODY
 
@@ -41,29 +44,33 @@ Response::Response(std::shared_ptr<Client> client)
 
 }
 
-void	Response::readRequest(int fd)
+bool	Response::readRequest(int fd)
 {
 	// read a bit about max request size for HTTP/1.1
 	char	buffer[BUFFER_SIZE];
+	//memset(buffer, 0, BUFFER_SIZE);
 	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read <= 0)
 	{
-		logError("Empty request");
+		logError("Empty or invalid request");
 		m_success = false;
-		return;
+		return false;
 	}
 
 	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
-
 	log(buffer);
+	return true;
 }
 
 void	Response::parseRequest()
 {
+	// dont read empty requests
+
+	// TODO: Find a better way to parse first line
 	size_t pos = m_request.find('\n');
 
 	if (pos == std::string::npos)
@@ -85,7 +92,7 @@ void	Response::parseRequest()
 
 	if (info.size() != 2)
 	{
-		logError("Invalid request header");
+		logError("Invalid request header(2)");
 		return;
 	}
 
@@ -95,6 +102,9 @@ void	Response::parseRequest()
 
 		// cut the '/' out
 		m_path = info[1].substr(1, info[1].size());
+
+		if (m_path.empty())
+			m_path = "index.html";
 
 		// test for 'path', 'path.html', 'path/index.html' 
 		// what if path is empty
@@ -123,6 +133,7 @@ void	Response::parseRequest()
 		}
 		catch(const std::exception& e)
 		{
+			// 404
 			m_size = 0;
 			std::cerr << e.what() << '\n';
 		}
@@ -132,6 +143,7 @@ void	Response::parseRequest()
 	{
 		// post
 		// delete
+		m_send_type = NONE;
 		logError(info[0] + " not implemented!!");
 	}
 

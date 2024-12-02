@@ -130,9 +130,17 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
 
-		// try catch block
-		std::ifstream file(http_response.path(), std::ios::binary);
-
+		std::ifstream file;
+		try
+		{
+			file = std::ifstream(http_response.path(), std::ios::binary);
+		}
+		catch(const std::exception& e)
+		{
+			std::cerr << e.what() << '\n';
+			return;
+		}
+		
 		char buffer[PACKET_SIZE];
 		while (true) {
 
@@ -150,9 +158,11 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
+			log("chunk encoding");
 		}
 
 		client->respond("0\r\n\r\n");
+		log("end chunk encoding");
 	}
 }
 
