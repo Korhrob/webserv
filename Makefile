@@ -1,4 +1,4 @@
-CXX			=	c++
+CXX			=	c++ -std=c++17
 CXXFLAGS	=	-Iinc #-Wall -Werror -Wextra -g
 LDFLAG		=	#-g -fsanitize=address
 SNAME		=	server

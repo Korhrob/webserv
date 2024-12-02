@@ -11,6 +11,7 @@
 #include <sstream>
 #include <fstream>
 #include <filesystem>
+#include <vector>
 
 Response::Response(std::shared_ptr<Client> client)
 {
