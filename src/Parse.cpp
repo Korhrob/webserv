@@ -7,10 +7,6 @@
 
 std::string	getBody(const std::string& path)
 {
-	// temporary response
-	if (path.empty()) // get index.html
-		return "<html><body>this is a temporary response</body></html>";
-
 	std::ifstream file(path, std::ios::binary);
 
 	if (!file.good())

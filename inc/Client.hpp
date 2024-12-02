@@ -12,8 +12,10 @@
 #include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
+//#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
+#include "Const.hpp"
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
@@ -31,6 +33,8 @@ class Client
 		unsigned int		m_files_sent;
 		t_time				m_last_activity;
 
+		//std::ofstream		m_output_file;
+
 	public:
 
 		Client(struct pollfd* fd) : m_pollfd(fd)
@@ -41,8 +45,6 @@ class Client
 			m_alive = false;
 		}
 		~Client() {}
-
-		static const unsigned int CLIENT_TIMEOUT = 5000;
 
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd->revents & POLLIN; }

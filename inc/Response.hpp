@@ -14,9 +14,10 @@ enum	e_method
 
 enum	e_type
 {
-	NONE,
+	BLANK,
 	SINGLE,
-	CHUNK
+	CHUNK,
+	NONE
 };
 
 class Response
@@ -35,7 +36,7 @@ class Response
 	public:
 		Response(std::shared_ptr<Client> client);
 
-		void	readRequest(int fd);
+		bool	readRequest(int fd);
 		void	parseRequest();
 
 		bool 	getSuccess() { return m_success; }
