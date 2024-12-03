@@ -41,74 +41,82 @@ Response::Response(std::shared_ptr<Client> client)
 
 }
 
-void	Response::readRequest(int fd)
+bool	Response::readRequest(int fd)
 {
 	// read a bit about max request size for HTTP/1.1
 	char	buffer[BUFFER_SIZE];
-	memset(buffer, 0, BUFFER_SIZE);
-
+	//memset(buffer, 0, BUFFER_SIZE);
 	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
 
-	std::cout << "-- BYTES READ " << bytes_read << "--\n\n" << std::endl;
+	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read <= 0)
 	{
-		logError("Empty request");
+		logError("Empty or invalid request");
 		m_success = false;
-		return;
+		return false;
 	}
 
-	m_request = std::string(buffer);
-
-	// debug
-	std::cout << buffer << std::endl;
+	buffer[bytes_read] = '\0';
+	m_request = std::string(buffer, bytes_read);
+	log(buffer);
+	return true;
 }
 
 void	Response::parseRequest()
 {
-	size_t pos = m_request.find('\n');
+	if (m_request.empty())
+		return;
+		
+	size_t	pos = m_request.find('\n');
 
-	if (pos == std::string::npos)
-	{
+	if (pos == std::string::npos) {
 		logError("Invalid request header");
 		return;
 	}
 
-	std::string first_line = m_request.substr(0, pos);
-	std::vector<std::string> info;
-	size_t start = 0;
-	size_t end = first_line.find(' ');
+	std::istringstream	first_line(m_request.substr(0, pos));
+	std::string			version;
+	std::string			method;
 
-	while (end != std::string::npos) {
-		info.push_back(first_line.substr(start, end - start));
-		start = end + 1;
-		end = first_line.find(' ', start);
-	}
-
-	if (info.size() != 2)
-	{
-		logError("Invalid request header");
+	if (!(first_line >> method >> m_path >> version) || version != "HTTP/1.1") {
+		logError("");
 		return;
 	}
 
-	if (info[0] == "GET")
-		m_method = GET;
-	// post
-	// delete
-	// etc
-
-	// cut the '/' out
-	m_path = info[1].substr(1, info[1].size());
-
-	try
-	{
-		m_size = std::filesystem::file_size(m_path);
+	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+	auto it = methods.find(method);
+	if (it != methods.end()) {
+		m_method = it->second;
+	} else {
+		logError("");
+		return;
 	}
-	catch(const std::exception& e)
-	{
+
+	try {
+		m_size = std::filesystem::file_size(&m_path[1]);
+	} catch (const std::exception& e) {
 		m_size = 0;
 		std::cerr << e.what() << '\n';
 	}
+
+	std::istringstream	request(m_request.substr(pos + 1));
+	std::string			line;
+
+	while (getline(request, line)) {
+		pos = line.find(':');
+		if (pos == std::string::npos)
+			break;
+		m_headers.try_emplace(line.substr(0, pos), line.substr(pos + 2));
+	}
+
+	std::cout << "-- PARSED ---------------------------------------------\n"
+	<< method << "(" << m_method << ") "
+	<< m_path << " " << version << "\n";
+	for (const auto& [key, value] : m_headers) {
+        std::cout << key << ": " << value << "\n";
+    }
+	std::cout << "-------------------------------------------------------\n";
 }
 
 std::string	Response::str()

@@ -107,7 +107,7 @@ void	Server::startListen()
 		closeServer();
 	}
 
-	log("Server is listenning...");
+	log("Server is listening...");
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
