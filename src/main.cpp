@@ -1,5 +1,6 @@
 
 #include "Server.hpp"
+#include "ILog.hpp"
 
 #include <iostream>
 #include <signal.h>
@@ -9,6 +10,7 @@ std::atomic<bool> is_running(false);
 
 void	handleSigint(int sig)
 {
+	(void) sig;
 	// graceful close for ctrl + C
 	is_running = false;
 }
@@ -33,7 +35,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	std::cout << "Clean exit" << std::endl;
+	log("Clean Exit!");
 
 	return 0;
 }

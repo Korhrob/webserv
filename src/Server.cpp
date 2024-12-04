@@ -19,7 +19,7 @@ Server::Server(const std::string& ip, int port)
 
 	m_address = ip;
 	m_port = port;
-	m_sock_count = 1;
+	m_sock_count = 0;
 
 	m_pollfd.resize(m_max_sockets + 1);
 
@@ -33,7 +33,6 @@ Server::Server(const std::string& ip, int port)
 	}
 
 	log("Server constructor done");
-	std::cout << "m_pollfd size " << m_pollfd.size() << std::endl;
 }
 
 Server::~Server()
@@ -131,18 +130,39 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
 
-		std::ifstream file(http_response.path(), std::ios::binary);
-
+		std::ifstream file;
+		try
+		{
+			file = std::ifstream(http_response.path(), std::ios::binary);
+		}
+		catch(const std::exception& e)
+		{
+			std::cerr << e.what() << '\n';
+			return;
+		}
+		
 		char buffer[PACKET_SIZE];
-		while (file.read(buffer, PACKET_SIZE) || file.gcount() > 0) {
+		while (true) {
+
+			file.read(buffer, PACKET_SIZE);
+			std::streamsize count = file.gcount();
+
+			if (count <= 0)
+				break;
+
+			if (count < PACKET_SIZE)
+				buffer[count] = '\0';
+
 			std::ostringstream	oss;
-			oss << std::hex << file.gcount() << "\r\n";
-			oss.write(buffer, file.gcount());
+			oss << std::hex << count << "\r\n";
+			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
+			log("chunk encoding");
 		}
 
 		client->respond("0\r\n\r\n");
+		log("end chunk encoding");
 	}
 }
 
@@ -151,34 +171,28 @@ bool	Server::tryRegisterClient(t_time time)
 	t_sockaddr_in client_addr = {};
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
-	if (client_fd >= 0)
+	if (client_fd < 0)
 	{
-		bool	success = false;
-
-		for (auto& client : m_clients)
-		{
-			if (client->isAlive())
-				continue;
-			
-			success = client->connect(client_fd, client_addr, time);
-			m_sock_count++;
-			break;
-		}
-		if (!success)
-		{
-			// failed to connect
-			logError("Failed to connect client");
-			return false;
-		}
-	}
-	else
-	{
-		// accept failed
 		logError("Accept failed");
 		return false;
 	}
 
-	return true;
+	bool	success = false;
+
+	for (auto& client : m_clients)
+	{
+		if (client->isAlive())
+			continue;
+		
+		success = client->connect(client_fd, client_addr, time);
+		m_sock_count++;
+		break;
+	}
+
+	if (!success)
+		logError("Failed to connect client");
+
+	return success;
 }
 
 void	Server::handleClients()

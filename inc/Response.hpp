@@ -15,9 +15,10 @@ enum	e_method
 
 enum	e_type
 {
-	NONE,
+	BLANK,
 	SINGLE,
-	CHUNK
+	CHUNK,
+	NONE
 };
 
 class Response

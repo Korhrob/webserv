@@ -4,7 +4,7 @@
 #include "Const.hpp"
 #include "Client.hpp"
 
-#include <memory>
+#include <memory> // shared_ptr
 #include <string>
 #include <algorithm> // min
 #include <iostream>
@@ -15,8 +15,11 @@
 
 Response::Response(std::shared_ptr<Client> client)
 {
-	readRequest(client->fd());
-	parseRequest();
+	if (readRequest(client->fd()))
+		parseRequest();
+
+	if (m_send_type == NONE)
+		return;
 
 	// WRITE HEADER AND BODY
 
@@ -27,14 +30,14 @@ Response::Response(std::shared_ptr<Client> client)
 		m_size = m_body.size();
 		m_header = getHeaderSingle(m_size);
 
-		std::cout << "== SINGLE RESPONSE ==\n" << str() << "\n\n" << std::endl;
+		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
 		m_send_type = CHUNK;
 		m_header = getHeaderChunk();
 
-		std::cout << "== CHUNK RESPONSE ==" << std::endl;
+		log("== CHUNK RESPONSE ==");
 	}
 
 	m_success = true;
