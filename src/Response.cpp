@@ -70,14 +70,14 @@ void	Response::parseRequest()
 {
 	if (m_request.empty())
 		return;
-		
+
 	size_t	pos = m_request.find('\n');
 
 	if (pos == std::string::npos) {
 		logError("Invalid request header");
 		return;
 	}
-
+	{
 	std::istringstream	first_line(m_request.substr(0, pos));
 	std::string			version;
 	std::string			method;
@@ -95,14 +95,7 @@ void	Response::parseRequest()
 		logError("");
 		return;
 	}
-
-	try {
-		m_size = std::filesystem::file_size(&m_path[1]); // robert?
-	} catch (const std::exception& e) {
-		m_size = 0;
-		std::cerr << e.what() << '\n';
 	}
-
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::string			line;
 
@@ -110,15 +103,87 @@ void	Response::parseRequest()
 		pos = line.find(':');
 		if (pos == std::string::npos)
 			break;
-		m_headers.try_emplace(line.substr(0, pos), line.substr(pos + 1)); // trim whitespace
+		std::string	key = line.substr(0, pos);
+		std::string	value = line.substr(pos + 1);
+		key.erase(key.find_last_not_of(" \t") + 1);
+		value.erase(0, value.find_first_not_of(" \t"));
+		m_headers.try_emplace(key, value);
 	}
 
-	std::cout << "-- PARSED ---------------------------------------------\n"
-	<< method << " " << m_path << " " << version << "\n";
-	for (const auto& [key, value] : m_headers) {
-        std::cout << key << ":" << value << "\n";
-    }
-	std::cout << "-------------------------------------------------------\n";
+	auto it = m_headers.find("Connection");
+	if (it != m_headers.end())
+		m_connection = it->second == "keep->alive" ? true : false;
+
+	/*
+		trim whitespace
+		check for content-disposition -> name="name" -> open file with the name
+		check for content length/chuncked
+		if chuncked set output_filestream for client
+		set status code
+		make an unordered map for form data (POST)
+	*/
+
+	m_path = m_path.substr(1); // do this better might throw exception
+	if (m_method == GET) {
+		if (m_path.empty())
+				m_path = "index.html";
+
+			// test for 'path', 'path.html', 'path/index.html' 
+			// what if path is empty
+		const std::vector<std::string> alt { ".html", "/index.html" };
+
+		std::ifstream file(m_path);
+		if (!file.good()) // && text/html
+		{
+			for (auto& it : alt)
+			{
+				std::string	new_path = m_path + it;
+				log("Try " + new_path);
+				file.clear();
+				file = std::ifstream(new_path);
+				if (file.good())
+				{
+					m_path = new_path;
+					break;
+				}
+			}
+		}
+
+		try {
+			m_size = std::filesystem::file_size(m_path);
+		} catch (const std::exception& e) {
+			m_size = 0;
+			std::cerr << e.what() << '\n';
+		}
+	}
+
+	if (m_method == POST) {
+		it = m_headers.find("Content-length");
+		m_send_type = it != m_headers.end() ? SINGLE : CHUNK;
+		/*
+			depending on Content-Type
+				application/x-www-form-urlencoded:
+					Parse key-value pairs from the body, similar to URL query parameters.
+				multipart/form-data:
+					Used for file uploads. You'll need to parse boundary-separated sections.
+				application/json:
+					Parse the body as JSON using a library or custom parser.
+		*/
+	}
+
+	if (m_method == DELETE) {
+		/*
+			validate path
+			delete resource identified by the path
+		*/
+	}
+	
+	// std::cout << "-- PARSED ---------------------------------------------\n"
+	// << method << " " << m_path << " " << version << "\n";
+	// for (const auto& [key, value] : m_headers) {
+    //     std::cout << key << ":" << value << "\n";
+    // }
+	// std::cout << "-------------------------------------------------------\n";
 }
 
 std::string	Response::str()
