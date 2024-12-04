@@ -94,7 +94,7 @@ void	Response::parseRequest()
 	}
 
 	try {
-		m_size = std::filesystem::file_size(&m_path[1]);
+		m_size = std::filesystem::file_size(&m_path[1]); // robert?
 	} catch (const std::exception& e) {
 		m_size = 0;
 		std::cerr << e.what() << '\n';
@@ -107,14 +107,13 @@ void	Response::parseRequest()
 		pos = line.find(':');
 		if (pos == std::string::npos)
 			break;
-		m_headers.try_emplace(line.substr(0, pos), line.substr(pos + 2));
+		m_headers.try_emplace(line.substr(0, pos), line.substr(pos + 1)); // trim whitespace
 	}
 
 	std::cout << "-- PARSED ---------------------------------------------\n"
-	<< method << "(" << m_method << ") "
-	<< m_path << " " << version << "\n";
+	<< method << " " << m_path << " " << version << "\n";
 	for (const auto& [key, value] : m_headers) {
-        std::cout << key << ": " << value << "\n";
+        std::cout << key << ":" << value << "\n";
     }
 	std::cout << "-------------------------------------------------------\n";
 }
