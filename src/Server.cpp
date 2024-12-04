@@ -150,7 +150,7 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			if (count <= 0)
 				break;
 
-			if (count < PACKET_SIZE)
+			if (count < UPACKET_SIZE)
 				buffer[count] = '\0';
 
 			std::ostringstream	oss;
