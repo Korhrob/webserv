@@ -12,6 +12,7 @@
 #include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
+#include <map>
 //#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
@@ -26,14 +27,14 @@ class Client
 {
 
 	private:
-		bool				m_alive;
-		struct pollfd*		m_pollfd; // shortcut
-		t_sockaddr_in		m_addr;
-		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		unsigned int		m_files_sent;
-		t_time				m_last_activity;
+		bool								m_alive;
+		struct pollfd*						m_pollfd; // shortcut
+		t_sockaddr_in						m_addr;
+		// unsigned int						m_addr_len = sizeof(t_sockaddr_in);
+		unsigned int						m_files_sent;
+		t_time								m_last_activity;
 
-		//std::ofstream		m_output_file;
+		// std::ofstream						m_output_file;
 
 	public:
 
@@ -117,4 +118,8 @@ class Client
 			m_pollfd->revents = 0;
 		}
 
+		// void	openFile(const std::string& name)
+		// {
+		// 	m_output_file.open(name, std::ios::out | std::ios::app | std::ios::binary);
+		// }
 };
