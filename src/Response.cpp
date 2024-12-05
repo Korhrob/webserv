@@ -16,7 +16,9 @@
 Response::Response(std::shared_ptr<Client> client)
 {
 	if (readRequest(client->fd()))
-		parseRequest();
+		parseRequest(client);
+
+	client->displayFormData(); // for debugging
 
 	if (m_send_type == NONE)
 		return;
@@ -66,7 +68,7 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
-void	Response::parseRequest()
+void	Response::parseRequest(std::shared_ptr<Client> client)
 {
 	if (m_request.empty())
 		return;
@@ -173,17 +175,12 @@ void	Response::parseRequest()
 				application/json:
 					Parse the body as JSON using a library or custom parser
 		*/
-		std::unordered_map<std::string, std::string> formData;
 		if (m_headers.find("Content-Type") != m_headers.end() && m_headers["Content-Type"] == "application/x-www-form-urlencoded") {
 			while (getline(request, line, '&')) {
 				pos = line.find('=');
 				if (pos != std::string::npos)
-					formData.try_emplace(line.substr(0, pos), line.substr(pos + 1));
+					client->setFormData(line.substr(0, pos), line.substr(pos + 1));
 			}
-			std::cout << "-- FORM DATA ------------------------------------------\n";
-			for (auto [key, value] : formData)
-				std::cout << key << "=" << value << "\n";
-			std::cout << "-------------------------------------------------------\n";
 		}
 	}
 
@@ -193,7 +190,6 @@ void	Response::parseRequest()
 			delete resource identified by the path
 		*/
 	}
-	
 }
 
 std::string	Response::str()

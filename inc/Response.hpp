@@ -40,7 +40,7 @@ class Response
 		Response(std::shared_ptr<Client> client);
 
 		bool	readRequest(int fd);
-		void	parseRequest();
+		void	parseRequest(std::shared_ptr<Client> client);
 
 		bool 	getSuccess() { return m_success; }
 		e_type	getSendType() { return m_send_type; }
