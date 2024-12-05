@@ -38,6 +38,7 @@ class Response
 
 		bool	readRequest(int fd);
 		void	parseRequest();
+		void	executeCgiScript();
 
 		bool 	getSuccess() { return m_success; }
 		e_type	getSendType() { return m_send_type; }

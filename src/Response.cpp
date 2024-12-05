@@ -104,40 +104,49 @@ void	Response::parseRequest()
 		m_path = info[1].substr(1, info[1].size());
 
 		if (m_path.empty())
-			m_path = "index.html";
+			// m_path = "index.html";
+			m_path = "cgi-bin/script.cgi";
 
-		// test for 'path', 'path.html', 'path/index.html' 
-		// what if path is empty
-		const std::vector<std::string> alt { ".html", "/index.html" };
-
-		std::ifstream file(m_path);
-		if (!file.good())
+		log("Testing");
+		if (m_path.find("cgi-bin/") == 0)
 		{
-			for (auto& it : alt)
+			executeCgiScript();
+		}
+		else
+		{
+			// test for 'path', 'path.html', 'path/index.html' 
+			// what if path is empty
+			const std::vector<std::string> alt { ".html", "/index.html" };
+
+			std::ifstream file(m_path);
+			if (!file.good())
 			{
-				std::string	new_path = m_path + it;
-				log("Try " + new_path);
-				file.clear();
-				file = std::ifstream(new_path);
-				if (file.good())
+				for (auto& it : alt)
 				{
-					m_path = new_path;
-					break;
+					std::string	new_path = m_path + it;
+					log("Try " + new_path);
+					file.clear();
+					file = std::ifstream(new_path);
+					if (file.good())
+					{
+						m_path = new_path;
+						break;
+					}
 				}
 			}
-		}
 
-		try
-		{
-			m_size = std::filesystem::file_size(m_path);
-		}
-		catch(const std::exception& e)
-		{
-			// 404
-			m_size = 0;
-			std::cerr << e.what() << '\n';
-		}
+			try
+			{
+				m_size = std::filesystem::file_size(m_path);
+			}
+			catch(const std::exception& e)
+			{
+				// 404
+				m_size = 0;
+				std::cerr << e.what() << '\n';
+			}
 
+		}
 	}
 	else 
 	{
@@ -147,6 +156,38 @@ void	Response::parseRequest()
 		logError(info[0] + " not implemented!!");
 	}
 
+}
+
+void	Response::executeCgiScript()
+{
+	// Example CGI script path
+	std::string script_path = m_path;
+
+	// Create the environment for the CGI script
+	setenv("REQUEST_METHOD", "GET", 1);
+	setenv("QUERY_STRING", "", 1); // Optional: You can handle query parameters if necessary
+
+	// Execute the CGI script using popen
+	FILE* pipe = popen(script_path.c_str(), "r");
+	if (!pipe)
+	{
+		logError("Failed to execute CGI script");
+		return ;
+	}
+
+	// Capture the output from the CGI script
+	char buffer[BUFFER_SIZE];
+	std::ofstream outputFile("/cgi-bin/output.html", std::ios::binary);
+	while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
+	{
+		outputFile.write(buffer, strlen(buffer));
+	}
+	outputFile.close();
+	pclose(pipe);
+
+	m_path = "/cgi-bin/output.html";
+	m_size = std::filesystem::file_size(m_path);
+	std::cout << "Generated file size: " << m_size << " bytes\n";
 }
 
 std::string	Response::str()
