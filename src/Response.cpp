@@ -73,11 +73,11 @@ void	Response::parseRequest()
 
 	size_t	pos = m_request.find('\n');
 
-	if (pos == std::string::npos) {
+	if (pos == std::string::npos || pos == std::string::npos - 1) {
 		logError("Invalid request header");
 		return;
 	}
-	{
+	// {
 	std::istringstream	first_line(m_request.substr(0, pos));
 	std::string			version;
 	std::string			method;
@@ -94,7 +94,7 @@ void	Response::parseRequest()
 		logError("");
 		return;
 	}
-	}
+	// }
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::string			line;
 
@@ -103,26 +103,18 @@ void	Response::parseRequest()
 		if (pos == std::string::npos)
 			break;
 		std::string	key = line.substr(0, pos);
-		std::string	value = line.substr(pos + 1); // possibly an issue?
+		std::string	value(pos + 1 != std::string::npos ? line.substr(pos + 1) : ""); // should this be an error?
 		key.erase(key.find_last_not_of(" \t") + 1);
 		value.erase(0, value.find_first_not_of(" \t"));
+		value.erase(value.find_last_not_of("\r") + 1);
 		m_headers.try_emplace(key, value);
 	}
-
-	m_size = m_headers.find("Content-Length") != m_headers.end() ? std::stoul(m_headers["Content-Length"]) : 0;
 
 	m_connection = m_headers.find("Connection") != m_headers.end() && m_headers["Connection"] == "keep-alive" ? true : false;
 
 	m_send_type = m_headers.find("Transfer-Encoding") != m_headers.end() && m_headers["Transfer-Encoding"] == "chunked" ? CHUNK : SINGLE;
 
-	/*
-		trim whitespace
-		check for content-disposition -> name="name" -> open file with the name
-		check for content length/chuncked
-		if chuncked set output_filestream for client
-		set status code
-		make an unordered map for form data (POST)
-	*/
+	m_size = m_headers.find("Content-Length") != m_headers.end() ? std::stoul(m_headers["Content-Length"]) : 0;
 
 	m_path = m_path.substr(1); // do this better might throw exception
 	if (m_method == GET) {
@@ -158,16 +150,41 @@ void	Response::parseRequest()
 		}
 	}
 
+	std::cout << "-- PARSED ---------------------------------------------\n"
+	<< method << " " << m_path << " " << version << "\n";
+	for (const auto& [key, value] : m_headers) {
+        std::cout << key << ":" << value << "\n";
+    }
+	std::cout << "-------------------------------------------------------\n";
+	/*
+		check for content-disposition -> name="name" -> open file with the name
+		if chuncked set output_filestream for client
+		set status code
+		make an unordered map for form data (POST)
+	*/
+
 	if (m_method == POST) {
 		/*
 			depending on Content-Type
 				application/x-www-form-urlencoded:
-					Parse key-value pairs from the body, similar to URL query parameters.
+					Parse key-value pairs from the body to a map
 				multipart/form-data:
-					Used for file uploads. You'll need to parse boundary-separated sections.
+					Used for file uploads, parse boundary-separated sections CGI?
 				application/json:
-					Parse the body as JSON using a library or custom parser.
+					Parse the body as JSON using a library or custom parser
 		*/
+		std::unordered_map<std::string, std::string> formData;
+		if (m_headers.find("Content-Type") != m_headers.end() && m_headers["Content-Type"] == "application/x-www-form-urlencoded") {
+			while (getline(request, line, '&')) {
+				pos = line.find('=');
+				if (pos != std::string::npos)
+					formData.try_emplace(line.substr(0, pos), line.substr(pos + 1));
+			}
+			std::cout << "-- FORM DATA ------------------------------------------\n";
+			for (auto [key, value] : formData)
+				std::cout << key << "=" << value << "\n";
+			std::cout << "-------------------------------------------------------\n";
+		}
 	}
 
 	if (m_method == DELETE) {
@@ -177,12 +194,6 @@ void	Response::parseRequest()
 		*/
 	}
 	
-	// std::cout << "-- PARSED ---------------------------------------------\n"
-	// << method << " " << m_path << " " << version << "\n";
-	// for (const auto& [key, value] : m_headers) {
-    //     std::cout << key << ":" << value << "\n";
-    // }
-	// std::cout << "-------------------------------------------------------\n";
 }
 
 std::string	Response::str()
