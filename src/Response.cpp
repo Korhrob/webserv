@@ -82,15 +82,14 @@ void	Response::parseRequest()
 	std::string			version;
 	std::string			method;
 
-	if (!(first_line >> method >> m_path >> version) || version != "HTTP/1.1") {
+	if (!(first_line >> method >> m_path >> version) || version != "HTTP/1.1") { // what if there's stuff after version?
 		logError("");
 		return;
 	}
 
 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	auto it = methods.find(method);
-	if (it != methods.end()) {
-		m_method = it->second;
+	if (methods.find(method) != methods.end()) {
+		m_method = methods[method];
 	} else {
 		logError("");
 		return;
@@ -104,15 +103,17 @@ void	Response::parseRequest()
 		if (pos == std::string::npos)
 			break;
 		std::string	key = line.substr(0, pos);
-		std::string	value = line.substr(pos + 1);
+		std::string	value = line.substr(pos + 1); // possibly an issue?
 		key.erase(key.find_last_not_of(" \t") + 1);
 		value.erase(0, value.find_first_not_of(" \t"));
 		m_headers.try_emplace(key, value);
 	}
 
-	auto it = m_headers.find("Connection");
-	if (it != m_headers.end())
-		m_connection = it->second == "keep->alive" ? true : false;
+	m_size = m_headers.find("Content-Length") != m_headers.end() ? std::stoul(m_headers["Content-Length"]) : 0;
+
+	m_connection = m_headers.find("Connection") != m_headers.end() && m_headers["Connection"] == "keep-alive" ? true : false;
+
+	m_send_type = m_headers.find("Transfer-Encoding") != m_headers.end() && m_headers["Transfer-Encoding"] == "chunked" ? CHUNK : SINGLE;
 
 	/*
 		trim whitespace
@@ -158,8 +159,6 @@ void	Response::parseRequest()
 	}
 
 	if (m_method == POST) {
-		it = m_headers.find("Content-length");
-		m_send_type = it != m_headers.end() ? SINGLE : CHUNK;
 		/*
 			depending on Content-Type
 				application/x-www-form-urlencoded:
