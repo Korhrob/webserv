@@ -34,7 +34,8 @@ class Client
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
 
-		std::unordered_map<std::string, std::string>	formData;
+		std::string										m_boundary;
+		std::unordered_map<std::string, std::string>	m_formData;
 		// std::ofstream								m_output_file;
 
 	public:
@@ -119,16 +120,22 @@ class Client
 			m_pollfd->revents = 0;
 		}
 
+		void	setBoundary(std::string boundary)
+		{
+			m_boundary = boundary;
+		}
+
 		void	setFormData(std::string key, std::string value)
 		{
-			formData.insert_or_assign(key, value);
+			m_formData.insert_or_assign(key, value);
 		}
 
 		void	displayFormData() // for debugging
 		{
-			for (auto& [key, value] : formData)
+			for (auto& [key, value] : m_formData)
 				std::cout << key << "=" << value << "\n";
 		}
+		
 		// void	openFile(const std::string& name)
 		// {
 		// 	m_output_file.open(name, std::ios::out | std::ios::app | std::ios::binary);
