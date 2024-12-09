@@ -70,16 +70,13 @@ bool	Response::readRequest(int fd)
 
 void	Response::parseRequest(std::shared_ptr<Client> client)
 {
-	if (m_request.empty())
-		return;
-
 	size_t	pos = m_request.find('\n');
 
 	if (pos == std::string::npos || pos == std::string::npos - 1) {
-		logError("Invalid request header");
+		logError("Invalid request");
 		return;
 	}
-	// {
+	{
 	std::istringstream	request_line(m_request.substr(0, pos));
 	std::string			version;
 	std::string			method;
@@ -97,7 +94,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		logError("Invalid or missing method");
 		return;
 	}
-	// }
+	}
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::string			line;
 
@@ -115,9 +112,11 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		m_headers.try_emplace(key, value);
 	}
 
-	m_connection = m_headers.find("CONNECTION") != m_headers.end() && m_headers["CONNECTION"] == "keep-alive" ? true : false;
+	if (m_headers.find("CONNECTION") != m_headers.end())
+		m_connection = m_headers["CONNECTION"] == "keep-alive" ? true : false;
 
-	m_send_type = m_headers.find("TRANSFER_ENCODING") != m_headers.end() && m_headers["TRANSFER_ENCODING"] == "chunked" ? CHUNK : SINGLE;
+	if (m_headers.find("TRANSFER_ENCODING") != m_headers.end())
+		m_send_type = m_headers["TRANSFER_ENCODING"] == "chunked" ? CHUNK : SINGLE;
 
 	m_size = m_headers.find("CONTENT_LENGTH") != m_headers.end() ? std::stoul(m_headers["CONTENT_LENGTH"]) : 0;
 
@@ -125,7 +124,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	m_path = m_path.substr(1); // do this better might throw exception
 	if (m_method == GET) {
 		if (m_path.empty())
-				m_path = "index.html";
+			m_path = "index.html";
 
 		const std::vector<std::string> alt { ".html", "/index.html" };
 
@@ -152,18 +151,10 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			std::cerr << e.what() << '\n';
 		}
 	}
-
-	// std::cout << "-- PARSED ---------------------------------------------\n"
-	// << method << " " << m_path << " " << version << "\n";
-	// for (const auto& [key, value] : m_headers) {
-    //     std::cout << key << ":" << value << "\n";
-    // }
-	// std::cout << "-------------------------------------------------------\n";
 	/*
 		check for content-disposition -> name="name" -> open file with the name
 		if chuncked set output_filestream for client
 		set status code
-		make an unordered map for form data (POST)
 	*/
 
 	if (m_method == POST) {
@@ -177,12 +168,12 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				}
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				// file uploads, parse boundary-separated sections, CGI?
+				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+			}
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON using a library or custom parser
 			}
-		} 
-	}
-
+		}
 	if (m_method == DELETE) {
 		/*
 			validate path
