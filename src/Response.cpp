@@ -68,14 +68,28 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
+void	parseMultipart(std::string request, std::shared_ptr<Client> client)
+{
+	(void)client;
+	std::cout << "\n\nMULTIPART PARSING\n";
+	std::cout << request << "\n\n";
+
+
+}
+
 void	Response::parseRequest(std::shared_ptr<Client> client)
 {
 	size_t	pos = m_request.find('\n');
-
 	if (pos == std::string::npos || pos == std::string::npos - 1) {
 		logError("Invalid request");
 		return;
 	}
+	// std::string firstLine = m_request.substr(0, pos);
+	// firstLine.erase(firstLine.find_last_not_of("\r") + 1);
+	// if (firstLine == client->getBoundary()) {
+	// 	parseMultipart(m_request, client);
+	// 	return;
+	// }
 	{
 	std::istringstream	request_line(m_request.substr(0, pos));
 	std::string			version;
@@ -120,7 +134,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 
 	m_size = m_headers.find("CONTENT_LENGTH") != m_headers.end() ? std::stoul(m_headers["CONTENT_LENGTH"]) : 0;
 
-	// if path starts with /cgi-bin/ or ends with .cgi -> invoke CGI handler (GET,POST)
+	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	m_path = m_path.substr(1); // do this better might throw exception
 	if (m_method == GET) {
 		if (m_path.empty())

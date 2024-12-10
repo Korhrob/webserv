@@ -122,7 +122,13 @@ class Client
 
 		void	setBoundary(std::string boundary)
 		{
+			// boundary.erase(boundary.find_last_not_of("\r") + 1);
 			m_boundary = boundary;
+		}
+
+		std::string	getBoundary()
+		{
+			return m_boundary;
 		}
 
 		void	setFormData(std::string key, std::string value)
