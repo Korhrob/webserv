@@ -84,6 +84,8 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		logError("Invalid request");
 		return;
 	}
+	if (client->fileIsOpen())
+		std::cout << "\n\nFILE IS OPEN\n\n";
 	// std::string firstLine = m_request.substr(0, pos);
 	// firstLine.erase(firstLine.find_last_not_of("\r") + 1);
 	// if (firstLine == client->getBoundary()) {
@@ -180,6 +182,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
 				}
+				client->openFile();
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				// file uploads, parse boundary-separated sections, CGI?
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));

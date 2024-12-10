@@ -13,7 +13,7 @@
 #include <chrono> // time
 #include <sstream>
 #include <unordered_map>
-//#include <fstream> // ofstream
+#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
 #include "Const.hpp"
@@ -36,7 +36,7 @@ class Client
 
 		std::string										m_boundary;
 		std::unordered_map<std::string, std::string>	m_formData;
-		// std::ofstream								m_output_file;
+		std::ofstream									m_outputFile;
 
 	public:
 
@@ -52,6 +52,7 @@ class Client
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd->revents & POLLIN; }
 		bool	outgoing() { return m_pollfd->revents & POLLOUT; }
+		bool	fileIsOpen() { return m_outputFile.is_open(); }
 
 		int		fd() { return m_pollfd->fd; }
 		struct pollfd* getPollfd() { return m_pollfd; }
@@ -122,7 +123,6 @@ class Client
 
 		void	setBoundary(std::string boundary)
 		{
-			// boundary.erase(boundary.find_last_not_of("\r") + 1);
 			m_boundary = boundary;
 		}
 
@@ -136,14 +136,19 @@ class Client
 			m_formData.insert_or_assign(key, value);
 		}
 
+		std::string	getFormData(std::string key)
+		{
+			return (m_formData[key]);
+		}
+
 		void	displayFormData() // for debugging
 		{
 			for (auto& [key, value] : m_formData)
 				std::cout << key << "=" << value << "\n";
 		}
 		
-		// void	openFile(const std::string& name)
-		// {
-		// 	m_output_file.open(name, std::ios::out | std::ios::app | std::ios::binary);
-		// }
+		void	openFile()
+		{
+			m_outputFile.open(m_formData["name"], std::ios::out | std::ios::app | std::ios::binary);
+		}
 };
