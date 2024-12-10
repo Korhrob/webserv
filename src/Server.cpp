@@ -4,6 +4,7 @@
 #include "Parse.hpp"
 #include "Response.hpp"
 #include "Const.hpp"
+#include "Config.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -12,13 +13,13 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server(const std::string& ip, int port) 
+Server::Server(const std::string& ip) 
 {
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
 
 	m_address = ip;
-	m_port = port;
+	m_port = m_config.getPort();
 	m_sock_count = 0;
 
 	m_pollfd.resize(m_max_sockets + 1);
