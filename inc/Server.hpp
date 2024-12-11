@@ -16,6 +16,7 @@
 #include "ILog.hpp"
 #include "Client.hpp"
 #include "Const.hpp"
+#include "Config.hpp"
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
@@ -29,7 +30,7 @@ class Server
 		int					m_socket;
 		t_sockaddr_in		m_socket_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		struct pollfd*		m_listener;	// shortcut
+		struct pollfd*		m_listener;	// shortcut (TODO: change to unique ptr)
 
 		int											m_max_backlog = 8;
 		int											m_sock_count;
@@ -37,8 +38,10 @@ class Server
 		std::vector<struct pollfd>					m_pollfd;
 		std::vector<std::shared_ptr<Client>>		m_clients;
 		
+		Config				m_config;
+
 	public:
-		Server(const std::string& ip, int port);
+		Server(const std::string& ip);
 		~Server();
 
 		int		startServer();
