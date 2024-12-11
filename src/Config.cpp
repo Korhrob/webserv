@@ -26,37 +26,56 @@ Config::~Config()
 
 bool	Config::parse(std::ifstream& stream)
 {
-	std::string		node_name;
-	std::string		line;
-	size_t			line_nbr = -1;
+	std::vector<ConfigNode*>	tree;
+	ConfigNode*					temp;
+	std::string					node_name;
+	std::string					line;
+	size_t						line_nbr = 0;
 
 	while(std::getline(stream, line))
 	{
 		line_nbr++;
 
-		// remove comments
-		// trim
+		size_t	comment = line.find("#");
+
+		if (comment != std::string::npos) 
+			line = line.substr(0, comment);
+
+		line = trim(line);
 
 		if (line.empty())
 			continue;
 
 		if (line.back() == '{')
 		{
-			// parse new node here
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
-			m_nodes[node_name] = ConfigNode();
-			//log("new block " + node_name);
+
+			temp = new ConfigNode(node_name);
+
+			if (tree.size() > 0)
+				tree.back()->addChild(node_name, temp);
+			else
+				m_nodes[node_name] = temp;
+
+			tree.push_back(temp);
 			continue;
 		}
+		// if not back != '{' and tree.empty, error
 		else if (line.back() == '}')
 		{
-			// push node to this node
-			//log("end block");
+			tree.pop_back();
 			continue;
 		}
 
 		//log("directive " + line);
+
+		if (tree.size() <= 0)
+		{
+			logError("directive outside of node on line " + std::to_string(line_nbr) + ":");
+			logError(line);
+			return false;
+		}
 
 		std::vector<std::string> directives = parseDirective(line, line_nbr);
 
@@ -65,24 +84,46 @@ bool	Config::parse(std::ifstream& stream)
 
 		std::string	name = directives[0];
 		directives.erase(directives.begin());
-		m_nodes[node_name].addDirective(name, directives);
+		tree.back()->addDirective(name, directives);
+
+		//log("node [" + tree.back()->getName() + "] : " + name);
 
 	} 
 
-	log("parsing config done!");
+	log("parsing config done: ");
+	//log("num base nodes: " + m_nodes.size());
 
-	for (const auto& pair : m_nodes)
+	// really ugly way to print nodes, print entire tree in a clean manner
+	for (auto& pair : m_nodes)
 	{
-		log("-- NODE: [" + pair.first + "] --");
-		ConfigNode	n = pair.second;
-		for (const auto& a : n.getMap())
+		ConfigNode*	n = pair.second;
+		logFile("-- NODE: [" + n->getName() + "] --", "configLog");
+		logFile("directive count: " + std::to_string(n->directiveCount()), "configLog");
+		logFile("child count: " + std::to_string(n->childCount()), "configLog");
+		for (auto& a : n->getMap())
 		{
-			log("key: " + a.first);
+			logFile("key: [" + a.first + "]", "configLog");
 			for (const auto& b : a.second)
 			{
-				log("value: " + b);
+				logFile("value: [" + b + "]", "configLog");
 			}
 		}
+		for (auto& c : n->getChildren())
+		{
+			ConfigNode* child = c.second;
+			logFile("child node: [" + child->getName() + "]", "configLog");
+			logFile("directive count: " + std::to_string(child->directiveCount()), "configLog");
+			logFile("child count: " + std::to_string(child->childCount()), "configLog");
+			for (auto& d : child->getMap())
+			{
+				logFile("key: [" + d.first + "]", "configLog");
+				for (const auto& b : d.second)
+				{
+					logFile("value: [" + b + "]", "configLog");
+				}
+			}
+		}
+		logFile("--", "configLog");
 	}
 
 	return true;
@@ -92,17 +133,22 @@ unsigned int	Config::getPort()
 {
 	if (m_nodes.find("server") == m_nodes.end())
 	{
-		logError("couldn't find server in config!!");
+		logError("config does not contain server block");
 		return 8080; // default
 	}
 
-	ConfigNode	node = m_nodes["server"];
+	ConfigNode*	node = m_nodes["server"];
+	std::vector<std::string>	directive = node->getDirective("listen");
 
-	// if node doesnt contain "listen", return default port
+	if (directive.empty())
+	{
+		logError("server block does not contain listen directive");
+		return 8080; // default
+	}
 
 	try
 	{
-		unsigned int	value = std::stoul(node.getDirective("listen")[0]);
+		unsigned int	value = std::stoul(node->getDirective("listen")[0]);
 		return value;
 	}
 	catch (const std::invalid_argument& e)
@@ -125,7 +171,8 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 
 	if (line.back() != ';')
 	{
-		logError("missing ; on line " + std::to_string(line_nbr) + "!");
+		logError("missing ; on line " + std::to_string(line_nbr) + ":");
+		logError(line);
 		return result;
 	}
 	else
@@ -133,8 +180,7 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 		line = line.substr(0, line.length() - 1);
 	}
 
-	// split by separators ' ' and '\t'
-
+	// split
 	for (char& ch : line)
 	{
 		if (WHITESPACE.find(ch) != std::string::npos)
@@ -167,4 +213,11 @@ std::string	Config::trim(const std::string& str)
 	size_t	last = str.find_last_not_of(WHITESPACE);
 
 	return str.substr(first, last - first + 1);
+}
+
+std::vector<std::string>	Config::findDirective(const std::string& key)
+{
+	// TODO: traverse tree and search for directive
+	(void)key;
+	return std::vector<std::string>();
 }

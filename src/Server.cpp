@@ -46,7 +46,7 @@ Server::~Server()
 
 int	Server::startServer()
 {
-	log("Starting Server on " + m_address + ":" + std::to_string(m_port) + "...");
+	log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
