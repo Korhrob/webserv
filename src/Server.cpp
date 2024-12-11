@@ -4,7 +4,6 @@
 #include "Parse.hpp"
 #include "Response.hpp"
 #include "Const.hpp"
-#include "Config.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -13,13 +12,13 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server(const std::string& ip) 
+Server::Server(const std::string& ip, int port) 
 {
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
 
 	m_address = ip;
-	m_port = m_config.getPort();
+	m_port = port;
 	m_sock_count = 0;
 
 	m_pollfd.resize(m_max_sockets + 1);
@@ -33,6 +32,7 @@ Server::Server(const std::string& ip)
 		m_clients.push_back(client);
 	}
 
+	log("Server constructor done");
 }
 
 Server::~Server()
@@ -45,13 +45,7 @@ Server::~Server()
 
 int	Server::startServer()
 {
-	if (!m_config.isValid())
-	{
-		logError("Error in config file");
-		return 0;
-	}
-
-	log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
+	log("Starting Server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
@@ -156,7 +150,7 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			if (count <= 0)
 				break;
 
-			if (count < UPACKET_SIZE)
+			if (count < PACKET_SIZE)
 				buffer[count] = '\0';
 
 			std::ostringstream	oss;
