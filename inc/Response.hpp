@@ -31,8 +31,8 @@ class Response
 		// int												m_code;
 		size_t											m_size;
 		std::string										m_path;
-		std::string										m_header;
 		std::string										m_body;
+		std::string										m_header;
 		bool											m_success;
 		bool											m_connection;
 

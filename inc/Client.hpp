@@ -151,4 +151,5 @@ class Client
 		{
 			m_outputFile.open(m_formData["name"], std::ios::out | std::ios::app | std::ios::binary);
 		}
+		
 };

@@ -68,13 +68,23 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
-void	parseMultipart(std::string request, std::shared_ptr<Client> client)
+void	parseMultipart(std::string request, std::string boundary, std::shared_ptr<Client> client)
 {
 	(void)client;
 	std::cout << "\n\nMULTIPART PARSING\n";
 	std::cout << request << "\n\n";
 
+	std::istringstream	data(request);
+	std::string			line;
 
+	while (getline(data, line)) {
+		while (!line.empty()) {
+			// content-disposition & content-type
+		}
+		// content
+		if (line == boundary + "\r\n")
+			continue;
+	}
 }
 
 void	Response::parseRequest(std::shared_ptr<Client> client)
@@ -89,7 +99,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	// std::string firstLine = m_request.substr(0, pos);
 	// firstLine.erase(firstLine.find_last_not_of("\r") + 1);
 	// if (firstLine == client->getBoundary()) {
-	// 	parseMultipart(m_request, client);
+	// 	parseMultipart(m_request, client->getBoundary(), client);
 	// 	return;
 	// }
 	{
@@ -168,7 +178,6 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		}
 	}
 	/*
-		check for content-disposition -> name="name" -> open file with the name
 		if chuncked set output_filestream for client
 		set status code
 	*/
