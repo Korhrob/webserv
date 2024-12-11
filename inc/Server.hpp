@@ -30,7 +30,7 @@ class Server
 		int					m_socket;
 		t_sockaddr_in		m_socket_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		struct pollfd*		m_listener;	// shortcut
+		struct pollfd*		m_listener;	// shortcut (TODO: change to unique ptr)
 
 		int											m_max_backlog = 8;
 		int											m_sock_count;

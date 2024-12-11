@@ -12,7 +12,7 @@ Config::Config() : m_valid(false)
 {
 	std::ifstream	file("config");
 
-	if (!file.good())
+	if (!file.is_open() || !file.good())
 		return;
 
 	m_valid = parse(file);
@@ -22,6 +22,11 @@ Config::Config() : m_valid(false)
 
 Config::~Config()
 {
+}
+
+bool	Config::isValid()
+{
+	return m_valid;
 }
 
 bool	Config::parse(std::ifstream& stream)
@@ -68,8 +73,6 @@ bool	Config::parse(std::ifstream& stream)
 			continue;
 		}
 
-		//log("directive " + line);
-
 		if (tree.size() <= 0)
 		{
 			logError("directive outside of node on line " + std::to_string(line_nbr) + ":");
@@ -86,45 +89,9 @@ bool	Config::parse(std::ifstream& stream)
 		directives.erase(directives.begin());
 		tree.back()->addDirective(name, directives);
 
-		//log("node [" + tree.back()->getName() + "] : " + name);
-
 	} 
 
-	log("parsing config done: ");
-	//log("num base nodes: " + m_nodes.size());
-
-	// really ugly way to print nodes, print entire tree in a clean manner
-	for (auto& pair : m_nodes)
-	{
-		ConfigNode*	n = pair.second;
-		logFile("-- NODE: [" + n->getName() + "] --", "configLog");
-		logFile("directive count: " + std::to_string(n->directiveCount()), "configLog");
-		logFile("child count: " + std::to_string(n->childCount()), "configLog");
-		for (auto& a : n->getMap())
-		{
-			logFile("key: [" + a.first + "]", "configLog");
-			for (const auto& b : a.second)
-			{
-				logFile("value: [" + b + "]", "configLog");
-			}
-		}
-		for (auto& c : n->getChildren())
-		{
-			ConfigNode* child = c.second;
-			logFile("child node: [" + child->getName() + "]", "configLog");
-			logFile("directive count: " + std::to_string(child->directiveCount()), "configLog");
-			logFile("child count: " + std::to_string(child->childCount()), "configLog");
-			for (auto& d : child->getMap())
-			{
-				logFile("key: [" + d.first + "]", "configLog");
-				for (const auto& b : d.second)
-				{
-					logFile("value: [" + b + "]", "configLog");
-				}
-			}
-		}
-		logFile("--", "configLog");
-	}
+	log("Config OK");
 
 	return true;
 }

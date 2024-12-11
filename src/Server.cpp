@@ -33,7 +33,6 @@ Server::Server(const std::string& ip)
 		m_clients.push_back(client);
 	}
 
-	log("Server constructor done");
 }
 
 Server::~Server()
@@ -46,6 +45,12 @@ Server::~Server()
 
 int	Server::startServer()
 {
+	if (!m_config.isValid())
+	{
+		logError("Error in config file");
+		return 0;
+	}
+
 	log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
