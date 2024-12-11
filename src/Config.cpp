@@ -131,14 +131,7 @@ bool	Config::parse(std::ifstream& stream)
 
 unsigned int	Config::getPort()
 {
-	if (m_nodes.find("server") == m_nodes.end())
-	{
-		logError("config does not contain server block");
-		return 8080; // default
-	}
-
-	ConfigNode*	node = m_nodes["server"];
-	std::vector<std::string>	directive = node->getDirective("listen");
+	std::vector<std::string> directive = findDirective("listen");
 
 	if (directive.empty())
 	{
@@ -148,7 +141,7 @@ unsigned int	Config::getPort()
 
 	try
 	{
-		unsigned int	value = std::stoul(node->getDirective("listen")[0]);
+		unsigned int	value = std::stoul(directive.front());
 		return value;
 	}
 	catch (const std::invalid_argument& e)
@@ -217,7 +210,11 @@ std::string	Config::trim(const std::string& str)
 
 std::vector<std::string>	Config::findDirective(const std::string& key)
 {
-	// TODO: traverse tree and search for directive
-	(void)key;
+	for (const auto& node : m_nodes)
+	{
+		std::vector<std::string> temp = node.second->findDirective(key);
+		if (!temp.empty())
+			return temp;
+	}
 	return std::vector<std::string>();
 }
