@@ -41,7 +41,7 @@ class Server
 		Config				m_config;
 
 	public:
-		Server(const std::string& ip);
+		Server(const std::string& ip, int port);
 		~Server();
 
 		int		startServer();

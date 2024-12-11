@@ -12,6 +12,7 @@
 #include <fstream>
 #include <filesystem>
 #include <vector>
+#include <regex>
 
 Response::Response(std::shared_ptr<Client> client)
 {
@@ -64,7 +65,7 @@ bool	Response::readRequest(int fd)
 
 	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
-	log(buffer);
+	log(m_request);
 	return true;
 }
 
@@ -94,14 +95,6 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		logError("Invalid request");
 		return;
 	}
-	if (client->fileIsOpen())
-		std::cout << "\n\nFILE IS OPEN\n\n";
-	// std::string firstLine = m_request.substr(0, pos);
-	// firstLine.erase(firstLine.find_last_not_of("\r") + 1);
-	// if (firstLine == client->getBoundary()) {
-	// 	parseMultipart(m_request, client->getBoundary(), client);
-	// 	return;
-	// }
 	{
 	std::istringstream	request_line(m_request.substr(0, pos));
 	std::string			version;
@@ -110,6 +103,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 
 	if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
 		logError("Invalid request line");
+		m_code = 400;
 		return;
 	}
 
@@ -118,40 +112,38 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		m_method = methods[method];
 	} else {
 		logError("Invalid or missing method");
+		m_code = 400;
 		return;
 	}
 	}
 	std::istringstream	request(m_request.substr(pos + 1));
+	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]\r*$)");
 	std::string			line;
+	std::string			key;
+	std::string 		value;
 
-	while (getline(request, line)) {
-		pos = line.find(':');
-		if (pos == std::string::npos)
-			break;
-		std::string	key = line.substr(0, pos);
-		std::string	value(pos + 1 != std::string::npos ? line.substr(pos + 1) : ""); // should this be an error?
-		key.erase(key.find_last_not_of(" \t") + 1);
-		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
-		std::replace(key.begin(), key.end(), '-', '_');
-		value.erase(0, value.find_first_not_of(" \t"));
-		value.erase(value.find_last_not_of("\r") + 1);
-		m_headers.try_emplace(key, value);
+	while (getline(request, line) && (line.find(':') != std::string::npos)) {
+    	if (std::regex_match(line, headerRegex)) {
+			pos = line.find(':');
+			key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
+			std::replace(key.begin(), key.end(), '-', '_');
+			value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" \t"));
+			value.erase(value.find_last_not_of("\r") + 1);
+			m_headers.try_emplace(key, value);
+		} else {
+			m_code = 400; // Bad Request
+			return;
+		}
 	}
 
-	if (m_headers.find("CONNECTION") != m_headers.end())
-		m_connection = m_headers["CONNECTION"] == "keep-alive" ? true : false;
-
-	if (m_headers.find("TRANSFER_ENCODING") != m_headers.end())
-		m_send_type = m_headers["TRANSFER_ENCODING"] == "chunked" ? CHUNK : SINGLE;
-
-	m_size = m_headers.find("CONTENT_LENGTH") != m_headers.end() ? std::stoul(m_headers["CONTENT_LENGTH"]) : 0;
-
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-	m_path = m_path.substr(1); // do this better might throw exception
 	if (m_method == GET) {
 		if (m_path.empty())
-			m_path = "index.html";
+			m_path = "/index.html";
 
+		m_path = m_path.substr(1);
 		const std::vector<std::string> alt { ".html", "/index.html" };
 
 		std::ifstream file(m_path);
@@ -193,6 +185,9 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				}
 				client->openFile();
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
+				std::cout << "IN MULTIPART PARSING\n";
+				while (getline(request, line))
+					std::cout << line << "\n";
 				// file uploads, parse boundary-separated sections, CGI?
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 			}
@@ -227,3 +222,4 @@ std::string	Response::path()
 {
 	return m_path;
 }
+

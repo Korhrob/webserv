@@ -17,7 +17,7 @@ void	handleSigint(int sig)
 
 void	program()
 {
-	Server tcpServer("0.0.0.0");
+	Server tcpServer("0.0.0.0", 8080);
 
 	tcpServer.startServer();
 	is_running = true;
