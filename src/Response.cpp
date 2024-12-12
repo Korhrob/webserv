@@ -105,7 +105,7 @@ void	Response::parseRequest()
 
 		if (m_path.empty())
 			// m_path = "index.html";
-			m_path = "cgi-bin/script.cgi";
+			m_path = "upload.html";
 
 		log("Testing");
 		if (m_path.find("cgi-bin/") == 0)
@@ -177,7 +177,7 @@ void	Response::executeCgiScript()
 
 	// Capture the output from the CGI script
 	char buffer[BUFFER_SIZE];
-	std::ofstream outputFile("/cgi-bin/output.html", std::ios::binary);
+	std::ofstream outputFile("cgi-bin/output.html", std::ios::binary);
 	while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
 	{
 		outputFile.write(buffer, strlen(buffer));
@@ -185,7 +185,7 @@ void	Response::executeCgiScript()
 	outputFile.close();
 	pclose(pipe);
 
-	m_path = "/cgi-bin/output.html";
+	m_path = "cgi-bin/output.html";
 	m_size = std::filesystem::file_size(m_path);
 	std::cout << "Generated file size: " << m_size << " bytes\n";
 }

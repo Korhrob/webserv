@@ -29,7 +29,7 @@ class Client
 		bool				m_alive;
 		struct pollfd*		m_pollfd; // shortcut
 		t_sockaddr_in		m_addr;
-		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
+		// unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int		m_files_sent;
 		t_time				m_last_activity;
 

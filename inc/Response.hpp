@@ -26,7 +26,7 @@ class Response
 		std::string		m_request;
 		e_method		m_method;
 		e_type			m_send_type;
-		int				m_code;
+		// int				m_code;
 		size_t			m_size;
 		std::string		m_path;
 		std::string		m_header;
