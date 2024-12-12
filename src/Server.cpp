@@ -43,12 +43,12 @@ Server::~Server()
 	m_clients.clear();
 }
 
-int	Server::startServer()
+bool	Server::startServer()
 {
 	if (!m_config.isValid())
 	{
 		logError("Error in config file");
-		return 0;
+		return false;
 	}
 
 	log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
@@ -57,7 +57,7 @@ int	Server::startServer()
 	if (m_socket <= 0)
 	{
 		logError("Server failed to open socket!");
-		return 0;
+		return false;
 	}
 
     int opt = 1;
@@ -65,7 +65,7 @@ int	Server::startServer()
     {
         perror("setsockopt failed");
         close(m_socket);
-        return 0;
+        return false;
     }
 
 	m_socket_addr.sin_family = AF_INET;
@@ -76,7 +76,7 @@ int	Server::startServer()
 	{
 		logError("Bind failed");
 		closeServer();
-		return 0;
+		return false;
 	}
 
 	m_listener->fd = m_socket;
@@ -84,7 +84,7 @@ int	Server::startServer()
 	log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
 
-	return 1;
+	return true;
 }
 
 void	Server::closeServer()

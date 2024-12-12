@@ -19,8 +19,7 @@ void	program()
 {
 	Server tcpServer("0.0.0.0");
 
-	tcpServer.startServer();
-	is_running = true;
+	is_running = tcpServer.startServer();
 
 	while (is_running)
 	{

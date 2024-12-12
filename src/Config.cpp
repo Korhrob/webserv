@@ -7,6 +7,7 @@
 #include <fstream>
 #include <ostream>
 #include <vector>
+#include <memory>
 
 Config::Config() : m_valid(false)
 {
@@ -31,8 +32,8 @@ bool	Config::isValid()
 
 bool	Config::parse(std::ifstream& stream)
 {
-	std::vector<ConfigNode*>	tree;
-	ConfigNode*					temp;
+	std::vector<std::shared_ptr<ConfigNode>>	tree;
+	std::shared_ptr<ConfigNode>	temp;
 	std::string					node_name;
 	std::string					line;
 	size_t						line_nbr = 0;
@@ -56,7 +57,7 @@ bool	Config::parse(std::ifstream& stream)
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
 
-			temp = new ConfigNode(node_name);
+			temp = std::make_shared<ConfigNode>(node_name);
 
 			if (tree.size() > 0)
 				tree.back()->addChild(node_name, temp);
@@ -66,19 +67,28 @@ bool	Config::parse(std::ifstream& stream)
 			tree.push_back(temp);
 			continue;
 		}
-		// if not back != '{' and tree.empty, error
 		else if (line.back() == '}')
 		{
+			if (tree.empty())
+			{
+				logError("unexpected end of block on line " + std::to_string(line_nbr) + ":");
+				logError(line);
+				return false;
+			}
 			tree.pop_back();
 			continue;
 		}
+		// if not back != '{' and tree.empty, error
+		// if back == '}' and tree.empty, error
 
-		if (tree.size() <= 0)
+		if (tree.empty())
 		{
-			logError("directive outside of node on line " + std::to_string(line_nbr) + ":");
+			logError("unexpected directive on line " + std::to_string(line_nbr) + ":");
 			logError(line);
 			return false;
 		}
+
+		// should while loop until ';'
 
 		std::vector<std::string> directives = parseDirective(line, line_nbr);
 
@@ -165,6 +175,9 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 
 std::string	Config::trim(const std::string& str)
 {
+	if (str.empty())
+		return str;
+	
 	size_t	first = str.find_first_not_of(WHITESPACE);
 
 	if (first == std::string::npos)
@@ -175,13 +188,13 @@ std::string	Config::trim(const std::string& str)
 	return str.substr(first, last - first + 1);
 }
 
-std::vector<std::string>	Config::findDirective(const std::string& key)
+const std::vector<std::string>&	Config::findDirective(const std::string& key)
 {
 	for (const auto& node : m_nodes)
 	{
-		std::vector<std::string> temp = node.second->findDirective(key);
+		const std::vector<std::string>& temp = node.second->findDirective(key);
 		if (!temp.empty())
 			return temp;
 	}
-	return std::vector<std::string>();
+	return EMPTY_VECTOR;
 }

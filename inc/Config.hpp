@@ -7,6 +7,7 @@
 #include <istream>
 #include <map>
 #include <vector>
+#include <memory>
 
 typedef	std::map<std::string, std::vector<std::string>>	t_string_map;
 
@@ -14,8 +15,8 @@ class Config
 {
 
 private:
-	bool								m_valid;
-	std::map<std::string, ConfigNode*>	m_nodes;
+	bool												m_valid;
+	std::map<std::string, std::shared_ptr<ConfigNode>>	m_nodes;
 
 	// quick acces to often used directives
 
@@ -28,6 +29,6 @@ public:
 	bool						isValid();
 	std::vector<std::string> 	parseDirective(std::string& line, const int &line_nbr);
 	unsigned int				getPort();
-	std::vector<std::string>	findDirective(const std::string& key);
+	const std::vector<std::string>&	findDirective(const std::string& key);
 
 };

@@ -44,7 +44,7 @@ class Server
 		Server(const std::string& ip);
 		~Server();
 
-		int		startServer();
+		bool	startServer();
 		void	closeServer();
 		void	startListen();
 		bool	tryRegisterClient(t_time time);
