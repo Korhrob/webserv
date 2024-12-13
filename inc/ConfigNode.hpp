@@ -7,7 +7,7 @@
 #include <vector>
 #include <memory>
 
-//typedef std::shared_ptr<ConfigNode>	t_node_ptr;
+//typedef std::shared_ptr<ConfigNode>	t_node_ptr; // shortened
 typedef	std::map<std::string, std::vector<std::string>>	t_string_map;
 
 class ConfigNode

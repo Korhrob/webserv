@@ -8,7 +8,7 @@
 
 #include <string>
 #include <algorithm> // min
-#include <sstream> //
+#include <sstream>
 #include <fstream>
 #include <poll.h>
 #include <fcntl.h>
