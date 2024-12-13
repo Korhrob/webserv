@@ -22,7 +22,7 @@ std::string	getHeaderSingle(const size_t& len)
 {
 	std::string	header;
 
-	header = "HTTP/1.1 200 OK\r\n";
+	header = "HTTP/1.1 200 OK\r\n"; // status code
 	header += "Content-Type: text/html\r\n";
 	header += "Content-Length: " + std::to_string(len) + "\r\n";
 	header += "\r\n";

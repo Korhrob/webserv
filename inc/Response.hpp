@@ -3,12 +3,13 @@
 #include "Client.hpp"
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 enum	e_method
 {
 	GET,
-	POST
-	//DELETE
+	POST,
+	DELETE
 	//...
 };
 
@@ -23,21 +24,23 @@ enum	e_type
 class Response
 {
 	private:
-		std::string		m_request;
-		e_method		m_method;
-		e_type			m_send_type;
-		int				m_code;
-		size_t			m_size;
-		std::string		m_path;
-		std::string		m_header;
-		std::string		m_body;
-		bool			m_success;
+		std::string										m_request;
+		e_method										m_method;
+		std::unordered_map<std::string, std::string>	m_headers;
+		e_type											m_send_type;
+		int												m_code;
+		size_t											m_size;
+		std::string										m_path;
+		std::string										m_body;
+		std::string										m_header;
+		bool											m_success;
+		// bool											m_connection;
 
 	public:
 		Response(std::shared_ptr<Client> client);
 
 		bool	readRequest(int fd);
-		void	parseRequest();
+		void	parseRequest(std::shared_ptr<Client> client);
 
 		bool 	getSuccess() { return m_success; }
 		e_type	getSendType() { return m_send_type; }

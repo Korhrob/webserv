@@ -12,7 +12,8 @@
 #include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
-//#include <fstream> // ofstream
+#include <unordered_map>
+#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
 #include "Const.hpp"
@@ -26,14 +27,16 @@ class Client
 {
 
 	private:
-		bool				m_alive;
-		struct pollfd*		m_pollfd; // shortcut
-		t_sockaddr_in		m_addr;
-		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		unsigned int		m_files_sent;
-		t_time				m_last_activity;
+		bool											m_alive;
+		struct pollfd*									m_pollfd; // shortcut
+		t_sockaddr_in									m_addr;
+		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
+		unsigned int									m_files_sent;
+		t_time											m_last_activity;
 
-		//std::ofstream		m_output_file;
+		std::string										m_boundary;
+		std::unordered_map<std::string, std::string>	m_formData;
+		std::ofstream									m_outputFile;
 
 	public:
 
@@ -49,6 +52,7 @@ class Client
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd->revents & POLLIN; }
 		bool	outgoing() { return m_pollfd->revents & POLLOUT; }
+		bool	fileIsOpen() { return m_outputFile.is_open(); }
 
 		int		fd() { return m_pollfd->fd; }
 		struct pollfd* getPollfd() { return m_pollfd; }
@@ -117,4 +121,35 @@ class Client
 			m_pollfd->revents = 0;
 		}
 
+		void	setBoundary(std::string boundary)
+		{
+			m_boundary = boundary;
+		}
+
+		std::string	getBoundary()
+		{
+			return m_boundary;
+		}
+
+		void	setFormData(std::string key, std::string value)
+		{
+			m_formData.insert_or_assign(key, value);
+		}
+
+		std::string	getFormData(std::string key)
+		{
+			return (m_formData[key]);
+		}
+
+		void	displayFormData() // for debugging
+		{
+			for (auto& [key, value] : m_formData)
+				std::cout << key << "=" << value << "\n";
+		}
+		
+		void	openFile()
+		{
+			m_outputFile.open(m_formData["name"], std::ios::out | std::ios::app | std::ios::binary);
+		}
+		
 };
