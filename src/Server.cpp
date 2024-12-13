@@ -126,7 +126,7 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 		return;
 	}
 
-	if (http_response.getStatus() == STATUS_OK)
+	if (http_response.getStatus() == STATUS_BLANK)
 		return ;
 
 	if (http_response.getSendType() == TYPE_SINGLE)
