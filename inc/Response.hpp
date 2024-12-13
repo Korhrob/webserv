@@ -15,17 +15,17 @@ enum	e_method
 
 enum	e_type
 {
-	BLANK,
-	SINGLE,
-	CHUNK,
-	NONE
+	TYPE_BLANK,
+	TYPE_SINGLE,
+	TYPE_CHUNK,
+	TYPE_NONE
 };
 
 enum	e_status
 {
-	BLANK,
-	OK,
-	FAIL
+	STATUS_BLANK,
+	STATUS_OK,
+	STATUS_FAIL
 };
 
 class Response

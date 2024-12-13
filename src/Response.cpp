@@ -15,21 +15,21 @@
 #include <vector>
 #include <regex>
 
-Response::Response(std::shared_ptr<Client> client) : m_size(0), m_status(BLANK)
+Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0)
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
 
 	// client->displayFormData(); // for debugging
 
-	if (m_send_type == NONE)
+	if (m_send_type == TYPE_NONE)
 		return;
 
 	// WRITE HEADER AND BODY
 
 	if (m_size <= PACKET_SIZE)
 	{
-		m_send_type = SINGLE;
+		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
 		m_size = m_body.size();
 		m_header = getHeaderSingle(m_size);
@@ -38,13 +38,13 @@ Response::Response(std::shared_ptr<Client> client) : m_size(0), m_status(BLANK)
 	}
 	else
 	{
-		m_send_type = CHUNK;
+		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
 		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
-	m_status = OK;
+	m_status = STATUS_OK;
 
 }
 
@@ -58,7 +58,7 @@ bool	Response::readRequest(int fd)
 	if (bytes_read <= 0)
 	{
 		logError("Empty or invalid request");
-		m_status = FAIL;
+		m_status = STATUS_FAIL;
 		return false;
 	}
 
@@ -98,27 +98,29 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		logError("Invalid request");
 		return;
 	}
+
 	{
-	std::istringstream	request_line(m_request.substr(0, pos));
-	std::string			version;
-	std::string			method;
-	std::string			rest;
+		std::istringstream	request_line(m_request.substr(0, pos));
+		std::string			version;
+		std::string			method;
+		std::string			rest;
 
-	if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
-		logError("Invalid request line");
-		m_code = 400;
-		return;
+		if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
+			logError("Invalid request line");
+			m_code = 400;
+			return;
+		}
+
+		std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+		if (methods.find(method) != methods.end()) {
+			m_method = methods[method];
+		} else {
+			logError("Invalid or missing method");
+			m_code = 405; // Method Not Allowed
+			return;
+		}
 	}
 
-	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	if (methods.find(method) != methods.end()) {
-		m_method = methods[method];
-	} else {
-		logError("Invalid or missing method");
-		m_code = 405; // Method Not Allowed
-		return;
-	}
-	}
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]\r*$)");
 	std::string			line;
@@ -143,34 +145,34 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
-		if (m_path.empty())
-			m_path = "/index.html";
+	if (m_path.empty())
+		m_path = "/index.html";
 
-		m_path = m_path.substr(1); // do this better
-		const std::vector<std::string> alt { ".html", "/index.html" };
+	m_path = m_path.substr(1); // do this better
+	const std::vector<std::string> alt { ".html", "/index.html" };
 
-		std::ifstream file(m_path);
-		if (!file.good()) // && text/html
+	std::ifstream file(m_path);
+	if (!file.good()) // && text/html
+	{
+		for (auto& it : alt)
 		{
-			for (auto& it : alt)
+			std::string	new_path = m_path + it;
+			log("Try " + new_path);
+			file.clear();
+			file = std::ifstream(new_path);
+			if (file.good())
 			{
-				std::string	new_path = m_path + it;
-				log("Try " + new_path);
-				file.clear();
-				file = std::ifstream(new_path);
-				if (file.good())
-				{
-					m_path = new_path;
-					break;
-				}
+				m_path = new_path;
+				break;
 			}
 		}
-		try {
-			m_size = std::filesystem::file_size(m_path);
-		} catch (const std::exception& e) {
-			m_size = 0;
-			std::cerr << e.what() << '\n';
-		}
+	}
+	try {
+		m_size = std::filesystem::file_size(m_path);
+	} catch (const std::exception& e) {
+		m_size = 0;
+		std::cerr << e.what() << '\n';
+	}
 	// }
 	/*
 		if chuncked set output_filestream for client
