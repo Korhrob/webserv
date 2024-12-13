@@ -29,6 +29,7 @@ class Client
 	private:
 		bool											m_alive;
 		struct pollfd*									m_pollfd; // shortcut
+		int												m_id;
 		t_sockaddr_in									m_addr;
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
@@ -40,7 +41,7 @@ class Client
 
 	public:
 
-		Client(struct pollfd* fd) : m_pollfd(fd)
+		Client(struct pollfd* fd, int id) : m_pollfd(fd), m_id(id)
 		{
 			m_pollfd->fd = -1;
 			m_pollfd->events = POLLIN | POLLOUT;
@@ -149,7 +150,11 @@ class Client
 		
 		void	openFile()
 		{
-			m_outputFile.open(m_formData["name"], std::ios::out | std::ios::app | std::ios::binary);
+			auto now = std::chrono::steady_clock::now();
+			auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     now.time_since_epoch()).count();
+			m_outputFile.open(std::to_string(m_id) + "-" + std::to_string(stamp),
+								std::ios::out | std::ios::app | std::ios::binary);
 		}
 		
 };

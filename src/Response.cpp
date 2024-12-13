@@ -1,4 +1,5 @@
 #include "Response.hpp"
+#include "ConfigNode.hpp"
 #include "Parse.hpp"
 #include "ILog.hpp"
 #include "Const.hpp"
@@ -190,13 +191,13 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				// while (getline(request, line))
 				// 	std::cout << line << "\n";
 				// log("------------------------------------------------------------------------------");
-				client->openFile();
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				// std::cout << "IN MULTIPART PARSING\n";
 				// while (getline(request, line))
 				// 	std::cout << line << "\n";
 				// file uploads, parse boundary-separated sections, CGI?
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+				client->openFile(); // client id + timestamp
 			}
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON using a library or custom parser
