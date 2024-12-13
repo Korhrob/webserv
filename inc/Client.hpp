@@ -37,7 +37,7 @@ class Client
 
 		std::string										m_boundary;
 		std::unordered_map<std::string, std::string>	m_formData;
-		std::ofstream									m_outputFile;
+		std::ofstream									m_file;
 
 	public:
 
@@ -53,7 +53,7 @@ class Client
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd->revents & POLLIN; }
 		bool	outgoing() { return m_pollfd->revents & POLLOUT; }
-		bool	fileIsOpen() { return m_outputFile.is_open(); }
+		bool	fileIsOpen() { return m_file.is_open(); }
 
 		int		fd() { return m_pollfd->fd; }
 		struct pollfd* getPollfd() { return m_pollfd; }
@@ -148,13 +148,16 @@ class Client
 				std::cout << key << "=" << value << "\n";
 		}
 		
-		void	openFile()
+		std::ofstream&	openFile()
 		{
 			auto now = std::chrono::steady_clock::now();
-			auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     now.time_since_epoch()).count();
-			m_outputFile.open(std::to_string(m_id) + "-" + std::to_string(stamp),
-								std::ios::out | std::ios::app | std::ios::binary);
+			auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+			m_file.open(std::to_string(m_id) + "-" + std::to_string(stamp), std::ios::out | std::ios::app | std::ios::binary);
+			return m_file;
 		}
 		
+		std::ofstream&	getFileStream()
+		{
+			return m_file;
+		}
 };

@@ -48,9 +48,10 @@ class Response
 
 		bool	readRequest(int fd);
 		void	parseRequest(std::shared_ptr<Client> client);
+		void	parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 
 		e_status	getStatus() { return m_status; }
-		e_type	getSendType() { return m_send_type; }
+		e_type		getSendType() { return m_send_type; }
 
 		std::string	str();
 		std::string	header();

@@ -55,7 +55,7 @@ bool	Response::readRequest(int fd)
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
-	if (bytes_read <= 0)
+	if (bytes_read <= 0) // bad request tms?
 	{
 		logError("Empty or invalid request");
 		m_status = STATUS_FAIL;
@@ -90,9 +90,47 @@ bool	Response::readRequest(int fd)
 // 	return true;
 // }
 
+void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
+{
+	log("IN MULTIPART PARSING");
+	/*
+		Validate content_length
+		Headers always begin right after the boundary line.
+		Content is always separated from the headers by a blank line (\r\n\r\n).
+		Each part is separated by the boundary, and the last boundary is marked by --boundary-- to indicate the end of the request.
+	*/
+	if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
+		std::string length = m_headers["CONTENT_LENGTH"];
+		if (body.str().size() != std::stoul(length)) {
+			logError("Invalid content length");
+			return;
+		}
+	}
+
+	std::string	boundary = client->getBoundary();
+	std::string	line;
+	size_t		startPos;
+	size_t		endPos;
+
+	startPos = body.str().find(boundary);
+	if (startPos != std::string::npos)
+		startPos += boundary.length() + 2;
+	endPos = body.str().find("\r\n\r\n");
+
+	log("length: " + std::to_string(endPos - startPos));
+	body.str() = body.str().substr(startPos, endPos - startPos);
+
+	log("chopped body\n[" + body.str() + "]");
+	client->getFileStream() << m_request << std::endl;
+	
+}
 
 void	Response::parseRequest(std::shared_ptr<Client> client)
 {
+	// if (client->fileIsOpen()) {
+	// 	parseMultipart(client);
+	// 	return;
+	// }
 	size_t	pos = m_request.find('\n');
 	if (pos == std::string::npos || pos == std::string::npos - 1) {
 		logError("Invalid request");
@@ -195,16 +233,23 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				// log("------------------------------------------------------------------------------");
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				// std::cout << "IN MULTIPART PARSING\n";
-				// while (getline(request, line))
-				// 	std::cout << line << "\n";
-				// file uploads, parse boundary-separated sections, CGI?
+				// client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+				// client->openFile();
+				pos = m_request.find("\r\n\r\n");
+				if (pos == std::string::npos) {
+					logError("Invalid request");
+					return;
+				}
+				std::istringstream body(m_request.substr(pos + 4));
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-				client->openFile(); // client id + timestamp
-			}
+				client->openFile();
+				parseMultipart(client, body);
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON using a library or custom parser
 			}
-		}
+		} // else bad request
+	}
+
 	if (m_method == DELETE) {
 		/*
 			validate path
