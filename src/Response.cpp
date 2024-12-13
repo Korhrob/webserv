@@ -14,19 +14,19 @@
 #include <vector>
 #include <regex>
 
-Response::Response(std::shared_ptr<Client> client)
+Response::Response(std::shared_ptr<Client> client) : m_size(0)
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
 
-	client->displayFormData(); // for debugging
+	// client->displayFormData(); // for debugging
 
 	if (m_send_type == NONE)
 		return;
 
 	// WRITE HEADER AND BODY
 
-	if (m_size < PACKET_SIZE)
+	if (m_size <= PACKET_SIZE)
 	{
 		m_send_type = SINGLE;
 		m_body = getBody(m_path);
@@ -40,7 +40,7 @@ Response::Response(std::shared_ptr<Client> client)
 		m_send_type = CHUNK;
 		m_header = getHeaderChunk();
 
-		log("== CHUNK RESPONSE ==");
+		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
 	m_success = true;
@@ -49,10 +49,8 @@ Response::Response(std::shared_ptr<Client> client)
 
 bool	Response::readRequest(int fd)
 {
-	// read a bit about max request size for HTTP/1.1
-	char	buffer[BUFFER_SIZE];
-	//memset(buffer, 0, BUFFER_SIZE);
-	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
+	char	buffer[PACKET_SIZE];
+	size_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
@@ -69,24 +67,28 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
-void	parseMultipart(std::string request, std::string boundary, std::shared_ptr<Client> client)
-{
-	(void)client;
-	std::cout << "\n\nMULTIPART PARSING\n";
-	std::cout << request << "\n\n";
+// bool	Response::readRequest(int fd)
+// {
+// 	// read a bit about max request size for HTTP/1.1
+// 	char	buffer[BUFFER_SIZE];
+// 	//memset(buffer, 0, BUFFER_SIZE);
+// 	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
 
-	std::istringstream	data(request);
-	std::string			line;
+// 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
-	while (getline(data, line)) {
-		while (!line.empty()) {
-			// content-disposition & content-type
-		}
-		// content
-		if (line == boundary + "\r\n")
-			continue;
-	}
-}
+// 	if (bytes_read <= 0)
+// 	{
+// 		logError("Empty or invalid request");
+// 		m_success = false;
+// 		return false;
+// 	}
+
+// 	buffer[bytes_read] = '\0';
+// 	m_request = std::string(buffer, bytes_read);
+// 	log(m_request);
+// 	return true;
+// }
+
 
 void	Response::parseRequest(std::shared_ptr<Client> client)
 {
@@ -112,7 +114,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		m_method = methods[method];
 	} else {
 		logError("Invalid or missing method");
-		m_code = 400;
+		m_code = 405; // Method Not Allowed
 		return;
 	}
 	}
@@ -139,11 +141,11 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-	if (m_method == GET) {
+	// if (m_method == GET) {
 		if (m_path.empty())
 			m_path = "/index.html";
 
-		m_path = m_path.substr(1);
+		m_path = m_path.substr(1); // do this better
 		const std::vector<std::string> alt { ".html", "/index.html" };
 
 		std::ifstream file(m_path);
@@ -168,7 +170,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			m_size = 0;
 			std::cerr << e.what() << '\n';
 		}
-	}
+	// }
 	/*
 		if chuncked set output_filestream for client
 		set status code
@@ -179,15 +181,20 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
 				// Parse key-value pairs from the body to a map
 				while (getline(request, line, '&')) {
+					// std::cout << line << "\n";
 					pos = line.find('=');
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
 				}
+				// log("-------------------------------- BODY ----------------------------------------");
+				// while (getline(request, line))
+				// 	std::cout << line << "\n";
+				// log("------------------------------------------------------------------------------");
 				client->openFile();
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-				std::cout << "IN MULTIPART PARSING\n";
-				while (getline(request, line))
-					std::cout << line << "\n";
+				// std::cout << "IN MULTIPART PARSING\n";
+				// while (getline(request, line))
+				// 	std::cout << line << "\n";
 				// file uploads, parse boundary-separated sections, CGI?
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 			}
