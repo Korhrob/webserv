@@ -3,21 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Form</title>
+    <title>Form Submission</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 300px;
+        }
+        form input, form button {
+            margin-bottom: 10px;
+            padding: 8px;
+            font-size: 16px;
+        }
+        .message {
+            font-size: 18px;
+            color: green;
+        }
+    </style>
 </head>
 <body>
-    <h1>Simple Form Example</h1>
-    <form action="/submit.php" method="POST">
-        <label for="name">Name:</label><br>
-        <input type="text" id="name" name="name" required><br><br>
+    <div id="content">
+        <form id="myForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
 
-        <label for="email">Email:</label><br>
-        <input type="email" id="email" name="email" required><br><br>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
 
-        <label for="message">Message:</label><br>
-        <textarea id="message" name="message" rows="4" cols="50" required></textarea><br><br>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
 
-        <button type="submit">Submit</button>
-    </form>
+    <script>
+		// Javascript
+        document.getElementById('myForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission behavior
+
+            // Optionally, send the data to a server (asynchronous example)
+            const formData = new FormData(event.target);
+            fetch('/submit-form', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Replace the form with a thank you message
+                    document.getElementById('content').innerHTML = `
+                        <div class="message">Thank you for your submission!</div>
+                    `;
+                } else {
+                    // Handle errors (optional)
+                    alert('Something went wrong. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting form:', error);
+                alert('Unable to submit form. Please try again.');
+            });
+
+            // For demonstration purposes (if server interaction is not needed)
+            // Replace the form with a thank you message directly
+            // document.getElementById('content').innerHTML = `
+            //     <div class="message">Thank you for your submission!</div>
+            // `;
+        });
+    </script>
 </body>
 </html>

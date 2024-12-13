@@ -119,22 +119,22 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 {
 	Response	http_response(client);
 
-	if (http_response.getStatus() == FAIL)
+	if (http_response.getStatus() == STATUS_FAIL)
 	{
 		logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
-	if (http_response.getStatus() == OK)
+	if (http_response.getStatus() == STATUS_OK)
 		return ;
 
-	if (http_response.getSendType() == SINGLE)
+	if (http_response.getSendType() == TYPE_SINGLE)
 	{
 		client->respond(http_response.str());
 		//m_sockets[id].revents = POLLOUT;
 	}
-	else if (http_response.getSendType() == CHUNK)
+	else if (http_response.getSendType() == TYPE_CHUNK)
 	{
 		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
