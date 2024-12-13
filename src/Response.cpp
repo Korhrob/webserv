@@ -14,7 +14,7 @@
 #include <vector>
 #include <regex>
 
-Response::Response(std::shared_ptr<Client> client) : m_size(0)
+Response::Response(std::shared_ptr<Client> client) : m_size(0), m_status(BLANK)
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
@@ -43,7 +43,7 @@ Response::Response(std::shared_ptr<Client> client) : m_size(0)
 		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
-	m_success = true;
+	m_status = OK;
 
 }
 
@@ -57,7 +57,7 @@ bool	Response::readRequest(int fd)
 	if (bytes_read <= 0)
 	{
 		logError("Empty or invalid request");
-		m_success = false;
+		m_status = FAIL;
 		return false;
 	}
 
@@ -79,7 +79,7 @@ bool	Response::readRequest(int fd)
 // 	if (bytes_read <= 0)
 // 	{
 // 		logError("Empty or invalid request");
-// 		m_success = false;
+// 		m_status = FAIL;
 // 		return false;
 // 	}
 

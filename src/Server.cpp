@@ -119,12 +119,15 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 {
 	Response	http_response(client);
 
-	if (!http_response.getSuccess())
+	if (http_response.getStatus() == FAIL)
 	{
 		logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
+
+	if (http_response.getStatus() == OK)
+		return ;
 
 	if (http_response.getSendType() == SINGLE)
 	{

@@ -21,11 +21,19 @@ enum	e_type
 	NONE
 };
 
+enum	e_status
+{
+	BLANK,
+	OK,
+	FAIL
+};
+
 class Response
 {
 	private:
 		std::string										m_request;
 		e_method										m_method;
+		e_status										m_status;
 		std::unordered_map<std::string, std::string>	m_headers;
 		e_type											m_send_type;
 		int												m_code;
@@ -33,7 +41,6 @@ class Response
 		std::string										m_path;
 		std::string										m_body;
 		std::string										m_header;
-		bool											m_success;
 		// bool											m_connection;
 
 	public:
@@ -42,7 +49,7 @@ class Response
 		bool	readRequest(int fd);
 		void	parseRequest(std::shared_ptr<Client> client);
 
-		bool 	getSuccess() { return m_success; }
+		e_status	getStatus() { return m_status; }
 		e_type	getSendType() { return m_send_type; }
 
 		std::string	str();
