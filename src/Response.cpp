@@ -14,7 +14,7 @@
 #include <vector>
 #include <regex>
 
-Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0)
+Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0), m_body(""), m_header("")
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
