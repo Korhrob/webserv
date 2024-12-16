@@ -261,3 +261,8 @@ void	Server::update()
 	handleEvents();
 
 }
+
+Config&	Server::getConfig()
+{
+	return m_config;
+}

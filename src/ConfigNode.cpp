@@ -29,3 +29,16 @@ const std::vector<std::string>&	ConfigNode::findDirective(const std::string& key
 	}
 	return EMPTY_VECTOR;
 }
+
+const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
+{
+	if (m_children.find(key) != m_children.end())
+		return m_children[key];
+	for (const auto& child : m_children)
+	{
+		const std::shared_ptr<ConfigNode> temp = child.second->findNode(key);
+		if (temp != nullptr)
+			return temp;
+	}
+	return nullptr;
+}

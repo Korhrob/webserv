@@ -1,9 +1,13 @@
 server {
 	listen		8080;
 	server_name	qwerty.com www.qwerty.com;
-	root		/www;
 
 	location / {
 		try_files $uri $uri/ =404;
+		root		/www;
+	}
+
+	location /images/ {
+		root		/www/images;
 	}
 }

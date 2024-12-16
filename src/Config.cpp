@@ -57,6 +57,15 @@ bool	Config::parse(std::ifstream& stream)
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
 
+			// if node name starts with "location", we treat node as the path
+			// ex. "location /" becomes "/"
+			if (node_name.find("location") != std::string::npos)
+			{
+				node_name = node_name.substr(9);
+				node_name = trim(node_name);
+				log("location node = [" + node_name + "]");
+			}
+
 			temp = std::make_shared<ConfigNode>(node_name);
 
 			if (tree.size() > 0)
@@ -99,9 +108,12 @@ bool	Config::parse(std::ifstream& stream)
 		directives.erase(directives.begin());
 		tree.back()->addDirective(name, directives);
 
-	} 
+	}
 
 	log("Config OK");
+
+	if (findNode("/") != nullptr)
+		log("location / (root) found!");
 
 	return true;
 }
@@ -197,4 +209,17 @@ const std::vector<std::string>&	Config::findDirective(const std::string& key)
 			return temp;
 	}
 	return EMPTY_VECTOR;
+}
+
+const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
+{
+	if (m_nodes.find(key) != m_nodes.end())
+		return m_nodes[key];
+	for (const auto& node : m_nodes)
+	{
+		const std::shared_ptr<ConfigNode> temp = node.second->findNode(key);
+		if (temp != nullptr)
+			return temp;
+	}
+	return nullptr;
 }

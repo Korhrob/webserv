@@ -28,7 +28,7 @@ class Client
 
 	private:
 		bool											m_alive;
-		struct pollfd*									m_pollfd; // shortcut
+		struct pollfd*									m_pollfd;
 		t_sockaddr_in									m_addr;
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
