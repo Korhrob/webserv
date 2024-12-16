@@ -25,20 +25,20 @@ class Server
 {
 
 	private:
+		Config				m_config;
 		std::string			m_address;
 		int					m_port;
 		int					m_socket;
 		t_sockaddr_in		m_socket_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		struct pollfd*		m_listener;	// alias
 
-		int											m_max_backlog = 8;
+		int											m_max_backlog = 512;
 		int											m_sock_count;
-		int											m_max_sockets = 16;	// get from config
+		int											m_max_sockets = 512;	// events { worker_connections}
 		std::vector<struct pollfd>					m_pollfd;
 		std::vector<std::shared_ptr<Client>>		m_clients;
+		struct pollfd&								m_listener;	// alias
 		
-		Config				m_config;
 
 	public:
 		Server(const std::string& ip, int port);

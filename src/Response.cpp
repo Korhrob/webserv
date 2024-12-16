@@ -144,10 +144,12 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
-	if (m_path.empty())
+
+	if (m_path.empty() || m_path == "/")
 		m_path = "/index.html";
 
-	m_path = m_path.substr(1); // do this better
+	m_path = m_path.substr(1);
+
 	const std::vector<std::string> alt { ".html", "/index.html" };
 
 	std::ifstream file(m_path);
