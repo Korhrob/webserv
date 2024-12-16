@@ -9,15 +9,12 @@
 #include <vector>
 #include <memory>
 
-
 class Config
 {
 
 private:
 	bool			m_valid;
 	NodeMap			m_nodes;
-
-	// quick acces to often used directives
 
 public:
 	Config();

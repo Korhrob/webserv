@@ -6,11 +6,12 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 
 class ConfigNode;
 
-using NodeMap = std::map<std::string, std::shared_ptr<ConfigNode>>;
-using DirectiveMap = std::map<std::string, std::vector<std::string>>;
+using NodeMap = std::unordered_map<std::string, std::shared_ptr<ConfigNode>>;
+using DirectiveMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class ConfigNode
 {
