@@ -148,16 +148,21 @@ class Client
 				std::cout << key << "=" << value << "\n";
 		}
 		
-		std::ofstream&	openFile()
+		std::ofstream&	openFile(std::string name)
 		{
-			auto now = std::chrono::steady_clock::now();
-			auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-			m_file.open(std::to_string(m_id) + "-" + std::to_string(stamp), std::ios::out | std::ios::app | std::ios::binary);
+			// auto now = std::chrono::steady_clock::now();
+			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+			m_file.open(std::to_string(m_id) + "-" + name, std::ios::out | std::ios::app | std::ios::binary);
 			return m_file;
 		}
 		
 		std::ofstream&	getFileStream()
 		{
 			return m_file;
+		}
+
+		void	closeFile()
+		{
+			m_file.close();
 		}
 };
