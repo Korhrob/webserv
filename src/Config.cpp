@@ -113,7 +113,16 @@ bool	Config::parse(std::ifstream& stream)
 	log("Config OK");
 
 	if (findNode("/") != nullptr)
+	{
 		log("location / (root) found!");
+		
+	}
+
+	std::vector<std::string> t;
+
+	if (tryGetDirective("root", t)) {
+		log("found root");
+	}
 
 	return true;
 }
@@ -222,4 +231,16 @@ const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
 			return temp;
 	}
 	return nullptr;
+}
+
+/// @brief assign directive[key] to out and return true if it isn't empty
+/// @param key directive key
+/// @param out output directive
+/// @return true or false
+bool	Config::tryGetDirective(const std::string&key, std::vector<std::string>& out)
+{
+	out = findDirective(key);
+	if (!out.empty())
+		return true;
+	return false;
 }

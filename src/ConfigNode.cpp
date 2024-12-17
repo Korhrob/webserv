@@ -42,3 +42,11 @@ const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
 	}
 	return nullptr;
 }
+
+bool	ConfigNode::tryGetDirective(const std::string&key, std::vector<std::string>& out)
+{
+	out = findDirective(key);
+	if (!out.empty())
+		return true;
+	return false;
+}

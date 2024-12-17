@@ -30,8 +30,9 @@ Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_s
 	{
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
+		if (!m_body.empty())
 		m_size = m_body.size();
-		m_header = getHeaderSingle(m_size);
+		m_header = getHeaderSingle(m_size, m_code);
 
 		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
@@ -58,6 +59,7 @@ bool	Response::readRequest(int fd)
 	{
 		logError("Empty or invalid request");
 		m_status = STATUS_FAIL;
+		m_code = 404;
 		return false;
 	}
 
@@ -170,8 +172,10 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 	try {
 		m_size = std::filesystem::file_size(m_path);
+		m_code = 200;
 	} catch (const std::exception& e) {
 		m_size = 0;
+		m_code = 404;
 		std::cerr << e.what() << '\n';
 	}
 	// }
