@@ -4,7 +4,4 @@ server {
     location / {
         root /var/www/html;
     }
-    location / {
-        root /var/www/different-html;
-    }
 }
