@@ -24,6 +24,7 @@ public:
 	void								addDirective(std::string key, std::vector<std::string> value);
 	void								addChild(std::string key, std::shared_ptr<ConfigNode> node);
 	const std::vector<std::string>&		findDirective(const std::string& key);
+	// findDirectiveInChildren;
 	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 

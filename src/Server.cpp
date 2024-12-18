@@ -30,7 +30,6 @@ Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m
 		m_clients.push_back(client);
 	}
 
-	log("Server constructor done");
 }
 
 Server::~Server()

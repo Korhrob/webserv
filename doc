@@ -23,6 +23,10 @@ Parsing:
 
 	Config
 		- read config file on server startup, initialize server variables (check NGINX)
+		- check for invalid directive names
+		- check variables $
+		- check potentially empty directives     ) ;# Incorrect closing brace
+		- validate listen port (numerical value)
 
 CGI:
 	- idk
