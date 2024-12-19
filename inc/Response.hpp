@@ -38,10 +38,10 @@ class Response
 		int												m_code;
 		e_status										m_status;
 		std::unordered_map<std::string, std::string>	m_headers;
+		std::string										m_header;
 		std::string										m_body;
 		e_type											m_send_type;
 		size_t											m_size;
-		std::string										m_header;
 		// bool											m_connection;
 
 	public:
