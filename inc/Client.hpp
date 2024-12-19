@@ -184,17 +184,17 @@ class Client
 			m_file.close();
 		}
 
-		void	addMultipartData(std::string name, int type, std::string value)
+		void	addMultipartData(std::string key, int type, std::string value)
 		{
 			switch (type) {
 				case FILENAME:
-					m_multipartData[name].filename = value;
+					m_multipartData[key].filename = value;
 					break;
 				case CONTENT_TYPE:
-					m_multipartData[name].contentType = value;
+					m_multipartData[key].contentType = value;
 					break;
 				case CONTENT:
-					m_multipartData[name].content.append(value);
+					m_multipartData[key].content.append(value);
 			}
 		}
 

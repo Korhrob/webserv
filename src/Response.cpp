@@ -81,7 +81,7 @@ bool	Response::readRequest(int fd)
 
 void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
 {
-	log("IN MULTIPART PARSING");
+	// log("IN MULTIPART PARSING");
 	/*
 		Validate content_length
 		Headers always begin right after the boundary line.
@@ -89,7 +89,7 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
 	*/
 	std::string	boundary(client->getBoundary());
-	std::string name;
+	std::string	name;
 	size_t		startPos;
 	size_t		endPos;
 
@@ -149,9 +149,9 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		return;
 
 	std::istringstream	request(m_request.substr(pos + 1));
-	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
 	std::string			key;
-	std::string 		value;
+	std::string			value;
 
 	for (std::string line; getline(request, line);) {
 		if (line.back() == '\r')
@@ -178,9 +178,6 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		m_path = "/index.html";
 		
 	m_path = m_path.substr(1);
-
-
-	//m_path = m_path.substr(1);
 
 	const std::vector<std::string> alt { ".html", "/index.html" };
 
@@ -231,18 +228,20 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		}
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
 				// Parse key-value pairs from the body to a map
+				// Convert url-encoded values
 				for (std::string line; getline(request, line, '&');) {
 					pos = line.find('=');
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
+					// client->displayFormData();
 				}
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
-				log("PARSED MULTIPART DATA");
-				client->displayMultipartData();
+				// log("PARSED MULTIPART DATA");
+				// client->displayMultipartData();
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
-				// Parse the body as JSON using a library or custom parser
+				// Parse the body as JSON
 			// }
 		} // else bad request
 	}
@@ -287,4 +286,3 @@ std::string	Response::path()
 {
 	return m_path;
 }
-
