@@ -86,13 +86,6 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		Content is always separated from the headers by a blank line (\r\n\r\n).
 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
 	*/
-	if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
-		std::string length = m_headers["CONTENT_LENGTH"];
-		if (body.str().size() != std::stoul(length)) {
-			logError("Invalid content length");
-			return;
-		}
-	}
 	std::string	boundary = client->getBoundary();
 	std::string name;
 	std::string key;
@@ -151,34 +144,33 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 
 	{
-		std::istringstream	request_line(m_request.substr(0, pos));
-		std::string			version;
-		std::string			method;
-		std::string			rest;
+	std::istringstream	request_line(m_request.substr(0, pos));
+	std::string			version;
+	std::string			method;
+	std::string			rest;
 
-		if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
-			logError("Invalid request line");
-			m_code = 400;
-			return;
-		}
+	if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
+		logError("Invalid request line");
+		m_code = 400;
+		return;
+	}
 
-		std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-		if (methods.find(method) != methods.end()) {
-			m_method = methods[method];
-		} else {
-			logError("Invalid or missing method");
-			m_code = 405; // Method Not Allowed
-			return;
-		}
+	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+	if (methods.find(method) != methods.end()) {
+		m_method = methods[method];
+	} else {
+		logError("Invalid or missing method");
+		m_code = 405; // Method Not Allowed
+		return;
+	}
 	}
 
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
-	std::string			line;
 	std::string			key;
 	std::string 		value;
 
-	while (getline(request, line)) {
+	for (std::string line; getline(request, line);) {
 		if (line.back() == '\r')
 			line.pop_back();
 		if (line.empty())
@@ -189,7 +181,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
 			std::replace(key.begin(), key.end(), '-', '_');
 			value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
+			value.erase(0, value.find_first_not_of(" ")); // optional leading & trailing whitespace
 			m_headers.try_emplace(key, value);
 		} else {
 			m_code = 400; // Bad Request
@@ -233,10 +225,29 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	*/
 
 	if (m_method == POST) {
-		if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
+		// if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
+		std::istringstream	body;
+		pos = m_request.find("\r\n\r\n");
+		if (pos != std::string::npos) {
+			body.str(m_request.substr(pos + 4));
+			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
+				std::string length = m_headers["CONTENT_LENGTH"];
+				if (body.str().size() != std::stoul(length)) {
+					logError("Invalid content length");
+					// m_code = 
+					return;
+				}
+			}
+		}
+			// pos = m_request.find("\r\n\r\n");
+			// 	if (pos == std::string::npos) {
+			// 		logError("Invalid request");
+			// 		return;
+			// 	}
+				// std::istringstream body(m_request.substr(pos + 4));
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
 				// Parse key-value pairs from the body to a map
-				while (getline(request, line, '&')) {
+				for (std::string line; getline(request, line, '&');) {
 					// std::cout << line << "\n";
 					pos = line.find('=');
 					if (pos != std::string::npos)
@@ -247,17 +258,11 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				// 	std::cout << line << "\n";
 				// log("------------------------------------------------------------------------------");
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-				pos = m_request.find("\r\n\r\n");
-				if (pos == std::string::npos) {
-					logError("Invalid request");
-					return;
-				}
-				std::istringstream body(m_request.substr(pos + 4));
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON using a library or custom parser
-			}
+			// }
 		} // else bad request
 	}
 
