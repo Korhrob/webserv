@@ -8,6 +8,7 @@
 #include <ostream>
 #include <vector>
 #include <memory>
+#include <algorithm> // std::find
 
 Config::Config() : m_valid(false)
 {
@@ -57,6 +58,22 @@ bool	Config::parse(std::ifstream& stream)
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
 
+			// if node name starts with "location", we treat node as the path
+			// ex. "location /" becomes "/"
+			if (node_name.find("location") != std::string::npos)
+			{
+				node_name = node_name.substr(9);
+				node_name = trim(node_name);
+				log("location node = [" + node_name + "]");
+			}
+
+			if (findNode(node_name) != nullptr)
+			{
+				logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
+				logError(line);
+				return false;
+			}
+
 			temp = std::make_shared<ConfigNode>(node_name);
 
 			if (tree.size() > 0)
@@ -96,12 +113,65 @@ bool	Config::parse(std::ifstream& stream)
 			return false;
 
 		std::string	name = directives[0];
+
+		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), name);
+
+		if (it == VALID_DIRECTIVES.end())
+		{
+			logError(name + " is not a valid directive, line " + std::to_string(line_nbr) + ":");
+			logError(line);
+			return false;
+		}
+
+		if (!tree.back()->findDirective(name).empty())
+		{
+			logError("duplicate directive " + name + " on line " + std::to_string(line_nbr) + ":");
+			logError(line);
+			return false;
+		}
+
 		directives.erase(directives.begin());
 		tree.back()->addDirective(name, directives);
 
-	} 
+	}
 
-	log("Config OK");
+	if (!tree.empty())
+	{
+		logError("unexpected end of file, missing } somewhere");
+		return false;
+	}
+
+	std::shared_ptr<ConfigNode>	serverNode = findNode("server");
+	if (serverNode == nullptr)
+	{
+		logError("missing server node");
+		return false;
+	}
+
+	std::vector<std::string> d;
+	for (auto& str : MANDATORY_DIRECTIVES)
+	{
+		if (!serverNode->tryGetDirective(str, d))
+		{
+			logError("missing mandatory directive '" + str + "'");
+			return false;
+		}
+	}
+
+	//log("Config OK");
+
+	// some test functions
+	// if (findNode("/") != nullptr)
+	// {
+	// 	log("location / (root) found!");
+		
+	// }
+
+	// std::vector<std::string> t;
+
+	// if (tryGetDirective("root", t)) {
+	// 	log("found root");
+	// }
 
 	return true;
 }
@@ -197,4 +267,29 @@ const std::vector<std::string>&	Config::findDirective(const std::string& key)
 			return temp;
 	}
 	return EMPTY_VECTOR;
+}
+
+const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
+{
+	if (m_nodes.find(key) != m_nodes.end())
+		return m_nodes[key];
+	for (const auto& node : m_nodes)
+	{
+		const std::shared_ptr<ConfigNode> temp = node.second->findNode(key);
+		if (temp != nullptr)
+			return temp;
+	}
+	return nullptr;
+}
+
+/// @brief assign directive[key] to out and return true if it isn't empty
+/// @param key directive key
+/// @param out output directive
+/// @return true or false
+bool	Config::tryGetDirective(const std::string&key, std::vector<std::string>& out)
+{
+	out = findDirective(key);
+	if (!out.empty())
+		return true;
+	return false;
 }

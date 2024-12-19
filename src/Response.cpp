@@ -24,7 +24,16 @@ struct s_part {
 using part = s_part;
 using multipart = std::unordered_map<std::string, part>;
 
-Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0)
+struct s_part {
+	std::string	filename;
+	std::string	content_type;
+	std::string	content;
+};
+
+using part = s_part;
+using multipart = std::unordered_map<std::string, part>;
+
+Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0), m_body(""), m_header("")
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
@@ -40,8 +49,9 @@ Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_s
 	{
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
+		if (!m_body.empty())
 		m_size = m_body.size();
-		m_header = getHeaderSingle(m_size);
+		m_header = getHeaderSingle(m_size, m_code);
 
 		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
@@ -68,6 +78,7 @@ bool	Response::readRequest(int fd)
 	{
 		logError("Empty or invalid request");
 		m_status = STATUS_FAIL;
+		m_code = 404;
 		return false;
 	}
 
@@ -183,6 +194,12 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
 	m_path = m_path.substr(1);
+
+	if (m_path.empty() || m_path == "/")
+		m_path = "/index.html";
+
+	//m_path = m_path.substr(1);
+
 	const std::vector<std::string> alt { ".html", "/index.html" };
 
 	std::ifstream file(m_path);
@@ -203,8 +220,10 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 	try {
 		m_size = std::filesystem::file_size(m_path);
+		m_code = 200;
 	} catch (const std::exception& e) {
 		m_size = 0;
+		m_code = 404;
 		std::cerr << e.what() << '\n';
 	}
 	// }

@@ -3,5 +3,5 @@
 #include <string>
 
 std::string	getBody(const std::string& path);
-std::string	getHeaderSingle(const size_t& len);
+std::string	getHeaderSingle(const size_t& len, int ecode);
 std::string	getHeaderChunk();

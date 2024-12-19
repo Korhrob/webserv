@@ -12,7 +12,7 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server(const std::string& ip, int port) 
+Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
 {
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
@@ -21,18 +21,15 @@ Server::Server(const std::string& ip, int port)
 	m_port = port;
 	m_sock_count = 0;
 
-	m_pollfd.resize(m_max_sockets + 1);
-
+	//m_pollfd.resize(m_max_sockets + 1);
 	m_pollfd[0] = { m_socket, POLLIN, 0 };
-	m_listener = &m_pollfd[0];
 
 	for (int i = 0; i < m_max_sockets; i++)
 	{
-		auto client = std::make_shared<Client>(&m_pollfd[i + 1], i);
+		auto client = std::make_shared<Client>(m_pollfd[i + 1], i);
 		m_clients.push_back(client);
 	}
 
-	log("Server constructor done");
 }
 
 Server::~Server()
@@ -79,7 +76,7 @@ bool	Server::startServer()
 		return false;
 	}
 
-	m_listener->fd = m_socket;
+	m_listener.fd = m_socket;
 
 	log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
@@ -218,7 +215,7 @@ void	Server::handleClients()
 		}
 	}
 
-	if (!(m_listener->revents & POLLIN))
+	if (!(m_listener.revents & POLLIN))
 		return;
 
 	if (m_sock_count >= m_max_sockets)
@@ -226,7 +223,7 @@ void	Server::handleClients()
 
 	tryRegisterClient(time);
 
-	m_listener->revents = 0;
+	m_listener.revents = 0;
 }
 
 void	Server::handleEvents()
@@ -260,4 +257,9 @@ void	Server::update()
 	handleClients();
 	handleEvents();
 
+}
+
+Config&	Server::getConfig()
+{
+	return m_config;
 }
