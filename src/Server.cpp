@@ -247,7 +247,7 @@ void	Server::handleEvents()
 
 void	Server::update()
 {
-	int	r = poll(m_pollfd.data(), m_max_sockets, 5000);
+	int	r = poll(m_pollfd.data(), m_pollfd.size(), 5000);
 
 	// could handle timeouts here
 
@@ -256,6 +256,11 @@ void	Server::update()
 
 	handleClients();
 	handleEvents();
+
+	// for (int i = m_max_sockets + 1; i < m_pollfd.size(); i++)
+	// {
+
+	// }
 
 }
 

@@ -24,16 +24,7 @@ struct s_part {
 using part = s_part;
 using multipart = std::unordered_map<std::string, part>;
 
-struct s_part {
-	std::string	filename;
-	std::string	content_type;
-	std::string	content;
-};
-
-using part = s_part;
-using multipart = std::unordered_map<std::string, part>;
-
-Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_size(0), m_body(""), m_header("")
+Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	if (readRequest(client->fd()))
 		parseRequest(client);
@@ -193,10 +184,11 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
-	m_path = m_path.substr(1);
-
 	if (m_path.empty() || m_path == "/")
 		m_path = "/index.html";
+		
+	m_path = m_path.substr(1);
+
 
 	//m_path = m_path.substr(1);
 
