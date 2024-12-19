@@ -23,6 +23,22 @@ typedef std::chrono::steady_clock::time_point t_time;
 
 // TODO: move inline function to their own .cpp file
 
+struct s_part {
+	std::string	filename;
+	std::string	contentType;
+	std::string	content;
+};
+
+using t_part = s_part;
+using multipart = std::unordered_map<std::string, t_part>;
+
+enum	e_multipart
+{
+	FILENAME,
+	CONTENT_TYPE,
+	CONTENT
+};
+
 class Client
 {
 
@@ -36,6 +52,7 @@ class Client
 		t_time											m_last_activity;
 
 		std::string										m_boundary;
+		multipart										m_multipartData;
 		std::unordered_map<std::string, std::string>	m_formData;
 		std::ofstream									m_file;
 
@@ -166,4 +183,34 @@ class Client
 		{
 			m_file.close();
 		}
+
+		void	addMultipartData(std::string name, int type, std::string value)
+		{
+			switch (type) {
+				case FILENAME:
+					m_multipartData[name].filename = value;
+					break;
+				case CONTENT_TYPE:
+					m_multipartData[name].contentType = value;
+					break;
+				case CONTENT:
+					m_multipartData[name].content.append(value);
+			}
+		}
+
+		std::string	getFilename(std::string name) { return m_multipartData[name].filename; }
+
+		std::string	getContentType(std::string name) { return m_multipartData[name].contentType; }
+
+		std::string	getContent(std::string name) { return m_multipartData[name].content; }
+
+		void	displayMultipartData()
+		{
+			for (auto [key, value]: m_multipartData) {
+			log("key: " + key);
+			log("filename: " + value.filename);
+			log("content-type: " + value.contentType);
+			log("content: " + value.content);
+		}
+	}
 };

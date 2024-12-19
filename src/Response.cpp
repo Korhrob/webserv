@@ -15,14 +15,14 @@
 #include <vector>
 #include <regex>
 
-struct s_part {
-	std::string	filename;
-	std::string	content_type;
-	std::string	content;
-};
+// struct s_part {
+// 	std::string	filename;
+// 	std::string	content_type;
+// 	std::string	content;
+// };
 
-using part = s_part;
-using multipart = std::unordered_map<std::string, part>;
+// using part = s_part;
+// using multipart = std::unordered_map<std::string, part>;
 
 Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
@@ -88,11 +88,8 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		Content is always separated from the headers by a blank line (\r\n\r\n).
 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
 	*/
-	std::string	boundary = client->getBoundary();
+	std::string	boundary(client->getBoundary());
 	std::string name;
-	std::string key;
-	std::string	value;
-	multipart	parsedData;
 	size_t		startPos;
 	size_t		endPos;
 
@@ -104,35 +101,28 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		if (line == boundary + "--")
 			break;
 		if (line.find("Content-Disposition") != std::string::npos) {
-				startPos = line.find("name=\"");
+			startPos = line.find("name=\"");
 			if (startPos != std::string::npos) {
 				startPos += 6;
 				endPos = line.find("\"", startPos);
 				name = line.substr(startPos, endPos - startPos);
-				parsedData[name];
 			}
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
-				parsedData[name].filename = line.substr(startPos, endPos - startPos);
-				client->openFile(parsedData[name].filename);
+				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+				client->openFile(client->getFilename(name));
 			}
 		} else if (line.find("Content-Type: ") != std::string::npos) {
 			startPos = line.find("Content-Type: ") + 14;
-			parsedData[name].content_type = line.substr(startPos);
+			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
 		} else {
-			if (parsedData[name].filename.empty())
-				parsedData[name].content = line;
+			if (client->getFilename(name).empty())
+				client->addMultipartData(name, CONTENT, line);
 			else
 				client->getFileStream() << line << "\n";
 		}
-	}
-	for (auto [key, value]: parsedData) {
-		log("key: " + key);
-		log("filename: " + value.filename);
-		log("content-type: " + value.content_type);
-		log("content: " + value.content);
 	}
 	client->closeFile();
 }
@@ -249,6 +239,8 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
+				log("PARSED MULTIPART DATA");
+				client->displayMultipartData();
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON using a library or custom parser
 			// }
