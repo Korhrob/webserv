@@ -152,7 +152,7 @@ class Client
 		{
 			// auto now = std::chrono::steady_clock::now();
 			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-			m_file.open(std::to_string(m_id) + "-" + name, std::ios::out | std::ios::app | std::ios::binary);
+			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
 			return m_file;
 		}
 		

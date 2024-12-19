@@ -143,27 +143,18 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		return;
 	}
 
-	{
 	std::istringstream	request_line(m_request.substr(0, pos));
-	std::string			version;
 	std::string			method;
-	std::string			rest;
+	std::string			extra;
 
-	if (!(request_line >> method >> m_path >> version) || request_line >> rest || version != "HTTP/1.1") {
+	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
 		logError("Invalid request line");
 		m_code = 400;
 		return;
 	}
 
-	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	if (methods.find(method) != methods.end()) {
-		m_method = methods[method];
-	} else {
-		logError("Invalid or missing method");
-		m_code = 405; // Method Not Allowed
+	if (!setMethod(method))
 		return;
-	}
-	}
 
 	std::istringstream	request(m_request.substr(pos + 1));
 	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
@@ -181,7 +172,8 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
 			std::replace(key.begin(), key.end(), '-', '_');
 			value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" ")); // optional leading & trailing whitespace
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
 			m_headers.try_emplace(key, value);
 		} else {
 			m_code = 400; // Bad Request
@@ -190,10 +182,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
-	if (m_path.empty())
-		m_path = "/index.html";
-
-	m_path = m_path.substr(1); // do this better
+	m_path = m_path.substr(1);
 	const std::vector<std::string> alt { ".html", "/index.html" };
 
 	std::ifstream file(m_path);
@@ -239,24 +228,13 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 				}
 			}
 		}
-			// pos = m_request.find("\r\n\r\n");
-			// 	if (pos == std::string::npos) {
-			// 		logError("Invalid request");
-			// 		return;
-			// 	}
-				// std::istringstream body(m_request.substr(pos + 4));
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
 				// Parse key-value pairs from the body to a map
 				for (std::string line; getline(request, line, '&');) {
-					// std::cout << line << "\n";
 					pos = line.find('=');
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
 				}
-				// log("-------------------------------- BODY ----------------------------------------");
-				// while (getline(request, line))
-				// 	std::cout << line << "\n";
-				// log("------------------------------------------------------------------------------");
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
@@ -271,6 +249,19 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			validate path
 			delete resource identified by the path
 		*/
+	}
+}
+
+bool	Response::setMethod(std::string method)
+{
+	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+	if (methods.find(method) != methods.end()) {
+		m_method = methods[method];
+		return true;
+	} else {
+		logError("Invalid or missing method");
+		m_code = 405; // Method Not Allowed
+		return false;
 	}
 }
 
