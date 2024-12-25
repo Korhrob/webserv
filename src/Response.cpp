@@ -189,7 +189,6 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		
 	m_path = m_path.substr(1);
 
-
 	//m_path = m_path.substr(1);
 
 	const std::vector<std::string> alt { ".html", "/index.html" };

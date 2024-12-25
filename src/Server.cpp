@@ -17,8 +17,10 @@ Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
 
+	(void)port;
+
 	m_address = ip;
-	m_port = port;
+	m_port = m_config.getPort();
 	m_sock_count = 0;
 
 	//m_pollfd.resize(m_max_sockets + 1);
@@ -58,7 +60,7 @@ bool	Server::startServer()
 	}
 
     int opt = 1;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
         perror("setsockopt failed");
         close(m_socket);
@@ -174,7 +176,9 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 
 bool	Server::tryRegisterClient(t_time time)
 {
+	
 	t_sockaddr_in client_addr = {};
+	m_addr_len = sizeof(client_addr);
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
 	if (client_fd < 0)
