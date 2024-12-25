@@ -149,8 +149,17 @@ class Client
 			return m_boundary;
 		}
 
+		std::string	hexToChar(std::string hex)
+		{
+			return std::to_string(stoi(hex, nullptr, 16));
+		}
+
 		void	setFormData(std::string key, std::string value)
 		{
+			size_t	pos;
+			while ((pos = value.find('%') != std::string::npos))
+				value.replace(pos, 3, hexToChar(value.substr(pos + 1, 2)));
+
 			m_formData.insert_or_assign(key, value);
 		}
 
