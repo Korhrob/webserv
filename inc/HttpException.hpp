@@ -21,22 +21,22 @@ class HttpException : public std::exception {
         }
 
         static HttpException    invalidRequestLine() {
-            return HttpException(400, "400 Invalid Request Line");
+            return HttpException(400, "Invalid Request Line");
         }
 
         static HttpException    notImplemented() {
-            return HttpException(501, "501 Not Implemented");
+            return HttpException(501, "Not Implemented");
         }
 
         static HttpException    httpVersionNotSupported() {
-            return HttpException(505, "505 HTTP Version Not Supported");
+            return HttpException(505, "HTTP Version Not Supported");
         }
 
         static HttpException    notFound() {
-            return HttpException(404, "404 Not Found");
+            return HttpException(404, "Not Found");
         }
 
         static HttpException    badRequest() {
-            return HttpException(400, "400 Bad Request");
+            return HttpException(400, "Bad Request");
         }
 };

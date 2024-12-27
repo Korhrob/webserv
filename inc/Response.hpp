@@ -38,6 +38,7 @@ class Response
 		std::string										m_path;
 		std::string										m_version;
 		int												m_code;
+		std::string										m_msg = "OK";
 		e_status										m_status;
 		std::unordered_map<std::string, std::string>	m_headers;
 		std::string										m_header;

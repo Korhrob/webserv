@@ -24,7 +24,7 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 		} catch (HttpException& e) {
 			log(e.what());
 			m_code = e.getStatusCode();
-			// m_status = e.what(); 
+			m_msg = e.what(); 
 		}
 	}
 
@@ -39,7 +39,7 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 		m_body = getBody(m_path);
 		if (!m_body.empty())
 		m_size = m_body.size();
-		m_header = getHeaderSingle(m_size, m_code);
+		m_header = getHeaderSingle(m_size, m_code, m_msg);
 
 		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
