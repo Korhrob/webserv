@@ -24,10 +24,9 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 		} catch (HttpException& e) {
 			log(e.what());
 			m_code = e.getStatusCode();
+			// m_status = e.what(); 
 		}
 	}
-
-	// client->displayFormData(); // for debugging
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -125,27 +124,41 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 	client->closeFile();
 }
 
-void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+void	Response::parseHeaders(std::string str)
 {
-	size_t	pos = m_request.find('\n');
-	if (pos == std::string::npos || pos == std::string::npos - 1)
-		throw HttpException::invalidRequestLine();
+	std::istringstream	headers(str);
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
 
-	std::istringstream	request_line(m_request.substr(0, pos));
-	std::string			method;
-	std::string			extra;
+	for (std::string line; getline(headers, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (std::regex_match(line, headerRegex)) {
+			size_t pos = line.find(':');
+			std::string key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
+			std::replace(key.begin(), key.end(), '-', '_');
+			std::string value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
+			m_headers.try_emplace(key, value);
+		} else
+			throw HttpException::badRequest();
+	}
+}
 
-	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra)
-		throw HttpException::invalidRequestLine();
-
-	validateMethod(method);
-	validateVersion();
+void	Response::validatePath(Config& config)
+{
 	sanitizePath();
 
 	std::vector<std::string>	out;
+
 	config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory?
+	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory should this throw an exception?
+	
 	m_path = m_path.substr(1);
+
 	std::ifstream	file(m_path);
 
 	if (!file.good()) {
@@ -171,77 +184,68 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 		m_code = 404;
 		std::cerr << e.what() << '\n';
 	}
+}
 
-	std::istringstream	request(m_request.substr(pos + 1));
-	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
-	std::string			key;
-	std::string			value;
+void	Response::parseRequestLine(std::string line, Config& config)
+{
+	std::istringstream	requestLine(line);
+	std::string			method;
+	std::string			extra;
 
-	for (std::string line; getline(request, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty())
+	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
+		throw HttpException::invalidRequestLine();
+
+	validateVersion();
+	validateMethod(method);
+	validatePath(config);
+}
+
+void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+{
+	size_t	requestLine = m_request.find('\n');
+	if (requestLine == std::string::npos)
+		throw HttpException::invalidRequestLine();
+
+	parseRequestLine(m_request.substr(0, requestLine), config);
+	
+	size_t	headers = m_request.find("\r\n\r\n");
+	if (headers == std::string::npos)
+		throw HttpException::badRequest();
+
+	parseHeaders(m_request.substr(requestLine + 1, headers - requestLine));
+
+	switch (m_method) {
+		case GET:
 			break;
-    	if (std::regex_match(line, headerRegex)) {
-			pos = line.find(':');
-			key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
-			std::replace(key.begin(), key.end(), '-', '_');
-			value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
-			value.erase(value.find_last_not_of(" ") + 1);
-			m_headers.try_emplace(key, value);
-		} else {
-			throw HttpException::badRequest();
-		}
-	}
-	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-	// if (m_method == GET) {}
-	/*
-		if chuncked set output_filestream for client
-		set status code
-	*/
-
-	if (m_method == POST) {
-		// if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
-		std::istringstream	body;
-		pos = m_request.find("\r\n\r\n");
-		if (pos != std::string::npos) {
-			body.str(m_request.substr(pos + 4));
+		case POST: {
+			std::istringstream	body(m_request.substr(headers + 4));
 			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
 				std::string length = m_headers["CONTENT_LENGTH"];
-				if (body.str().size() != std::stoul(length)) {
-					logError("Invalid content length");
-					// m_code = 
-					return;
-				}
+				if (body.str().size() != std::stoul(length))
+					throw HttpException::badRequest();
 			}
-		}
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
-				// Parse key-value pairs from the body to a map
-				// Convert url-encoded values
-				for (std::string line; getline(request, line, '&');) {
-					pos = line.find('=');
+				for (std::string line; getline(body, line, '&');) {
+					size_t pos = line.find('=');
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
-					// client->displayFormData();
 				}
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-				parseMultipart(client, body);
-				// log("PARSED MULTIPART DATA");
-				// client->displayMultipartData();
+					client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+					parseMultipart(client, body);
+					client->displayMultipartData();
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON
-			// }
-		} // else bad request
-	}
-
-	if (m_method == DELETE) {
-		/*
-			validate path
-			delete resource identified by the path
-		*/
+			}
+			else 
+				throw HttpException::badRequest();
+			}
+		case DELETE: {
+			// delete resource identified by the path
+			break;
+		}
+		// with certain file extension specified in the config file invoke CGI handler (GET,POST)
+		// if chuncked set output_filestream for client
 	}
 }
 
@@ -284,4 +288,9 @@ std::string	Response::header()
 std::string	Response::path()
 {
 	return m_path;
+}
+
+size_t Response::size()
+{
+	return m_size;
 }

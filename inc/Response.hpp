@@ -46,16 +46,18 @@ class Response
 		size_t											m_size;
 		// bool											m_connection;
 
-	public:
-		Response(std::shared_ptr<Client> client, Config& config);
-
 		bool		readRequest(int fd);
 		void		parseRequest(std::shared_ptr<Client> client, Config& config);
-		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
-
+		void		parseRequestLine(std::string requestLine, Config& config);
+		void		parseHeaders(std::string str);
 		void		validateMethod(std::string method);
 		void		validateVersion();
+		void		validatePath(Config& config);
 		void		sanitizePath();
+		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+
+	public:
+		Response(std::shared_ptr<Client> client, Config& config);
 
 		e_status	getStatus() { return m_status; }
 		e_type		getSendType() { return m_send_type; }
@@ -64,6 +66,6 @@ class Response
 		std::string	header();
 		std::string	body();
 		std::string	path();
-		size_t		size() { return m_size; }
+		size_t		size();
 
 };
