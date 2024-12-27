@@ -76,130 +76,6 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
-void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
-{
-	// log("IN MULTIPART PARSING");
-	/*
-		Validate content_length
-		Headers always begin right after the boundary line.
-		Content is always separated from the headers by a blank line (\r\n\r\n).
-		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
-	*/
-	std::string	boundary(client->getBoundary());
-	std::string	name;
-	size_t		startPos;
-	size_t		endPos;
-
-	for (std::string line; getline(body, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty() || line == boundary)
-			continue;
-		if (line == boundary + "--")
-			break;
-		if (line.find("Content-Disposition") != std::string::npos) {
-			startPos = line.find("name=\"");
-			if (startPos != std::string::npos) {
-				startPos += 6;
-				endPos = line.find("\"", startPos);
-				name = line.substr(startPos, endPos - startPos);
-			}
-			startPos = line.find("filename=\"");
-			if (startPos != std::string::npos) {
-				startPos += 10;
-				endPos = line.find("\"", startPos);
-				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
-				client->openFile(client->getFilename(name));
-			}
-		} else if (line.find("Content-Type: ") != std::string::npos) {
-			startPos = line.find("Content-Type: ") + 14;
-			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
-		} else {
-			if (client->getFilename(name).empty())
-				client->addMultipartData(name, CONTENT, line);
-			else
-				client->getFileStream() << line << "\n";
-		}
-	}
-	client->closeFile();
-}
-
-void	Response::parseHeaders(std::string str)
-{
-	std::istringstream	headers(str);
-	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
-
-	for (std::string line; getline(headers, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty())
-			break;
-    	if (std::regex_match(line, headerRegex)) {
-			size_t pos = line.find(':');
-			std::string key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
-			std::replace(key.begin(), key.end(), '-', '_');
-			std::string value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
-			value.erase(value.find_last_not_of(" ") + 1);
-			m_headers.try_emplace(key, value);
-		} else
-			throw HttpException::badRequest();
-	}
-}
-
-void	Response::validatePath(Config& config)
-{
-	sanitizePath();
-
-	std::vector<std::string>	out;
-
-	config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory should this throw an exception?
-	
-	m_path = m_path.substr(1);
-
-	std::ifstream	file(m_path);
-
-	if (!file.good()) {
-		config.tryGetDirective("index", out);
-		for (std::string idx: out) {
-			std::string newPath = m_path + idx;
-			file.clear();
-			file = std::ifstream(newPath);
-			if (file.good())
-			{
-				m_path = newPath;
-				break;
-			}
-		}
-	}
-	if (!file.good())
-		throw HttpException::notFound();
-	try {
-		m_size = std::filesystem::file_size(m_path);
-		m_code = 200;
-	} catch (const std::exception& e) {
-		m_size = 0;
-		m_code = 404;
-		std::cerr << e.what() << '\n';
-	}
-}
-
-void	Response::parseRequestLine(std::string line, Config& config)
-{
-	std::istringstream	requestLine(line);
-	std::string			method;
-	std::string			extra;
-
-	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
-		throw HttpException::invalidRequestLine();
-
-	validateVersion();
-	validateMethod(method);
-	validatePath(config);
-}
-
 void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 {
 	size_t	requestLine = m_request.find('\n');
@@ -247,6 +123,130 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 		// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 		// if chuncked set output_filestream for client
 	}
+}
+
+void	Response::parseRequestLine(std::string line, Config& config)
+{
+	std::istringstream	requestLine(line);
+	std::string			method;
+	std::string			extra;
+
+	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
+		throw HttpException::invalidRequestLine();
+
+	validateVersion();
+	validateMethod(method);
+	validatePath(config);
+}
+
+void	Response::validatePath(Config& config)
+{
+	sanitizePath();
+
+	std::vector<std::string>	out;
+
+	config.tryGetDirective("root", out);
+	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory should this throw an exception?
+	
+	m_path = m_path.substr(1);
+
+	std::ifstream	file(m_path);
+
+	if (!file.good()) {
+		config.tryGetDirective("index", out);
+		for (std::string idx: out) {
+			std::string newPath = m_path + idx;
+			file.clear();
+			file = std::ifstream(newPath);
+			if (file.good())
+			{
+				m_path = newPath;
+				break;
+			}
+		}
+	}
+	if (!file.good())
+		throw HttpException::notFound();
+	try {
+		m_size = std::filesystem::file_size(m_path);
+		m_code = 200;
+	} catch (const std::exception& e) {
+		m_size = 0;
+		m_code = 404;
+		std::cerr << e.what() << '\n';
+	}
+}
+
+void	Response::parseHeaders(std::string str)
+{
+	std::istringstream	headers(str);
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+
+	for (std::string line; getline(headers, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (std::regex_match(line, headerRegex)) {
+			size_t pos = line.find(':');
+			std::string key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
+			std::replace(key.begin(), key.end(), '-', '_');
+			std::string value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
+			m_headers.try_emplace(key, value);
+		} else
+			throw HttpException::badRequest();
+	}
+}
+
+void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
+{
+	// log("IN MULTIPART PARSING");
+	/*
+		Validate content_length
+		Headers always begin right after the boundary line.
+		Content is always separated from the headers by a blank line (\r\n\r\n).
+		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
+	*/
+	std::string	boundary(client->getBoundary());
+	std::string	name;
+	size_t		startPos;
+	size_t		endPos;
+
+	for (std::string line; getline(body, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty() || line == boundary)
+			continue;
+		if (line == boundary + "--")
+			break;
+		if (line.find("Content-Disposition") != std::string::npos) {
+			startPos = line.find("name=\"");
+			if (startPos != std::string::npos) {
+				startPos += 6;
+				endPos = line.find("\"", startPos);
+				name = line.substr(startPos, endPos - startPos);
+			}
+			startPos = line.find("filename=\"");
+			if (startPos != std::string::npos) {
+				startPos += 10;
+				endPos = line.find("\"", startPos);
+				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+				client->openFile(client->getFilename(name));
+			}
+		} else if (line.find("Content-Type: ") != std::string::npos) {
+			startPos = line.find("Content-Type: ") + 14;
+			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
+		} else {
+			if (client->getFilename(name).empty())
+				client->addMultipartData(name, CONTENT, line);
+			else
+				client->getFileStream() << line << "\n";
+		}
+	}
+	client->closeFile();
 }
 
 void	Response::validateVersion()
