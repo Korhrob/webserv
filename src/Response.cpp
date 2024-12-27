@@ -15,15 +15,6 @@
 #include <vector>
 #include <regex>
 
-// struct s_part {
-// 	std::string	filename;
-// 	std::string	content_type;
-// 	std::string	content;
-// };
-
-// using part = s_part;
-// using multipart = std::unordered_map<std::string, part>;
-
 Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	if (readRequest(client->fd()))
