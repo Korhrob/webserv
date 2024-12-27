@@ -1,1 +1,6 @@
 .vscode
+server
+obj/
+test.cpp
+a.out
+file1
