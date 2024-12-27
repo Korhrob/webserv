@@ -29,8 +29,7 @@ struct s_part {
 	std::string	content;
 };
 
-using t_part = s_part;
-using multipart = std::unordered_map<std::string, t_part>;
+using multipart = std::unordered_map<std::string, s_part>;
 
 enum	e_multipart
 {
@@ -149,17 +148,18 @@ class Client
 			return m_boundary;
 		}
 
-		std::string	hexToChar(std::string hex)
+		char	hexToChar(std::string hex)
 		{
-			return std::to_string(stoi(hex, nullptr, 16));
+			return stoi(hex, nullptr, 16);
 		}
 
 		void	setFormData(std::string key, std::string value)
 		{
-			size_t	pos;
-			while ((pos = value.find('%') != std::string::npos))
-				value.replace(pos, 3, hexToChar(value.substr(pos + 1, 2)));
-
+			while (value.find('%') != std::string::npos) {
+				size_t pos = value.find('%');
+				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
+				value.erase(pos + 1, 3);
+			}
 			m_formData.insert_or_assign(key, value);
 		}
 
