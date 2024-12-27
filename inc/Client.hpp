@@ -160,6 +160,7 @@ class Client
 				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
 				value.erase(pos + 1, 3);
 			}
+			replace(value.begin(), value.end(), '+', ' ');
 			m_formData.insert_or_assign(key, value);
 		}
 
