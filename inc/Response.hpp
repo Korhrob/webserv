@@ -53,15 +53,12 @@ class Response
 		void		parseRequest(std::shared_ptr<Client> client, Config& config);
 		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 
-		bool		setMethod(std::string method);
+		void		validateMethod(std::string method);
+		void		validateVersion();
+		void		sanitizePath();
 
 		e_status	getStatus() { return m_status; }
 		e_type		getSendType() { return m_send_type; }
-
-		bool		version();
-		bool		pathIsDirectory();
-
-		void		sanitizePath();
 
 		std::string	str();
 		std::string	header();

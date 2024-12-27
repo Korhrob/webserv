@@ -1,4 +1,5 @@
 #include "Response.hpp"
+#include "HttpException.hpp"
 #include "ConfigNode.hpp"
 #include "Parse.hpp"
 #include "ILog.hpp"
@@ -17,8 +18,14 @@
 
 Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
-	if (readRequest(client->fd()))
-		parseRequest(client, config);
+	if (readRequest(client->fd())) {
+		try {
+			parseRequest(client, config);
+		} catch (HttpException& e) {
+			log(e.what());
+			m_code = e.getStatusCode();
+		}
+	}
 
 	// client->displayFormData(); // for debugging
 
@@ -120,28 +127,21 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 
 void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 {
-	(void)config;
-
 	size_t	pos = m_request.find('\n');
-	if (pos == std::string::npos || pos == std::string::npos - 1) {
-		logError("Invalid request");
-		return;
-	}
+	if (pos == std::string::npos || pos == std::string::npos - 1)
+		throw HttpException::invalidRequestLine();
 
 	std::istringstream	request_line(m_request.substr(0, pos));
 	std::string			method;
 	std::string			extra;
 
-	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
-		logError("Invalid request line");
-		m_code = 400;
-		return;
-	}
+	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra)
+		throw HttpException::invalidRequestLine();
 
-	if (!setMethod(method))
-		return;
-
+	validateMethod(method);
+	validateVersion();
 	sanitizePath();
+
 	std::vector<std::string>	out;
 	config.tryGetDirective("root", out);
 	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory?
@@ -161,10 +161,8 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 			}
 		}
 	}
-	if (!file.good()) {
-		m_code = 404; // not found
-		return;
-	}
+	if (!file.good())
+		throw HttpException::notFound();
 	try {
 		m_size = std::filesystem::file_size(m_path);
 		m_code = 200;
@@ -194,8 +192,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 			value.erase(value.find_last_not_of(" ") + 1);
 			m_headers.try_emplace(key, value);
 		} else {
-			m_code = 200; // Bad Request
-			return;
+			throw HttpException::badRequest();
 		}
 	}
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
@@ -248,30 +245,18 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	}
 }
 
-bool	Response::version()
+void	Response::validateVersion()
 {
-	if (m_version == "HTTP/1.1")
-		return true;
-	m_code = 505; // HTTP Version Not Supported
-	return false;
+	if (m_version != "HTTP/1.1")
+		throw HttpException::httpVersionNotSupported();
 }
 
-bool	Response::setMethod(std::string method)
+void	Response::validateMethod(std::string method)
 {
 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	if (methods.find(method) != methods.end()) {
-		m_method = methods[method];
-		return true;
-	} else {
-		logError("Invalid or missing method");
-		m_code = 501; // Not Implemented
-		return false;
-	}
-}
-
-bool	Response::pathIsDirectory()
-{
-	return (m_path.back() == '/');
+	if (methods.find(method) == methods.end())
+		throw HttpException::notImplemented();
+	m_method = methods[method];
 }
 
 void	Response::sanitizePath()
