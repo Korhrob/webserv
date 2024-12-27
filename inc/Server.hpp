@@ -34,7 +34,7 @@ class Server
 
 		int											m_max_backlog = 512;
 		int											m_sock_count;
-		int											m_max_sockets = 512;	// events { worker_connections}
+		int											m_max_sockets = 200;	// events { worker_connections}
 		std::vector<struct pollfd>					m_pollfd;
 		std::vector<std::shared_ptr<Client>>		m_clients;
 		struct pollfd&								m_listener;	// alias
