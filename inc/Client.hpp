@@ -169,12 +169,6 @@ class Client
 			return (m_formData[key]);
 		}
 
-		void	displayFormData() // for debugging
-		{
-			for (auto& [key, value] : m_formData)
-				std::cout << key << "=" << value << "\n";
-		}
-		
 		std::ofstream&	openFile(std::string name)
 		{
 			// auto now = std::chrono::steady_clock::now();
@@ -208,19 +202,35 @@ class Client
 			}
 		}
 
-		std::string	getFilename(std::string name) { return m_multipartData[name].filename; }
+		std::string	getFilename(std::string name)
+		{
+			return m_multipartData[name].filename;
+		}
 
-		std::string	getContentType(std::string name) { return m_multipartData[name].contentType; }
+		std::string	getContentType(std::string name)
+		{
+			return m_multipartData[name].contentType;
+		}
 
-		std::string	getContent(std::string name) { return m_multipartData[name].content; }
+		std::string	getContent(std::string name)
+		{
+			return m_multipartData[name].content;
+		}
 
-		void	displayMultipartData()
+		void	displayMultipartData() // debugging
 		{
 			for (auto [key, value]: m_multipartData) {
 			log("key: " + key);
 			log("filename: " + value.filename);
 			log("content-type: " + value.contentType);
 			log("content: " + value.content);
+			}
 		}
-	}
+
+		void	displayFormData() // debugging
+		{
+			for (auto& [key, value] : m_formData)
+				std::cout << key << "=" << value << "\n";
+		}
+		
 };
