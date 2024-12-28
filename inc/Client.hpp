@@ -29,7 +29,7 @@ struct s_part {
 	std::string	content;
 };
 
-using multipart = std::unordered_map<std::string, s_part>;
+using multipartMap = std::unordered_map<std::string, s_part>;
 
 enum	e_multipart
 {
@@ -37,6 +37,14 @@ enum	e_multipart
 	CONTENT_TYPE,
 	CONTENT
 };
+
+struct jsonValue {
+    std::variant<std::string, double, bool, std::nullptr_t, 
+                 std::map<std::string, jsonValue>, 
+                 std::vector<jsonValue>> value;
+};
+
+using jsonMap = std::unordered_map<std::string, jsonValue>;
 
 class Client
 {
@@ -51,8 +59,9 @@ class Client
 		t_time											m_last_activity;
 
 		std::string										m_boundary;
-		multipart										m_multipartData;
 		std::unordered_map<std::string, std::string>	m_formData;
+		multipartMap									m_multipartData;
+		jsonMap											m_jsonData;
 		std::ofstream									m_file;
 
 	public:
@@ -153,14 +162,8 @@ class Client
 			return stoi(hex, nullptr, 16);
 		}
 
-		void	setFormData(std::string key, std::string value)
+		void	addFormData(std::string key, std::string value)
 		{
-			while (value.find('%') != std::string::npos) {
-				size_t pos = value.find('%');
-				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
-				value.erase(pos + 1, 3);
-			}
-			replace(value.begin(), value.end(), '+', ' ');
 			m_formData.insert_or_assign(key, value);
 		}
 
