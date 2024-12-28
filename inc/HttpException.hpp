@@ -20,8 +20,16 @@ class HttpException : public std::exception {
             return m_statusCode;
         }
 
-        static HttpException    invalidRequestLine() {
-            return HttpException(400, "Invalid Request Line");
+        static HttpException    badRequest() {
+            return HttpException(400, "Bad Request");
+        }
+
+        static HttpException    notFound() {
+            return HttpException(404, "Not Found");
+        }
+
+        static HttpException    unsupportedMediaType() {
+            return HttpException(415, "Unsupported Media Type");
         }
 
         static HttpException    notImplemented() {
@@ -30,13 +38,5 @@ class HttpException : public std::exception {
 
         static HttpException    httpVersionNotSupported() {
             return HttpException(505, "HTTP Version Not Supported");
-        }
-
-        static HttpException    notFound() {
-            return HttpException(404, "Not Found");
-        }
-
-        static HttpException    badRequest() {
-            return HttpException(400, "Bad Request");
         }
 };
