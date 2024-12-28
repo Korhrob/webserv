@@ -55,7 +55,9 @@ class Response
 		void		validateVersion();
 		void		validatePath(Config& config);
 		void		normalizePath();
+		void		parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+		void		parseJson(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:
 		Response(std::shared_ptr<Client> client, Config& config);

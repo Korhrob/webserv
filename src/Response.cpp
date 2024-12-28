@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <vector>
 #include <regex>
+#include <variant>
 
 Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
@@ -80,7 +81,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 {
 	size_t	requestLine = m_request.find('\n');
 	if (requestLine == std::string::npos)
-		throw HttpException::invalidRequestLine();
+		throw HttpException::badRequest();
 
 	parseRequestLine(m_request.substr(0, requestLine), config);
 	
@@ -100,21 +101,17 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 				if (body.str().size() != std::stoul(length))
 					throw HttpException::badRequest();
 			}
-			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
-				for (std::string line; getline(body, line, '&');) {
-					size_t pos = line.find('=');
-					if (pos != std::string::npos)
-						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
-				}
-			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-					client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-					parseMultipart(client, body);
-					client->displayMultipartData();
+			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded")
+				parseUrlencoded(client, body);
+			else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
+				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+				parseMultipart(client, body);
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON
+				
 			}
 			else 
-				throw HttpException::badRequest();
+				throw HttpException::unsupportedMediaType();
 			}
 		case DELETE: {
 			// delete resource identified by the path
@@ -132,7 +129,7 @@ void	Response::parseRequestLine(std::string line, Config& config)
 	std::string			extra;
 
 	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
-		throw HttpException::invalidRequestLine();
+		throw HttpException::badRequest();
 
 	validateVersion();
 	validateMethod(method);
@@ -199,6 +196,25 @@ void	Response::parseHeaders(std::string str)
 		} else
 			throw HttpException::badRequest();
 	}
+	if (m_headers.find("HOST") == m_headers.end())
+		throw HttpException::badRequest();
+}
+
+void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
+{
+	for (std::string line; getline(body, line, '&');) {
+		size_t pos = line.find('=');
+		if (pos != std::string::npos) {
+			std::string value = line.substr(pos + 1);
+			while (value.find('%') != std::string::npos) {
+				size_t pos = value.find('%');
+				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
+				value.erase(pos + 1, 3);
+			}
+			replace(value.begin(), value.end(), '+', ' ');
+			client->addFormData(line.substr(0, pos), value);
+		}
+	}
 }
 
 void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
@@ -247,6 +263,11 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		}
 	}
 	client->closeFile();
+}
+
+void	Response::parseJson(std::shared_ptr<Client> client, std::istringstream& body)
+{
+	
 }
 
 void	Response::validateVersion()
