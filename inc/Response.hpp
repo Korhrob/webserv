@@ -54,7 +54,7 @@ class Response
 		void		validateMethod(std::string method);
 		void		validateVersion();
 		void		validatePath(Config& config);
-		void		sanitizePath();
+		void		normalizePath();
 		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:

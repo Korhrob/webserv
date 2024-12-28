@@ -141,7 +141,7 @@ void	Response::parseRequestLine(std::string line, Config& config)
 
 void	Response::validatePath(Config& config)
 {
-	sanitizePath();
+	normalizePath();
 
 	std::vector<std::string>	out;
 
@@ -263,10 +263,14 @@ void	Response::validateMethod(std::string method)
 	m_method = methods[method];
 }
 
-void	Response::sanitizePath()
+void	Response::normalizePath()
 {
-	while (m_path.find("../") == 0) {
+	while (m_path.find("../") == 0)
 		m_path.erase(0, 3);
+	while (m_path.find('%') != std::string::npos) {
+		size_t pos = m_path.find('%');
+		m_path.insert(pos, 1, stoi(m_path.substr(pos + 1, 2), nullptr, 16));
+		m_path.erase(pos + 1, 3);
 	}
 }
 
