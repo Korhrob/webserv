@@ -14,6 +14,9 @@
 #include <sstream>
 #include <unordered_map>
 #include <fstream> // ofstream
+#include <variant>
+#include <vector>
+#include <map>
 
 #include "ILog.hpp" // log,  logError
 #include "Const.hpp"
