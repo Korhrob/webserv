@@ -177,7 +177,7 @@ void	Response::validatePath(Config& config)
 void	Response::parseHeaders(std::string str)
 {
 	std::istringstream	headers(str);
-	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
 
 	for (std::string line; getline(headers, line);) {
 		if (line.back() == '\r')
@@ -187,8 +187,9 @@ void	Response::parseHeaders(std::string str)
     	if (std::regex_match(line, headerRegex)) {
 			size_t pos = line.find(':');
 			std::string key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
-			std::replace(key.begin(), key.end(), '-', '_');
+			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+			// std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+			// std::replace(key.begin(), key.end(), '-', '_');
 			std::string value = line.substr(pos + 1);
 			value.erase(0, value.find_first_not_of(" "));
 			value.erase(value.find_last_not_of(" ") + 1);
@@ -267,7 +268,8 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 
 void	Response::parseJson(std::shared_ptr<Client> client, std::istringstream& body)
 {
-	
+	(void)client;
+	(void)body;
 }
 
 void	Response::validateVersion()
