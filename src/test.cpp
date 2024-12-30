@@ -56,7 +56,6 @@ jsonValue    parseValue(std::string& json, size_t& pos) {
     // std::cout << "delim: " << json[delim] << " " << delim << "\n";
     val.value = "object or array";
     return val;
-    // return "ok so far";
 }
 
 std::string parseKey(std::string& json, size_t& pos) {
@@ -104,7 +103,6 @@ void printjsonValue(const jsonValue& jValue) {
     }, jValue.value);
 }
 
-// Function to print the unordered_map
 void printMap(const std::unordered_map<std::string, jsonValue>& jsonMap) {
     for (const auto& [key, jsonValue] : jsonMap) {
         std::cout << key << ": ";
@@ -138,14 +136,4 @@ int main() {
         m_jsonData[key] = value;
     }
     printMap(m_jsonData);
-    // std::cout << value << "\n";
-    // while (jsonStr[pos] != bracket) {
-        
-    // }
-
-    
-
-    
-    // for (std::string line; getline(json, line);)
-    //     std::cout << line << "\n";
 }
