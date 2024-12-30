@@ -108,7 +108,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 				parseMultipart(client, body);
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON
-				
+				parseJson(client, body.str());
 			}
 			else 
 				throw HttpException::unsupportedMediaType();
@@ -266,10 +266,89 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 	client->closeFile();
 }
 
-void	Response::parseJson(std::shared_ptr<Client> client, std::istringstream& body)
+jsonValue	parseJsonValue(std::string& body, size_t& pos)
 {
-	(void)client;
-	(void)body;
+	size_t	end = body.find('\n', pos);
+	if (end == std::string::npos)
+		throw HttpException::badRequest();
+	
+	std::string	str = body.substr(pos, end - pos);
+	if (str.back() == ',')
+		str.pop_back();
+
+	jsonValue	val;
+
+	try {
+		size_t	idx;
+		double	numVal = std::stod(str, &idx);
+		if (idx == str.length()) {
+			val.value = numVal;
+			pos = end;
+			return val;
+		}
+	} catch (std::exception& e) {}
+	
+	if (str == "null")
+		val.value = nullptr;
+	else if (str == "true" || str == "false") 
+		val.value = str == "true" ? true : false;
+	else if (str.front() == '\'' && str.back() == '\'') 
+		val.value = str.substr(1, str.length() - 2);
+	else if (str.front() == '[') {
+		val.value = str; // temp
+	}
+	else if (str.front() == '{') {
+		val.value = str; // temp
+	}
+	else
+		throw HttpException::badRequest();
+
+	pos = end;
+
+	return val;
+}
+
+std::string	parseJsonKey(std::string& body, size_t& pos)
+{
+	size_t	delimiter = body.find(':', pos);
+	if (delimiter == std::string::npos)
+		throw HttpException::badRequest();
+
+	if (body[pos] != '\'' || body[delimiter - 1] != '\'')
+		throw HttpException::badRequest();
+
+	std::string	key = body.substr(pos + 1, delimiter - pos - 2);
+	pos = delimiter++;
+
+	return key;
+}
+
+void	parseJsonObject(std::shared_ptr<Client> client, std::string body, size_t& pos)
+{
+	while (std::isspace(body[pos]))
+		pos++;
+
+	while (body[pos] != '}') {
+		std::string key = parseJsonKey(body, pos);
+		while (std::isspace(body[pos]))
+			pos++;
+		jsonValue	value = parseJsonValue(body, pos);
+		while (std::isspace(body[pos]))
+			pos++;
+
+		client->addJsonData(key, value);
+	}
+}
+
+void	Response::parseJson(std::shared_ptr<Client> client, std::string body)
+{
+	size_t	pos = 1;
+
+	if (body.front() == '{')
+		parseJsonObject(client, body, pos);
+	// else if (body.front() == '[')
+	// 	parseJsonList(clien, body, pos);
+
 }
 
 void	Response::validateVersion()

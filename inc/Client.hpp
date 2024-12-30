@@ -208,6 +208,11 @@ class Client
 			}
 		}
 
+		void	addJsonData(std::string& key, jsonValue& value) 
+		{
+			m_jsonData[key] = value;
+		}
+
 		std::string	getFilename(std::string name)
 		{
 			return m_multipartData[name].filename;

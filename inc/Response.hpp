@@ -47,17 +47,17 @@ class Response
 		size_t											m_size;
 		// bool											m_connection;
 
-		bool		readRequest(int fd);
-		void		parseRequest(std::shared_ptr<Client> client, Config& config);
-		void		parseRequestLine(std::string requestLine, Config& config);
-		void		parseHeaders(std::string str);
-		void		validateMethod(std::string method);
-		void		validateVersion();
-		void		validatePath(Config& config);
-		void		normalizePath();
-		void		parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
-		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
-		void		parseJson(std::shared_ptr<Client> client, std::istringstream& body);
+		bool			readRequest(int fd);
+		void			parseRequest(std::shared_ptr<Client> client, Config& config);
+		void			parseRequestLine(std::string requestLine, Config& config);
+		void			parseHeaders(std::string str);
+		void			validateMethod(std::string method);
+		void			validateVersion();
+		void			validatePath(Config& config);
+		void			normalizePath();
+		void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
+		void			parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+		void			parseJson(std::shared_ptr<Client> client, std::string body);
 
 	public:
 		Response(std::shared_ptr<Client> client, Config& config);
