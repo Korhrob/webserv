@@ -77,73 +77,191 @@ bool	Response::readRequest(int fd)
 	return true;
 }
 
-void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+void	Response::validateMethod()
 {
-	size_t	requestLine = m_request.find('\n');
-	if (requestLine == std::string::npos)
-		throw HttpException::badRequest();
-
-	parseRequestLine(m_request.substr(0, requestLine), config);
-	
-	size_t	headers = m_request.find("\r\n\r\n");
-	if (headers == std::string::npos)
-		throw HttpException::badRequest();
-
-	parseHeaders(m_request.substr(requestLine + 1, headers - requestLine));
-
-	switch (m_method) {
-		case GET:
-			break;
-		case POST: {
-			std::istringstream	body(m_request.substr(headers + 4));
-			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
-				std::string length = m_headers["CONTENT_LENGTH"];
-				if (body.str().size() != std::stoul(length))
-					throw HttpException::badRequest();
-			}
-			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded")
-				parseUrlencoded(client, body);
-			else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-				parseMultipart(client, body);
-			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
-				// Parse the body as JSON
-				parseJson(client, body.str());
-			}
-			else 
-				throw HttpException::unsupportedMediaType();
-			}
-		case DELETE: {
-			// delete resource identified by the path
-			break;
-		}
-		// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-		// if chuncked set output_filestream for client
-	}
+	std::vector<std::string> methods = {"GET", "POST", "DELETE"};
+	if (std::find(methods.begin(), methods.end(), _method) == methods.end())
+		throw HttpException::notImplemented();
 }
 
-void	Response::parseRequestLine(std::string line, Config& config)
+void	Response::parseRequestLine(std::istringstream& request, Config& config)
 {
-	std::istringstream	requestLine(line);
-	std::string			method;
-	std::string			extra;
+	std::string	line;
+	std::string	excess;
+	getline(request, line);
 
-	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
-		throw HttpException::badRequest();
+	std::istringstream	requestLine(line);
+	if (!(requestLine >> _method >> m_path >> m_version) || requestLine >> excess)
+		throw HttpException::badRequest("Invalid request line");
 
 	validateVersion();
-	validateMethod(method);
+	validateMethod();
 	validatePath(config);
 }
 
+void	Response::parseHeaders(std::istringstream& request)
+{
+	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
+
+	for (std::string line; getline(request, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (std::regex_match(line, headerRegex)) {
+			size_t pos = line.find(':');
+			std::string key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+			std::string value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
+			m_headers.try_emplace(key, value);
+		} else
+			throw HttpException::badRequest("Malformed header");
+	}
+	if (m_headers.find("HOST") == m_headers.end())
+		throw HttpException::badRequest("Host not found");
+}
+
+// void	Response::parseMultipart(std::istringstream& body)
+// {
+// 	std::string	b("--" + m_headers["CONTENT-TYPE"].substr(m_headers["CONTENT-TYPE"].find("=") + 1));
+// 	std::vector<char>	boundary(b.begin(), b.end());
+// 	std::string	name;
+// 	size_t		startPos;
+// 	size_t		endPos;
+
+// 	for (std::string line; getline(body, line);) {
+// 		if (line.back() == '\r')
+// 			line.pop_back();
+// 		if (line.empty() || line == boundary)
+// 			continue;
+// 		if (line == boundary + "--")
+// 			break;
+// 		if (line.find("Content-Disposition") != std::string::npos) {
+// 			startPos = line.find("name=\"");
+// 			if (startPos != std::string::npos) {
+// 				startPos += 6;
+// 				endPos = line.find("\"", startPos);
+// 				name = line.substr(startPos, endPos - startPos);
+// 			}
+// 			startPos = line.find("filename=\"");
+// 			if (startPos != std::string::npos) {
+// 				startPos += 10;
+// 				endPos = line.find("\"", startPos);
+// 				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+// 				client->openFile(client->getFilename(name));
+// 			}
+// 		} else if (line.find("Content-Type: ") != std::string::npos) {
+// 			startPos = line.find("Content-Type: ") + 14;
+// 			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
+// 		} else {
+// 			if (client->getFilename(name).empty())
+// 				client->addMultipartData(name, CONTENT, line);
+// 			else
+// 				client->getFileStream() << line << "\n";
+// 		}
+// 	}
+// 	client->closeFile();
+// }
+
+void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+{
+	std::istringstream	request(m_request);
+
+	parseRequestLine(request, config);
+	parseHeaders(request);
+
+	if (_method == "POST") {
+		if (m_headers.find("CONTENT-TYPE") == m_headers.end())
+			throw HttpException::badRequest("Missing content type in a POST request");
+		if (m_headers.find("CONTENT-LENGTH") != m_headers.end()) {
+			size_t	bodyLength = m_request.length() - m_request.find("\r\n\r\n") - 4;
+			if (std::stoul(m_headers["CONTENT-LENGTH"]) != bodyLength)
+				throw HttpException::badRequest("Invalid content-length");
+			if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos) {
+				parseMultipart(client, request); 
+			}
+		}
+		
+	}
+	// log("-------------------- P A R S E D ----------------------");
+	// std::cout << _method << " " << m_path << " " << m_version << "\n";
+	// for (auto [key, value]: m_headers)
+	// 	std::cout << key << ":" << value << "\n";
+	// log("-------------------------------------------------------");	
+}
+
+// void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+// {
+// 	size_t	requestLine = m_request.find('\n');
+// 	if (requestLine == std::string::npos)
+// 		throw HttpException::badRequest();
+
+// 	parseRequestLine(m_request.substr(0, requestLine), config);
+	
+// 	size_t	headers = m_request.find("\r\n\r\n");
+// 	if (headers == std::string::npos)
+// 		throw HttpException::badRequest();
+
+// 	parseHeaders(m_request.substr(requestLine + 1, headers - requestLine));
+
+// 	switch (m_method) {
+// 		case GET:
+// 			break;
+// 		case POST: {
+// 			std::istringstream	body(m_request.substr(headers + 4));
+// 			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
+// 				std::string length = m_headers["CONTENT_LENGTH"];
+// 				if (body.str().size() != std::stoul(length))
+// 					throw HttpException::badRequest();
+// 			}
+// 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded")
+// 				parseUrlencoded(client, body);
+// 			else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
+// 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+// 				parseMultipart(client, body);
+// 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
+// 				// Parse the body as JSON
+// 				parseJson(client, body.str());
+// 			}
+// 			else 
+// 				throw HttpException::unsupportedMediaType();
+// 			}
+// 		case DELETE: {
+// 			// delete resource identified by the path
+// 			break;
+// 		}
+// 		// with certain file extension specified in the config file invoke CGI handler (GET,POST)
+// 		// if chuncked set output_filestream for client
+// 	}
+// }
+
+// void	Response::parseRequestLine(std::string line, Config& config)
+// {
+// 	std::istringstream	requestLine(line);
+// 	std::string			method;
+// 	std::string			extra;
+
+// 	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
+// 		throw HttpException::badRequest();
+
+// 	validateVersion();
+// 	validateMethod(method);
+// 	validatePath(config);
+// }
+
 void	Response::validatePath(Config& config)
 {
-	normalizePath();
+	if (m_path.find("../") != std::string::npos)
+		throw HttpException::badRequest("Forbidden Traversal pattern in URI");
+
+	decodePath();
 
 	std::vector<std::string>	out;
 
 	config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path; // is root mandatory should this throw an exception?
+	m_path = out.empty() ? m_path : *out.begin() + m_path;
 	
 	m_path = m_path.substr(1);
 
@@ -174,32 +292,32 @@ void	Response::validatePath(Config& config)
 	}
 }
 
-void	Response::parseHeaders(std::string str)
-{
-	std::istringstream	headers(str);
-	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
+// void	Response::parseHeaders(std::string str)
+// {
+// 	std::istringstream	headers(str);
+// 	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
 
-	for (std::string line; getline(headers, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty())
-			break;
-    	if (std::regex_match(line, headerRegex)) {
-			size_t pos = line.find(':');
-			std::string key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-			// std::transform(key.begin(), key.end(), key.begin(), ::toupper);
-			// std::replace(key.begin(), key.end(), '-', '_');
-			std::string value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
-			value.erase(value.find_last_not_of(" ") + 1);
-			m_headers.try_emplace(key, value);
-		} else
-			throw HttpException::badRequest();
-	}
-	if (m_headers.find("HOST") == m_headers.end())
-		throw HttpException::badRequest();
-}
+// 	for (std::string line; getline(headers, line);) {
+// 		if (line.back() == '\r')
+// 			line.pop_back();
+// 		if (line.empty())
+// 			break;
+//     	if (std::regex_match(line, headerRegex)) {
+// 			size_t pos = line.find(':');
+// 			std::string key = line.substr(0, pos);
+// 			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+// 			// std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+// 			// std::replace(key.begin(), key.end(), '-', '_');
+// 			std::string value = line.substr(pos + 1);
+// 			value.erase(0, value.find_first_not_of(" "));
+// 			value.erase(value.find_last_not_of(" ") + 1);
+// 			m_headers.try_emplace(key, value);
+// 		} else
+// 			throw HttpException::badRequest();
+// 	}
+// 	if (m_headers.find("HOST") == m_headers.end())
+// 		throw HttpException::badRequest();
+// }
 
 void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
 {
@@ -266,90 +384,90 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 	client->closeFile();
 }
 
-jsonValue	parseJsonValue(std::string& body, size_t& pos)
-{
-	size_t	end = body.find('\n', pos);
-	if (end == std::string::npos)
-		throw HttpException::badRequest();
+// jsonValue	parseJsonValue(std::string& body, size_t& pos)
+// {
+// 	size_t	end = body.find('\n', pos);
+// 	if (end == std::string::npos)
+// 		throw HttpException::badRequest();
 	
-	std::string	str = body.substr(pos, end - pos);
-	if (str.back() == ',')
-		str.pop_back();
+// 	std::string	str = body.substr(pos, end - pos);
+// 	if (str.back() == ',')
+// 		str.pop_back();
 
-	jsonValue	val;
+// 	jsonValue	val;
 
-	try {
-		size_t	idx;
-		double	numVal = std::stod(str, &idx);
-		if (idx == str.length()) {
-			val.value = numVal;
-			pos = end;
-			return val;
-		}
-	} catch (std::exception& e) {}
+// 	try {
+// 		size_t	idx;
+// 		double	numVal = std::stod(str, &idx);
+// 		if (idx == str.length()) {
+// 			val.value = numVal;
+// 			pos = end;
+// 			return val;
+// 		}
+// 	} catch (std::exception& e) {}
 	
-	if (str == "null")
-		val.value = nullptr;
-	else if (str == "true" || str == "false") 
-		val.value = str == "true" ? true : false;
-	else if (str.front() == '\'' && str.back() == '\'') 
-		val.value = str.substr(1, str.length() - 2);
-	else if (str.front() == '[') {
-		val.value = str; // temp
-	}
-	else if (str.front() == '{') {
-		val.value = str; // temp
-	}
-	else
-		throw HttpException::badRequest();
+// 	if (str == "null")
+// 		val.value = nullptr;
+// 	else if (str == "true" || str == "false") 
+// 		val.value = str == "true" ? true : false;
+// 	else if (str.front() == '\'' && str.back() == '\'') 
+// 		val.value = str.substr(1, str.length() - 2);
+// 	else if (str.front() == '[') {
+// 		val.value = str; // temp
+// 	}
+// 	else if (str.front() == '{') {
+// 		val.value = str; // temp
+// 	}
+// 	else
+// 		throw HttpException::badRequest();
 
-	pos = end;
+// 	pos = end;
 
-	return val;
-}
+// 	return val;
+// }
 
-std::string	parseJsonKey(std::string& body, size_t& pos)
-{
-	size_t	delimiter = body.find(':', pos);
-	if (delimiter == std::string::npos)
-		throw HttpException::badRequest();
+// std::string	parseJsonKey(std::string& body, size_t& pos)
+// {
+// 	size_t	delimiter = body.find(':', pos);
+// 	if (delimiter == std::string::npos)
+// 		throw HttpException::badRequest();
 
-	if (body[pos] != '\'' || body[delimiter - 1] != '\'')
-		throw HttpException::badRequest();
+// 	if (body[pos] != '\'' || body[delimiter - 1] != '\'')
+// 		throw HttpException::badRequest();
 
-	std::string	key = body.substr(pos + 1, delimiter - pos - 2);
-	pos = delimiter++;
+// 	std::string	key = body.substr(pos + 1, delimiter - pos - 2);
+// 	pos = delimiter++;
 
-	return key;
-}
+// 	return key;
+// }
 
-void	parseJsonObject(std::shared_ptr<Client> client, std::string body, size_t& pos)
-{
-	while (std::isspace(body[pos]))
-		pos++;
+// void	parseJsonObject(std::shared_ptr<Client> client, std::string body, size_t& pos)
+// {
+// 	while (std::isspace(body[pos]))
+// 		pos++;
 
-	while (body[pos] != '}') {
-		std::string key = parseJsonKey(body, pos);
-		while (std::isspace(body[pos]))
-			pos++;
-		jsonValue	value = parseJsonValue(body, pos);
-		while (std::isspace(body[pos]))
-			pos++;
+// 	while (body[pos] != '}') {
+// 		std::string key = parseJsonKey(body, pos);
+// 		while (std::isspace(body[pos]))
+// 			pos++;
+// 		jsonValue	value = parseJsonValue(body, pos);
+// 		while (std::isspace(body[pos]))
+// 			pos++;
 
-		client->addJsonData(key, value);
-	}
-}
+// 		client->addJsonData(key, value);
+// 	}
+// }
 
-void	Response::parseJson(std::shared_ptr<Client> client, std::string body)
-{
-	size_t	pos = 1;
+// void	Response::parseJson(std::shared_ptr<Client> client, std::string body)
+// {
+// 	size_t	pos = 1;
 
-	if (body.front() == '{')
-		parseJsonObject(client, body, pos);
-	// else if (body.front() == '[')
-	// 	parseJsonList(clien, body, pos);
+// 	if (body.front() == '{')
+// 		parseJsonObject(client, body, pos);
+// 	// else if (body.front() == '[')
+// 	// 	parseJsonList(clien, body, pos);
 
-}
+// }
 
 void	Response::validateVersion()
 {
@@ -357,18 +475,16 @@ void	Response::validateVersion()
 		throw HttpException::httpVersionNotSupported();
 }
 
-void	Response::validateMethod(std::string method)
-{
-	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	if (methods.find(method) == methods.end())
-		throw HttpException::notImplemented();
-	m_method = methods[method];
-}
+// void	Response::validateMethod(std::string method)
+// {
+// 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+// 	if (methods.find(method) == methods.end())
+// 		throw HttpException::notImplemented();
+// 	m_method = methods[method];
+// }
 
-void	Response::normalizePath()
+void	Response::decodePath()
 {
-	while (m_path.find("../") == 0)
-		m_path.erase(0, 3);
 	while (m_path.find('%') != std::string::npos) {
 		size_t pos = m_path.find('%');
 		m_path.insert(pos, 1, stoi(m_path.substr(pos + 1, 2), nullptr, 16));
