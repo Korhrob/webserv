@@ -29,6 +29,10 @@ class HttpException : public std::exception {
             return HttpException(404, "Not Found", "");
         }
 
+		static HttpException	lengthRequired() {
+			return HttpException(411, "Length Required", "");
+		}
+
         static HttpException    unsupportedMediaType() {
             return HttpException(415, "Unsupported Media Type", "");
         }
