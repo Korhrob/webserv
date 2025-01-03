@@ -80,7 +80,7 @@ bool	Response::readRequest(int fd)
 void	Response::validateMethod()
 {
 	std::vector<std::string> methods = {"GET", "POST", "DELETE"};
-	if (std::find(methods.begin(), methods.end(), _method) == methods.end())
+	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
 		throw HttpException::notImplemented();
 }
 
@@ -91,12 +91,12 @@ void	Response::parseRequestLine(std::istringstream& request, Config& config)
 	getline(request, line);
 
 	std::istringstream	requestLine(line);
-	if (!(requestLine >> _method >> m_path >> m_version) || requestLine >> excess)
+	if (!(requestLine >> m_method >> m_path >> m_version) || requestLine >> excess)
 		throw HttpException::badRequest("Invalid request line");
 
 	validateVersion();
 	validateMethod();
-	validatePath(config);
+	validateURI(config);
 }
 
 void	Response::parseHeaders(std::istringstream& request)
@@ -167,29 +167,36 @@ void	Response::parseHeaders(std::istringstream& request)
 
 void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 {
+	(void)client;
 	std::istringstream	request(m_request);
 
 	parseRequestLine(request, config);
 	parseHeaders(request);
 
-	if (_method == "POST") {
-		if (m_headers.find("CONTENT-TYPE") == m_headers.end())
-			throw HttpException::badRequest("Missing content type in a POST request");
-		if (m_headers.find("CONTENT-LENGTH") != m_headers.end()) {
-			size_t	bodyLength = m_request.length() - m_request.find("\r\n\r\n") - 4;
-			if (std::stoul(m_headers["CONTENT-LENGTH"]) != bodyLength)
-				throw HttpException::badRequest("Invalid content-length");
-			if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos) {
-				parseMultipart(client, request); 
-			}
-		}
-		
+	if (m_method == "POST") {
+		if (!headerFound("CONTENT-TYPE"))
+			throw HttpException::badRequest("missing content type in a POST request");
+
+		size_t	bodyLength = m_request.length() - m_request.find("\r\n\r\n") - 4;
+		if (getContentLength() != bodyLength)
+			throw HttpException::badRequest("invalid content-length");
+
+		if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
+			log("multipart");
+			// parseMultipart(client, request);
 	}
 	// log("-------------------- P A R S E D ----------------------");
-	// std::cout << _method << " " << m_path << " " << m_version << "\n";
+	// std::cout << m_method << " " << m_path << " " << m_version << "\n";
 	// for (auto [key, value]: m_headers)
 	// 	std::cout << key << ":" << value << "\n";
 	// log("-------------------------------------------------------");	
+}
+
+size_t	Response::getContentLength()
+{
+	if (!headerFound("CONTENT-LENGTH"))
+		throw HttpException::lengthRequired();
+	return std::stoul(m_headers["CONTENT-LENGTH"]);
 }
 
 // void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
@@ -251,12 +258,12 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 // 	validatePath(config);
 // }
 
-void	Response::validatePath(Config& config)
+void	Response::validateURI(Config& config)
 {
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("Forbidden Traversal pattern in URI");
 
-	decodePath();
+	decodeURI();
 
 	std::vector<std::string>	out;
 
@@ -289,6 +296,15 @@ void	Response::validatePath(Config& config)
 		m_size = 0;
 		m_code = 404;
 		std::cerr << e.what() << '\n';
+	}
+}
+
+void	Response::decodeURI()
+{
+	while (m_path.find('%') != std::string::npos) {
+		size_t pos = m_path.find('%');
+		m_path.insert(pos, 1, stoi(m_path.substr(pos + 1, 2), nullptr, 16));
+		m_path.erase(pos + 1, 3);
 	}
 }
 
@@ -336,53 +352,53 @@ void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstrea
 	}
 }
 
-void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
-{
-	// log("IN MULTIPART PARSING");
-	/*
-		Validate content_length
-		Headers always begin right after the boundary line.
-		Content is always separated from the headers by a blank line (\r\n\r\n).
-		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
-	*/
-	std::string	boundary(client->getBoundary());
-	std::string	name;
-	size_t		startPos;
-	size_t		endPos;
+// void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
+// {
+// 	// log("IN MULTIPART PARSING");
+// 	/*
+// 		Validate content_length
+// 		Headers always begin right after the boundary line.
+// 		Content is always separated from the headers by a blank line (\r\n\r\n).
+// 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
+// 	*/
+// 	std::string	boundary(client->getBoundary());
+// 	std::string	name;
+// 	size_t		startPos;
+// 	size_t		endPos;
 
-	for (std::string line; getline(body, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty() || line == boundary)
-			continue;
-		if (line == boundary + "--")
-			break;
-		if (line.find("Content-Disposition") != std::string::npos) {
-			startPos = line.find("name=\"");
-			if (startPos != std::string::npos) {
-				startPos += 6;
-				endPos = line.find("\"", startPos);
-				name = line.substr(startPos, endPos - startPos);
-			}
-			startPos = line.find("filename=\"");
-			if (startPos != std::string::npos) {
-				startPos += 10;
-				endPos = line.find("\"", startPos);
-				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
-				client->openFile(client->getFilename(name));
-			}
-		} else if (line.find("Content-Type: ") != std::string::npos) {
-			startPos = line.find("Content-Type: ") + 14;
-			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
-		} else {
-			if (client->getFilename(name).empty())
-				client->addMultipartData(name, CONTENT, line);
-			else
-				client->getFileStream() << line << "\n";
-		}
-	}
-	client->closeFile();
-}
+// 	for (std::string line; getline(body, line);) {
+// 		if (line.back() == '\r')
+// 			line.pop_back();
+// 		if (line.empty() || line == boundary)
+// 			continue;
+// 		if (line == boundary + "--")
+// 			break;
+// 		if (line.find("Content-Disposition") != std::string::npos) {
+// 			startPos = line.find("name=\"");
+// 			if (startPos != std::string::npos) {
+// 				startPos += 6;
+// 				endPos = line.find("\"", startPos);
+// 				name = line.substr(startPos, endPos - startPos);
+// 			}
+// 			startPos = line.find("filename=\"");
+// 			if (startPos != std::string::npos) {
+// 				startPos += 10;
+// 				endPos = line.find("\"", startPos);
+// 				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+// 				client->openFile(client->getFilename(name));
+// 			}
+// 		} else if (line.find("Content-Type: ") != std::string::npos) {
+// 			startPos = line.find("Content-Type: ") + 14;
+// 			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
+// 		} else {
+// 			if (client->getFilename(name).empty())
+// 				client->addMultipartData(name, CONTENT, line);
+// 			else
+// 				client->getFileStream() << line << "\n";
+// 		}
+// 	}
+// 	client->closeFile();
+// }
 
 // jsonValue	parseJsonValue(std::string& body, size_t& pos)
 // {
@@ -482,14 +498,11 @@ void	Response::validateVersion()
 // 		throw HttpException::notImplemented();
 // 	m_method = methods[method];
 // }
-
-void	Response::decodePath()
+bool	Response::headerFound(const std::string& header)
 {
-	while (m_path.find('%') != std::string::npos) {
-		size_t pos = m_path.find('%');
-		m_path.insert(pos, 1, stoi(m_path.substr(pos + 1, 2), nullptr, 16));
-		m_path.erase(pos + 1, 3);
-	}
+	if (m_headers.find(header) != m_headers.end())
+		return true;
+	return false;
 }
 
 std::string	Response::str()

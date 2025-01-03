@@ -35,7 +35,7 @@ class Response
 	private:
 		std::string										m_request;
 		// e_method										m_method;
-		std::string										_method;
+		std::string										m_method;
 		std::string										m_path;
 		std::string										m_version;
 		int												m_code;
@@ -54,10 +54,12 @@ class Response
 		void			parseHeaders(std::istringstream& request);
 		void			validateMethod();
 		void			validateVersion();
-		void			validatePath(Config& config);
-		void			decodePath();
+		void			validateURI(Config& config);
+		void			decodeURI();
 		void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
-		void			parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+		// void			parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+		bool			headerFound(const std::string& header);
+		size_t			getContentLength();
 		// void			parseJson(std::shared_ptr<Client> client, std::string body);
 
 	public:
