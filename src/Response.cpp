@@ -19,14 +19,12 @@
 
 Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
-	if (readRequest(client->fd())) {
-		try {
-			parseRequest(client, config);
-		} catch (HttpException& e) {
-			log(e.what());
-			m_code = e.getStatusCode();
-			m_msg = e.what(); 
-		}
+	try {
+		readRequest(client->fd());
+		parseRequest(client, config);
+	} catch (HttpException& e) {
+		m_code = e.getStatusCode();
+		m_msg = e.what(); 
 	}
 
 	if (m_send_type == TYPE_NONE)
@@ -56,25 +54,22 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 
 }
 
-bool	Response::readRequest(int fd)
+void	Response::readRequest(int fd)
 {
 	char	buffer[PACKET_SIZE];
 	size_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
-	if (bytes_read <= 0) // bad request tms?
+	if (bytes_read <= 0)
 	{
-		logError("Empty or invalid request");
 		m_status = STATUS_FAIL;
-		m_code = 404;
-		return false;
+		throw HttpException::badRequest("empty or invalid request");
 	}
 
 	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
 	log(m_request);
-	return true;
 }
 
 void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
@@ -83,7 +78,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	std::istringstream	request(m_request);
 
 	parseRequestLine(request, config);
-	parseHeaders(request);
+	parseHeaders(request, config);
 
 	if (m_method == "POST") {
 		if (!headerFound("CONTENT-TYPE"))
@@ -108,18 +103,19 @@ void	Response::parseRequestLine(std::istringstream& request, Config& config)
 {
 	std::string	line;
 	std::string	excess;
-	getline(request, line);
 
+	getline(request, line);
 	std::istringstream	requestLine(line);
+
 	if (!(requestLine >> m_method >> m_path >> m_version) || requestLine >> excess)
-		throw HttpException::badRequest("Invalid request line");
+		throw HttpException::badRequest("invalid request line");
 
 	validateVersion();
 	validateMethod();
 	validateURI(config);
 }
 
-void	Response::parseHeaders(std::istringstream& request)
+void	Response::parseHeaders(std::istringstream& request, Config& config)
 {
 	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
 
@@ -137,10 +133,10 @@ void	Response::parseHeaders(std::istringstream& request)
 			value.erase(value.find_last_not_of(" ") + 1);
 			m_headers.try_emplace(key, value);
 		} else
-			throw HttpException::badRequest("Malformed header");
+			throw HttpException::badRequest("malformed header");
 	}
-	if (m_headers.find("HOST") == m_headers.end())
-		throw HttpException::badRequest("Host not found");
+	validateHost(config);
+	// check cgi
 }
 
 void	Response::validateVersion()
@@ -158,6 +154,7 @@ void	Response::validateMethod()
 
 void	Response::validateURI(Config& config)
 {
+	// query string make a map<key, vector of values> 
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("Forbidden Traversal pattern in URI");
 
@@ -185,16 +182,27 @@ void	Response::validateURI(Config& config)
 			}
 		}
 	}
-	if (!file.good())
-		throw HttpException::notFound();
 	try {
 		m_size = std::filesystem::file_size(m_path);
-		m_code = 200;
 	} catch (const std::exception& e) {
 		m_size = 0;
-		m_code = 404;
-		std::cerr << e.what() << '\n';
+		throw HttpException::notFound();
 	}
+}
+
+void	Response::validateHost(Config& config)
+{
+	if (m_headers.find("HOST") == m_headers.end())
+		throw HttpException::badRequest("host not found");
+
+	std::vector<std::string> hosts;
+	config.tryGetDirective("server_name", hosts);
+	for (std::string host: hosts) {
+		
+		if (host == m_headers["HOST"])
+			return;
+	}
+	throw HttpException::badRequest("invalid host");
 }
 
 void	Response::decodeURI()
