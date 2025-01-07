@@ -27,6 +27,8 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 		m_msg = e.what(); 
 	}
 
+	displayQueryData(); // debug
+
 	if (m_send_type == TYPE_NONE)
 		return;
 
@@ -80,6 +82,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	parseRequestLine(request, config);
 	parseHeaders(request, config);
 
+	
 	if (m_method == "POST") {
 		if (!headerFound("CONTENT-TYPE"))
 			throw HttpException::badRequest("missing content type in a POST request");
@@ -91,12 +94,10 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 		if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
 			log("multipart");
 			// parseMultipart(client, request);
-	}
-	// log("-------------------- P A R S E D ----------------------");
-	// std::cout << m_method << " " << m_path << " " << m_version << "\n";
-	// for (auto [key, value]: m_headers)
-	// 	std::cout << key << ":" << value << "\n";
-	// log("-------------------------------------------------------");	
+
+		else if (m_headers["CONTENT-TYPE"].find("application/x-www-form-urlencoded") != std::string::npos)
+			parseUrlencoded(client, request);
+	}	
 }
 
 void	Response::parseRequestLine(std::istringstream& request, Config& config)
@@ -115,30 +116,6 @@ void	Response::parseRequestLine(std::istringstream& request, Config& config)
 	validateURI(config);
 }
 
-void	Response::parseHeaders(std::istringstream& request, Config& config)
-{
-	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
-
-	for (std::string line; getline(request, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty())
-			break;
-    	if (std::regex_match(line, headerRegex)) {
-			size_t pos = line.find(':');
-			std::string key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), ::toupper);
-			std::string value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
-			value.erase(value.find_last_not_of(" ") + 1);
-			m_headers.try_emplace(key, value);
-		} else
-			throw HttpException::badRequest("malformed header");
-	}
-	validateHost(config);
-	// check cgi
-}
-
 void	Response::validateVersion()
 {
 	if (m_version != "HTTP/1.1")
@@ -154,17 +131,16 @@ void	Response::validateMethod()
 
 void	Response::validateURI(Config& config)
 {
-	// query string make a map<key, vector of values> 
 	if (m_path.find("../") != std::string::npos)
-		throw HttpException::badRequest("Forbidden Traversal pattern in URI");
-
-	decodeURI();
+		throw HttpException::badRequest("forbidden traversal pattern in URI");
+	
+	decode(m_path);
+	parseQueryString();
 
 	std::vector<std::string>	out;
 
-	config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path;
-	
+	config.tryGetDirective("root", out); // what if there are multiple roots in config file
+	m_path = out.empty() ? m_path : *out.begin() + m_path; // should there always be at least one?
 	m_path = m_path.substr(1);
 
 	std::ifstream	file(m_path);
@@ -190,6 +166,29 @@ void	Response::validateURI(Config& config)
 	}
 }
 
+void	Response::parseHeaders(std::istringstream& request, Config& config)
+{
+	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
+
+	for (std::string line; getline(request, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (!std::regex_match(line, headerRegex)) 
+			throw HttpException::badRequest("malformed header");
+		size_t pos = line.find(':');
+		std::string key = line.substr(0, pos);
+		std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+		std::string value = line.substr(pos + 1);
+		value.erase(0, value.find_first_not_of(" "));
+		value.erase(value.find_last_not_of(" ") + 1);
+		m_headers.emplace(key, value);
+	}
+	validateHost(config);
+	// check cgi
+}
+
 void	Response::validateHost(Config& config)
 {
 	if (m_headers.find("HOST") == m_headers.end())
@@ -198,19 +197,33 @@ void	Response::validateHost(Config& config)
 	std::vector<std::string> hosts;
 	config.tryGetDirective("server_name", hosts);
 	for (std::string host: hosts) {
-		
 		if (host == m_headers["HOST"])
 			return;
 	}
 	throw HttpException::badRequest("invalid host");
 }
 
-void	Response::decodeURI()
+void	Response::decode(std::string& str) {
+	while (str.find('%') != std::string::npos) {
+		size_t pos = str.find('%');
+		str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
+		str.erase(pos + 1, 3);
+	}
+}
+
+void	Response::parseQueryString()
 {
-	while (m_path.find('%') != std::string::npos) {
-		size_t pos = m_path.find('%');
-		m_path.insert(pos, 1, stoi(m_path.substr(pos + 1, 2), nullptr, 16));
-		m_path.erase(pos + 1, 3);
+	size_t pos = m_path.find("?");
+	if (pos == std::string::npos)
+		return;
+
+	std::istringstream query(m_path.substr(pos + 1));
+	m_path = m_path.substr(0, pos);
+
+	for (std::string line; getline(query, line, '&');) {
+		size_t pos = line.find('=');
+		if (pos != std::string::npos)
+			m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
@@ -226,6 +239,28 @@ bool	Response::headerFound(const std::string& header)
 	if (m_headers.find(header) != m_headers.end())
 		return true;
 	return false;
+}
+
+void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
+{
+	for (std::string line; getline(body, line, '&');) {
+		size_t pos = line.find('=');
+		if (pos != std::string::npos) {
+			std::string value = line.substr(pos + 1);
+			decode(value);
+			replace(value.begin(), value.end(), '+', ' ');
+			client->addFormData(line.substr(0, pos), value);
+		}
+	}
+}
+
+void	Response::displayQueryData() // debug
+{
+	for (auto& [key, values] : m_queryData) {
+		std::cout << key << "=";
+		for (std::string value: values)
+			std::cout << value << "\n";
+	}
 }
 
 std::string	Response::str()
@@ -252,23 +287,6 @@ size_t Response::size()
 {
 	return m_size;
 }
-
-// void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
-// {
-// 	for (std::string line; getline(body, line, '&');) {
-// 		size_t pos = line.find('=');
-// 		if (pos != std::string::npos) {
-// 			std::string value = line.substr(pos + 1);
-// 			while (value.find('%') != std::string::npos) {
-// 				size_t pos = value.find('%');
-// 				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
-// 				value.erase(pos + 1, 3);
-// 			}
-// 			replace(value.begin(), value.end(), '+', ' ');
-// 			client->addFormData(line.substr(0, pos), value);
-// 		}
-// 	}
-// }
 
 // void	Response::parseMultipart(std::istringstream& body)
 // {

@@ -47,6 +47,7 @@ class Response
 		std::string										m_body;
 		e_type											m_send_type;
 		size_t											m_size;
+		formMap											m_queryData;
 		// bool											m_connection;
 
 		void			readRequest(int fd);
@@ -57,11 +58,13 @@ class Response
 		void			validateVersion();
 		void			validateURI(Config& config);
 		void			validateHost(Config& config);
-		void			decodeURI();
-		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
+		void			parseQueryString();
+		void			decode(std::string& str);
+		void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 		// void			parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 		bool			headerFound(const std::string& header);
 		size_t			getContentLength();
+		void			displayQueryData(); // debug
 		// void			parseJson(std::shared_ptr<Client> client, std::string body);
 
 	public:

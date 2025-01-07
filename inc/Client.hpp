@@ -41,13 +41,15 @@ enum	e_multipart
 	CONTENT
 };
 
-struct jsonValue {
-    std::variant<std::string, double, bool, std::nullptr_t, 
-                 std::map<std::string, jsonValue>, 
-                 std::vector<jsonValue>> value;
-};
+using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
-using jsonMap = std::unordered_map<std::string, jsonValue>;
+// struct jsonValue {
+//     std::variant<std::string, double, bool, std::nullptr_t, 
+//                  std::map<std::string, jsonValue>, 
+//                  std::vector<jsonValue>> value;
+// };
+
+// using jsonMap = std::unordered_map<std::string, jsonValue>;
 
 class Client
 {
@@ -62,9 +64,9 @@ class Client
 		t_time											m_last_activity;
 
 		std::string										m_boundary;
-		std::unordered_map<std::string, std::string>	m_formData;
+		formMap											m_formData;
 		multipartMap									m_multipartData;
-		jsonMap											m_jsonData;
+		// jsonMap										m_jsonData;
 		std::ofstream									m_file;
 
 	public:
@@ -167,10 +169,10 @@ class Client
 
 		void	addFormData(std::string key, std::string value)
 		{
-			m_formData.insert_or_assign(key, value);
+			m_formData[key].push_back(value);
 		}
 
-		std::string	getFormData(std::string key)
+		std::vector<std::string>	getFormData(std::string key)
 		{
 			return (m_formData[key]);
 		}
@@ -208,10 +210,10 @@ class Client
 			}
 		}
 
-		void	addJsonData(std::string& key, jsonValue& value) 
-		{
-			m_jsonData[key] = value;
-		}
+		// void	addJsonData(std::string& key, jsonValue& value) 
+		// {
+		// 	m_jsonData[key] = value;
+		// }
 
 		std::string	getFilename(std::string name)
 		{
@@ -228,7 +230,7 @@ class Client
 			return m_multipartData[name].content;
 		}
 
-		void	displayMultipartData() // debugging
+		void	displayMultipartData() // debug
 		{
 			for (auto [key, value]: m_multipartData) {
 			log("key: " + key);
@@ -238,10 +240,12 @@ class Client
 			}
 		}
 
-		void	displayFormData() // debugging
+		void	displayFormData() // debug
 		{
-			for (auto& [key, value] : m_formData)
-				std::cout << key << "=" << value << "\n";
+			for (auto& [key, values] : m_formData) {
+				std::cout << key << "=";
+				for (std::string value: values)
+					std::cout << value << "\n";
+			}
 		}
-		
 };
