@@ -128,6 +128,8 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 	if (http_response.getStatus() == STATUS_BLANK)
 		return ;
 
+	// CGI
+
 	if (http_response.getSendType() == TYPE_SINGLE)
 	{
 		client->respond(http_response.str());
