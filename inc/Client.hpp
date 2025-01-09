@@ -26,20 +26,20 @@ typedef std::chrono::steady_clock::time_point t_time;
 
 // TODO: move inline function to their own .cpp file
 
-struct s_part {
-	std::string	filename;
-	std::string	contentType;
-	std::string	content;
-};
+// struct s_part {
+// 	std::string	filename;
+// 	std::string	contentType;
+// 	std::string	content;
+// };
 
-using multipartMap = std::unordered_map<std::string, s_part>;
+// using multipartMap = std::unordered_map<std::string, s_part>;
 
-enum	e_multipart
-{
-	FILENAME,
-	CONTENT_TYPE,
-	CONTENT
-};
+// enum	e_multipart
+// {
+// 	FILENAME,
+// 	CONTENT_TYPE,
+// 	CONTENT
+// };
 
 using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
@@ -65,7 +65,7 @@ class Client
 
 		std::string										m_boundary;
 		formMap											m_formData;
-		multipartMap									m_multipartData;
+		// multipartMap									m_multipartData;
 		// jsonMap										m_jsonData;
 		std::ofstream									m_file;
 
@@ -196,49 +196,49 @@ class Client
 			m_file.close();
 		}
 
-		void	addMultipartData(std::string key, int type, std::string value)
-		{
-			switch (type) {
-				case FILENAME:
-					m_multipartData[key].filename = value;
-					break;
-				case CONTENT_TYPE:
-					m_multipartData[key].contentType = value;
-					break;
-				case CONTENT:
-					m_multipartData[key].content.append(value);
-			}
-		}
+		// void	addMultipartData(std::string key, int type, std::string value)
+		// {
+		// 	switch (type) {
+		// 		case FILENAME:
+		// 			m_multipartData[key].filename = value;
+		// 			break;
+		// 		case CONTENT_TYPE:
+		// 			m_multipartData[key].contentType = value;
+		// 			break;
+		// 		case CONTENT:
+		// 			m_multipartData[key].content.append(value);
+		// 	}
+		// }
 
 		// void	addJsonData(std::string& key, jsonValue& value) 
 		// {
 		// 	m_jsonData[key] = value;
 		// }
 
-		std::string	getFilename(std::string name)
-		{
-			return m_multipartData[name].filename;
-		}
+		// std::string	getFilename(std::string name)
+		// {
+		// 	return m_multipartData[name].filename;
+		// }
 
-		std::string	getContentType(std::string name)
-		{
-			return m_multipartData[name].contentType;
-		}
+		// std::string	getContentType(std::string name)
+		// {
+		// 	return m_multipartData[name].contentType;
+		// }
 
-		std::string	getContent(std::string name)
-		{
-			return m_multipartData[name].content;
-		}
+		// std::string	getContent(std::string name)
+		// {
+		// 	return m_multipartData[name].content;
+		// }
 
-		void	displayMultipartData() // debug
-		{
-			for (auto [key, value]: m_multipartData) {
-			log("key: " + key);
-			log("filename: " + value.filename);
-			log("content-type: " + value.contentType);
-			log("content: " + value.content);
-			}
-		}
+		// void	displayMultipartData() // debug
+		// {
+		// 	for (auto [key, value]: m_multipartData) {
+		// 	log("key: " + key);
+		// 	log("filename: " + value.filename);
+		// 	log("content-type: " + value.contentType);
+		// 	log("content: " + value.content);
+		// 	}
+		// }
 
 		void	displayFormData() // debug
 		{
