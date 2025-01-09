@@ -31,10 +31,18 @@ enum	e_status
 	STATUS_CGI
 };
 
+struct	multipart {
+	std::string			name;
+	std::string			filename;
+	std::string			contentType;
+	std::vector<char>	content;
+};
+
 class Response
 {
 	private:
-		std::string										m_request;
+		std::shared_ptr<Client>							m_client;
+		std::vector<char>								m_request;
 		// e_method										m_method;
 		std::string										m_method;
 		std::string										m_path;
@@ -49,23 +57,31 @@ class Response
 		size_t											m_size;
 		formMap											m_queryData;
 		// bool											m_connection;
+		Config&											m_config;
+		bool											m_complete = false;
+		std::vector<char>								m_content;
+		std::vector<multipart>							m_multipartData;
 
 		void			readRequest(int fd);
-		void			parseRequest(std::shared_ptr<Client> client, Config& config);
-		void			parseRequestLine(std::istringstream& request, Config& config);
-		void			parseHeaders(std::istringstream& request, Config& config);
+		void			parseRequest();
+		void			parseRequestLine(std::istringstream& request);
+		void			parseHeaders(std::istringstream& request);
 		void			validateMethod();
 		void			validateVersion();
-		void			validateURI(Config& config);
-		void			validateHost(Config& config);
+		void			validateURI();
+		void			validateHost();
 		void			parseQueryString();
 		void			decode(std::string& str);
 		void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
-		// void			parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 		bool			headerFound(const std::string& header);
+		void			parseMultipart();
+		void			unchunkContent();
+		int				getChunkSize(std::string& hex);
 		size_t			getContentLength();
 		void			displayQueryData(); // debug
-		// void			parseJson(std::shared_ptr<Client> client, std::string body);
+		std::string		getBoundary();
+		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
+		void			displayMultipart();
 
 	public:
 		Response(std::shared_ptr<Client> client, Config& config);
