@@ -17,17 +17,18 @@
 #include <regex>
 #include <variant>
 
-Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
+Response::Response(std::shared_ptr<Client> client, Config& config)
+	: m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0), m_config(config)
 {
 	try {
-		readRequest(client->fd());
-		parseRequest(client, config);
+		// while (!m_complete) {
+			readRequest(client->fd());
+			parseRequest();
+		// } 
 	} catch (HttpException& e) {
 		m_code = e.getStatusCode();
 		m_msg = e.what(); 
 	}
-
-	displayQueryData(); // debug
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -39,7 +40,7 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
 		if (!m_body.empty())
-		m_size = m_body.size();
+			m_size = m_body.size();
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
 
 		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
@@ -59,48 +60,58 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 void	Response::readRequest(int fd)
 {
 	char	buffer[PACKET_SIZE];
-	size_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
+	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
-	if (bytes_read <= 0)
+	if (bytes_read == -1)
+		throw HttpException::internalServerError();
+	if (bytes_read == 0)
 	{
 		m_status = STATUS_FAIL;
 		throw HttpException::badRequest("empty or invalid request");
 	}
 
 	buffer[bytes_read] = '\0';
-	m_request = std::string(buffer, bytes_read);
-	log(m_request);
+	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
+	log(std::string(buffer, bytes_read));
 }
 
-void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+void	Response::parseRequest()
 {
-	(void)client;
-	std::istringstream	request(m_request);
+	std::string			emptyLine = "\r\n\r\n";
+	auto 				endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
+	std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
-	parseRequestLine(request, config);
-	parseHeaders(request, config);
+	parseRequestLine(request);
+	parseHeaders(request);
 
-	
+	if (m_method == "GET") {
+		try {
+			m_size = std::filesystem::file_size(m_path);
+		} catch (const std::exception& e) {
+			m_size = 0;
+			throw HttpException::notFound();
+		}
+		return;
+	}
 	if (m_method == "POST") {
 		if (!headerFound("CONTENT-TYPE"))
 			throw HttpException::badRequest("missing content type in a POST request");
 
-		size_t	bodyLength = m_request.length() - m_request.find("\r\n\r\n") - 4;
-		if (getContentLength() != bodyLength)
-			throw HttpException::badRequest("invalid content-length");
-
+		m_request.erase(m_request.begin(), endOfHeaders + 4);
+		if (headerFound("TRANSFER-ENCODING")) {
+			if (m_headers["TRANSFER-ENCODING"] != "chunked")
+				throw HttpException::notImplemented(); // is this only for methods?
+			unchunkContent();
+			return;
+		}
 		if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
-			log("multipart");
-			// parseMultipart(client, request);
-
-		else if (m_headers["CONTENT-TYPE"].find("application/x-www-form-urlencoded") != std::string::npos)
-			parseUrlencoded(client, request);
-	}	
+			parseMultipart();
+	}
 }
 
-void	Response::parseRequestLine(std::istringstream& request, Config& config)
+void	Response::parseRequestLine(std::istringstream& request)
 {
 	std::string	line;
 	std::string	excess;
@@ -113,7 +124,7 @@ void	Response::parseRequestLine(std::istringstream& request, Config& config)
 
 	validateVersion();
 	validateMethod();
-	validateURI(config);
+	validateURI();
 }
 
 void	Response::validateVersion()
@@ -129,8 +140,9 @@ void	Response::validateMethod()
 		throw HttpException::notImplemented();
 }
 
-void	Response::validateURI(Config& config)
+void	Response::validateURI()
 {
+	// check cgi
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
@@ -139,14 +151,14 @@ void	Response::validateURI(Config& config)
 
 	std::vector<std::string>	out;
 
-	config.tryGetDirective("root", out); // what if there are multiple roots in config file
+	m_config.tryGetDirective("root", out); // what if there are multiple roots in config file
 	m_path = out.empty() ? m_path : *out.begin() + m_path; // should there always be at least one?
-	m_path = m_path.substr(1);
+	m_path.erase(0, 1);
 
 	std::ifstream	file(m_path);
 
 	if (!file.good()) {
-		config.tryGetDirective("index", out);
+		m_config.tryGetDirective("index", out);
 		for (std::string idx: out) {
 			std::string newPath = m_path + idx;
 			file.clear();
@@ -158,44 +170,39 @@ void	Response::validateURI(Config& config)
 			}
 		}
 	}
-	try {
-		m_size = std::filesystem::file_size(m_path);
-	} catch (const std::exception& e) {
-		m_size = 0;
+	if (!file.good())
 		throw HttpException::notFound();
-	}
 }
 
-void	Response::parseHeaders(std::istringstream& request, Config& config)
+void	Response::parseHeaders(std::istringstream& request)
 {
 	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
 
 	for (std::string line; getline(request, line);) {
 		if (line.back() == '\r')
 			line.pop_back();
-		if (line.empty())
-			break;
     	if (!std::regex_match(line, headerRegex)) 
 			throw HttpException::badRequest("malformed header");
 		size_t pos = line.find(':');
 		std::string key = line.substr(0, pos);
 		std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+		if (m_headers.find(key) != m_headers.end())
+			throw HttpException::badRequest("duplicate header");
 		std::string value = line.substr(pos + 1);
 		value.erase(0, value.find_first_not_of(" "));
 		value.erase(value.find_last_not_of(" ") + 1);
-		m_headers.emplace(key, value);
+		m_headers[key] = value;
 	}
-	validateHost(config);
-	// check cgi
+	validateHost();
 }
 
-void	Response::validateHost(Config& config)
+void	Response::validateHost()
 {
 	if (m_headers.find("HOST") == m_headers.end())
 		throw HttpException::badRequest("host not found");
 
 	std::vector<std::string> hosts;
-	config.tryGetDirective("server_name", hosts);
+	m_config.tryGetDirective("server_name", hosts);
 	for (std::string host: hosts) {
 		if (host == m_headers["HOST"])
 			return;
@@ -227,11 +234,41 @@ void	Response::parseQueryString()
 	}
 }
 
+void	Response::unchunkContent() {
+	log("IN UNCHUNK CONTENT");
+	
+	std::string	end("0\r\n\r\n");
+	auto it = std::search(m_content.begin(), m_content.end(), end.begin(), end.end());
+	if (it == m_content.end()) {
+		log("INCOMPLETE");
+		return;
+	}
+	// unchunking happens here
+
+	log("COMPLETE");
+	m_complete = true;
+}
+
+int	Response::getChunkSize(std::string& hex) {
+	try {
+		return stoi(hex, nullptr, 16);
+	} catch (std::exception& e) {
+		throw HttpException::badRequest("invalid chunk size");
+	}
+}
+
 size_t	Response::getContentLength()
 {
 	if (!headerFound("CONTENT-LENGTH"))
 		throw HttpException::lengthRequired();
-	return std::stoul(m_headers["CONTENT-LENGTH"]);
+
+	size_t length;
+	try {
+		length = std::stoul(m_headers["CONTENT-LENGTH"]);
+	} catch (std::exception& e) {
+		throw HttpException::badRequest("invalid content length");
+	}
+	return length; 
 }
 
 bool	Response::headerFound(const std::string& header)
@@ -286,6 +323,95 @@ std::string	Response::path()
 size_t Response::size()
 {
 	return m_size;
+}
+
+void	Response::parseMultipart()
+{
+	if (getContentLength() != m_request.size())
+		return;
+	
+	std::string	boundary = getBoundary();
+	std::string	emptyLine = "\r\n\r\n";
+	std::string end = "--\r\n";
+	size_t		boundaryLen = boundary.length();
+
+	auto firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
+	if (firstBoundary != m_request.begin())
+		throw HttpException::badRequest("invalid multipart/form-data content");
+	
+	auto	currentPos = m_request.begin() + boundaryLen;
+
+	while (!std::equal(currentPos, m_request.end(), end.begin(), end.end())) {
+		auto endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
+		if (endOfHeaders == m_request.end())
+			throw HttpException::badRequest("invalid multipart/form-data content");
+		multipart	part;
+		std::string	headerString(currentPos, endOfHeaders);
+		ParseMultipartHeaders(headerString, part);
+		currentPos = endOfHeaders + 4;
+		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
+		if (endOfContent == m_request.end())
+			throw HttpException::badRequest("invalid multipart/form-data content");
+		// if (!part.filename.empty()) {
+		// 	// write to a file
+		// } else {
+			part.content.insert(part.content.end(), currentPos, endOfContent);
+		// }
+		currentPos = endOfContent + boundaryLen;
+		m_multipartData.push_back(part);
+	}
+	m_complete = true;
+}
+
+void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
+{
+	std::istringstream	headers(headerString);
+	size_t				startPos;
+	size_t				endPos;
+
+	for (std::string line; getline(headers, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			continue;
+		if (line.find("Content-Disposition") != std::string::npos) {
+			startPos = line.find("name=\"");
+			if (startPos != std::string::npos) {
+				startPos += 6;
+				endPos = line.find("\"", startPos);
+				part.name = line.substr(startPos, endPos - startPos);
+			}
+			startPos = line.find("filename=\"");
+			if (startPos != std::string::npos) {
+				startPos += 10;
+				endPos = line.find("\"", startPos);
+				part.filename = line.substr(startPos, endPos - startPos);
+			}
+		}
+		else if (line.find("Content-Type: ") != std::string::npos) {
+			startPos = line.find("Content-Type: ") + 14;
+			part.contentType = line.substr(startPos);
+		}
+	}
+}
+
+std::string	Response::getBoundary()
+{
+	size_t startOfBoundary = m_headers["CONTENT-TYPE"].find("boundary=");
+	if (startOfBoundary == std::string::npos)
+		throw HttpException::badRequest("missing boundary for multipart/form-data");
+	
+	return "--" + m_headers["CONTENT-TYPE"].substr(startOfBoundary + 9);
+}
+
+void	Response::displayMultipart() 
+{
+	for (multipart part: m_multipartData) {
+		log("name: " + part.name);
+		log("filename: " + part.filename);
+		log("content-type: " + part.contentType);
+		log("content: " + std::string(part.content.begin(), part.content.end()));
+	}
 }
 
 // void	Response::parseMultipart(std::istringstream& body)
