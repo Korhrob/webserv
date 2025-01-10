@@ -61,6 +61,7 @@ class Response
 		bool											m_complete = false;
 		std::vector<char>								m_content;
 		std::vector<multipart>							m_multipartData;
+		bool											m_isCgi = false;
 
 		void			readRequest(int fd);
 		void			parseRequest();
@@ -82,6 +83,7 @@ class Response
 		std::string		getBoundary();
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
 		void			displayMultipart();
+		void			validateCgi();
 
 	public:
 		Response(std::shared_ptr<Client> client, Config& config);
