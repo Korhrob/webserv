@@ -42,8 +42,8 @@ Response::Response(std::shared_ptr<Client> client, Config& config)
 		m_msg = e.what(); 
 	}
 
-	// log("---- DEBUG ----");
-	// displayMultipart();
+	log("---- DEBUG ----");
+	displayMultipart();
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -101,6 +101,7 @@ void	Response::parseRequest()
 	parseRequestLine(request);
 	parseHeaders(request);
 
+
 	if (m_method == "GET") {
 		try {
 			m_size = std::filesystem::file_size(m_path);
@@ -111,17 +112,17 @@ void	Response::parseRequest()
 		m_parsing = COMPLETE;
 	}
 	else if (m_method == "POST") {
-		if (!headerFound("CONTENT-TYPE"))
+		if (!headerFound("content-type"))
 			throw HttpException::badRequest("missing content type in a POST request");
 
 		m_request.erase(m_request.begin(), endOfHeaders + 4);
 
-		if (headerFound("TRANSFER-ENCODING")) {
-			if (m_headers["TRANSFER-ENCODING"] != "chunked")
+		if (headerFound("transfer-encoding")) {
+			if (m_headers["transfer-encoding"] != "chunked")
 				throw HttpException::notImplemented(); // is this only for methods?
 			parseChunked();
 		}
-		else if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
+		else if (m_headers["content-type"].find("multipart") != std::string::npos)
 			parseMultipart();
 	}
 	else if (m_method == "DELETE") {}
@@ -208,7 +209,7 @@ void	Response::parseHeaders(std::istringstream& request)
 			throw HttpException::badRequest("malformed header");
 		size_t pos = line.find(':');
 		std::string key = line.substr(0, pos);
-		std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+		std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 		if (m_headers.find(key) != m_headers.end())
 			throw HttpException::badRequest("duplicate header");
 		std::string value = line.substr(pos + 1);
@@ -222,20 +223,20 @@ void	Response::parseHeaders(std::istringstream& request)
 
 void	Response::validateConnection()
 {
-	if (m_headers.find("CONNECTION") != m_headers.end()
-		&& m_headers["CONNECTION"] == "close")
+	if (m_headers.find("connection") != m_headers.end()
+		&& m_headers["connection"] == "close")
 		m_client->closeConnection();
 }
 
 void	Response::validateHost()
 {
-	if (m_headers.find("HOST") == m_headers.end())
+	if (m_headers.find("host") == m_headers.end())
 		throw HttpException::badRequest("host not found");
 
 	std::vector<std::string> hosts;
 	m_config.tryGetDirective("server_name", hosts);
 	for (std::string host: hosts) {
-		if (host == m_headers["HOST"])
+		if (host == m_headers["host"])
 			return;
 	}
 	throw HttpException::badRequest("invalid host");
@@ -308,12 +309,12 @@ size_t	Response::getChunkSize(std::string& hex) {
 
 size_t	Response::getContentLength()
 {
-	if (!headerFound("CONTENT-LENGTH"))
+	if (!headerFound("content-length"))
 		throw HttpException::lengthRequired();
 
 	size_t length;
 	try {
-		length = std::stoul(m_headers["CONTENT-LENGTH"]);
+		length = std::stoul(m_headers["content-length"]);
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid content length");
 	}
@@ -325,31 +326,6 @@ bool	Response::headerFound(const std::string& header)
 	if (m_headers.find(header) != m_headers.end())
 		return true;
 	return false;
-}
-
-std::string	Response::str()
-{
-	return m_header + m_body;
-}
-
-std::string	Response::body()
-{
-	return m_body;
-}
-
-std::string	Response::header()
-{
-	return m_header;
-}
-
-std::string	Response::path()
-{
-	return m_path;
-}
-
-size_t Response::size()
-{
-	return m_size;
 }
 
 void	Response::parseMultipart()
@@ -403,7 +379,8 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 			line.pop_back();
 		if (line.empty())
 			continue;
-		if (line.find("Content-Disposition") != std::string::npos) {
+		std::transform(line.begin(), line.end(), line.begin(), ::tolower);
+		if (line.find("content-disposition") != std::string::npos) {
 			startPos = line.find("name=\"");
 			if (startPos != std::string::npos) {
 				startPos += 6;
@@ -417,8 +394,8 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 				part.filename = line.substr(startPos, endPos - startPos);
 			}
 		}
-		else if (line.find("Content-Type: ") != std::string::npos) {
-			startPos = line.find("Content-Type: ") + 14;
+		else if (line.find("content-type: ") != std::string::npos) {
+			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
 		}
 	}
@@ -426,11 +403,36 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 
 std::string	Response::getBoundary()
 {
-	size_t startOfBoundary = m_headers["CONTENT-TYPE"].find("boundary=");
+	size_t startOfBoundary = m_headers["content-type"].find("boundary=");
 	if (startOfBoundary == std::string::npos)
 		throw HttpException::badRequest("missing boundary for multipart/form-data");
 	
-	return "--" + m_headers["CONTENT-TYPE"].substr(startOfBoundary + 9);
+	return "--" + m_headers["content-type"].substr(startOfBoundary + 9);
+}
+
+std::string	Response::str()
+{
+	return m_header + m_body;
+}
+
+std::string	Response::body()
+{
+	return m_body;
+}
+
+std::string	Response::header()
+{
+	return m_header;
+}
+
+std::string	Response::path()
+{
+	return m_path;
+}
+
+size_t Response::size()
+{
+	return m_size;
 }
 
 void	Response::displayQueryData() // debug
@@ -585,10 +587,10 @@ void	Response::displayMultipart() // debug
 // 	// 	parseJsonList(clien, body, pos);
 // }
 
-// void	Response::validateMethod(std::string method)
+// void	Response::validateMethod()
 // {
 // 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-// 	if (methods.find(method) == methods.end())
+// 	if (methods.find(m_method) == methods.end())
 // 		throw HttpException::notImplemented();
-// 	m_method = methods[method];
+// 	m_method = methods[m_method];
 // }
