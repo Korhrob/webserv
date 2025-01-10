@@ -142,12 +142,12 @@ void	Response::validateMethod()
 
 void	Response::validateURI()
 {
-	// check cgi
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
 	decode(m_path);
 	parseQueryString();
+	validateCgi();
 
 	std::vector<std::string>	out;
 
@@ -172,6 +172,13 @@ void	Response::validateURI()
 	}
 	if (!file.good())
 		throw HttpException::notFound();
+}
+
+void	Response::validateCgi()
+{
+	if (m_path.size() > 4 && (m_path.compare(m_path.size() - 4, 4, ".cgi")
+		|| m_path.compare(m_path.size() - 4, 4, ".php")))
+		m_isCgi = true;
 }
 
 void	Response::parseHeaders(std::istringstream& request)
@@ -352,13 +359,13 @@ void	Response::parseMultipart()
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		// if (!part.filename.empty()) {
-		// 	// write to a file
-		// } else {
+		// if (part.filename.empty()) {
 			part.content.insert(part.content.end(), currentPos, endOfContent);
+		// } else {
+			// write to a file	
 		// }
-		currentPos = endOfContent + boundaryLen;
 		m_multipartData.push_back(part);
+		currentPos = endOfContent + boundaryLen;
 	}
 	m_complete = true;
 }
