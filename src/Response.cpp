@@ -18,25 +18,32 @@
 #include <variant>
 
 Response::Response(std::shared_ptr<Client> client, Config& config)
-	: m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0), m_config(config)
+	: m_client(client), m_config(config), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	try {
-		while (m_phase != COMPLETE) {
+		while (m_parsing != COMPLETE) {
 			readRequest(client->fd());
-			if (m_phase == CHUNKED)
-				parseChunked();
-			else if (m_phase == MULTIPART)
-				parseMultipart();
-			else
-				parseRequest();
+			switch (m_parsing) {
+				case REQUEST:
+					parseRequest();
+					break;
+				case CHUNKED:
+					parseChunked();
+					break;
+				case MULTIPART:
+					parseMultipart();
+					break;
+				case COMPLETE:
+					break;
+			}
 		} 
 	} catch (HttpException& e) {
 		m_code = e.getStatusCode();
 		m_msg = e.what(); 
 	}
 
-	log("DEBUG");
-	displayMultipart();
+	// log("---- DEBUG ----");
+	// displayMultipart();
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -101,22 +108,23 @@ void	Response::parseRequest()
 			m_size = 0;
 			throw HttpException::notFound();
 		}
-		return;
+		m_parsing = COMPLETE;
 	}
-	if (m_method == "POST") {
+	else if (m_method == "POST") {
 		if (!headerFound("CONTENT-TYPE"))
 			throw HttpException::badRequest("missing content type in a POST request");
 
 		m_request.erase(m_request.begin(), endOfHeaders + 4);
+
 		if (headerFound("TRANSFER-ENCODING")) {
 			if (m_headers["TRANSFER-ENCODING"] != "chunked")
 				throw HttpException::notImplemented(); // is this only for methods?
 			parseChunked();
-			return;
 		}
-		if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
+		else if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
 			parseMultipart();
 	}
+	else if (m_method == "DELETE") {}
 }
 
 void	Response::parseRequestLine(std::istringstream& request)
@@ -186,7 +194,7 @@ void	Response::validateCgi()
 {
 	if (m_path.size() > 4 && (m_path.compare(m_path.size() - 4, 4, ".cgi")
 		|| m_path.compare(m_path.size() - 4, 4, ".php")))
-		m_isCgi = true;
+		m_status = STATUS_CGI;
 }
 
 void	Response::parseHeaders(std::istringstream& request)
@@ -209,6 +217,14 @@ void	Response::parseHeaders(std::istringstream& request)
 		m_headers[key] = value;
 	}
 	validateHost();
+	validateConnection();
+}
+
+void	Response::validateConnection()
+{
+	if (m_headers.find("CONNECTION") != m_headers.end()
+		&& m_headers["CONNECTION"] == "close")
+		m_client->closeConnection();
 }
 
 void	Response::validateHost()
@@ -249,24 +265,42 @@ void	Response::parseQueryString()
 	}
 }
 
-void	Response::parseChunked() {
-	log("IN UNCHUNK CONTENT");
-	
-	std::string	end("0\r\n\r\n");
-	auto it = std::search(m_content.begin(), m_content.end(), end.begin(), end.end());
-	if (it == m_content.end()) {
-		log("INCOMPLETE");
-		return;
-	}
-	// unchunking happens here
+void	Response::parseChunked() { // not tested
+	log("PARSING CHUNKS");
+	std::string					delim = "\r\n";
+	std::vector<char>::iterator	currentPos = m_request.begin();
+	std::vector<char>::iterator	endOfSize;
+	std::vector<char>::iterator	endOfContent;
 
-	log("COMPLETE");
-	m_phase = COMPLETE;
+	while (true) {
+		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
+		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should always begin with size
+			throw HttpException::badRequest("malformed chunked content");
+		std::string	sizeString(currentPos, endOfSize);
+		size_t		chunkSize = getChunkSize(sizeString);
+		if (chunkSize == 0) {
+			log("PARSING CHUNKS COMPLETE");
+			m_parsing = COMPLETE;
+			return;
+		}
+		endOfSize += 2;
+		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
+		if (endOfContent == m_request.end()) { // incomplete chunk
+			if (currentPos > m_request.begin())
+				m_request.erase(m_request.begin(), currentPos); // erase already unchunked part
+			m_parsing = CHUNKED;
+			return;
+		}
+		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
+			throw HttpException::badRequest("invalid chunk size");
+		m_unchunked.insert(m_unchunked.end(), endOfSize, endOfContent);
+		currentPos = endOfContent + 2;
+	}
 }
 
-int	Response::getChunkSize(std::string& hex) {
+size_t	Response::getChunkSize(std::string& hex) {
 	try {
-		return stoi(hex, nullptr, 16);
+		return stoul(hex, nullptr, 16);
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid chunk size");
 	}
@@ -321,7 +355,7 @@ size_t Response::size()
 void	Response::parseMultipart()
 {
 	if (getContentLength() != m_request.size()) {
-		m_phase = MULTIPART;
+		m_parsing = MULTIPART;
 		return;
 	}
 	
@@ -355,7 +389,7 @@ void	Response::parseMultipart()
 		m_multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
-	m_phase = COMPLETE;
+	m_parsing = COMPLETE;
 }
 
 void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
@@ -429,126 +463,6 @@ void	Response::displayMultipart() // debug
 // 			client->addFormData(line.substr(0, pos), value);
 // 		}
 // 	}
-// }
-
-// void	Response::parseMultipart(std::istringstream& body)
-// {
-// 	std::string	b("--" + m_headers["CONTENT-TYPE"].substr(m_headers["CONTENT-TYPE"].find("=") + 1));
-// 	std::vector<char>	boundary(b.begin(), b.end());
-// 	std::string	name;
-// 	size_t		startPos;
-// 	size_t		endPos;
-
-// 	for (std::string line; getline(body, line);) {
-// 		if (line.back() == '\r')
-// 			line.pop_back();
-// 		if (line.empty() || line == boundary)
-// 			continue;
-// 		if (line == boundary + "--")
-// 			break;
-// 		if (line.find("Content-Disposition") != std::string::npos) {
-// 			startPos = line.find("name=\"");
-// 			if (startPos != std::string::npos) {
-// 				startPos += 6;
-// 				endPos = line.find("\"", startPos);
-// 				name = line.substr(startPos, endPos - startPos);
-// 			}
-// 			startPos = line.find("filename=\"");
-// 			if (startPos != std::string::npos) {
-// 				startPos += 10;
-// 				endPos = line.find("\"", startPos);
-// 				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
-// 				client->openFile(client->getFilename(name));
-// 			}
-// 		} else if (line.find("Content-Type: ") != std::string::npos) {
-// 			startPos = line.find("Content-Type: ") + 14;
-// 			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
-// 		} else {
-// 			if (client->getFilename(name).empty())
-// 				client->addMultipartData(name, CONTENT, line);
-// 			else
-// 				client->getFileStream() << line << "\n";
-// 		}
-// 	}
-// 	client->closeFile();
-// }
-
-// void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
-// {
-// 	size_t	requestLine = m_request.find('\n');
-// 	if (requestLine == std::string::npos)
-// 		throw HttpException::badRequest();
-// 	parseRequestLine(m_request.substr(0, requestLine), config);
-// 	size_t	headers = m_request.find("\r\n\r\n");
-// 	if (headers == std::string::npos)
-// 		throw HttpException::badRequest();
-// 	parseHeaders(m_request.substr(requestLine + 1, headers - requestLine));
-// 	switch (m_method) {
-// 		case GET:
-// 			break;
-// 		case POST: {
-// 			std::istringstream	body(m_request.substr(headers + 4));
-// 			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
-// 				std::string length = m_headers["CONTENT_LENGTH"];
-// 				if (body.str().size() != std::stoul(length))
-// 					throw HttpException::badRequest();
-// 			}
-// 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded")
-// 				parseUrlencoded(client, body);
-// 			else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-// 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-// 				parseMultipart(client, body);
-// 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
-// 				// Parse the body as JSON
-// 				parseJson(client, body.str());
-// 			}
-// 			else 
-// 				throw HttpException::unsupportedMediaType();
-// 			}
-// 		case DELETE: {
-// 			// delete resource identified by the path
-// 			break;
-// 		}
-// 		// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-// 		// if chuncked set output_filestream for client
-// 	}
-// }
-
-// void	Response::parseRequestLine(std::string line, Config& config)
-// {
-// 	std::istringstream	requestLine(line);
-// 	std::string			method;
-// 	std::string			extra;
-// 	if (!(requestLine >> method >> m_path >> m_version) || requestLine >> extra)
-// 		throw HttpException::badRequest();
-// 	validateVersion();
-// 	validateMethod(method);
-// 	validatePath(config);
-// }
-// void	Response::parseHeaders(std::string str)
-// {
-// 	std::istringstream	headers(str);
-// 	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
-// 	for (std::string line; getline(headers, line);) {
-// 		if (line.back() == '\r')
-// 			line.pop_back();
-// 		if (line.empty())
-// 			break;
-//     	if (std::regex_match(line, headerRegex)) {
-// 			size_t pos = line.find(':');
-// 			std::string key = line.substr(0, pos);
-// 			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-// 			// std::transform(key.begin(), key.end(), key.begin(), ::toupper);
-// 			// std::replace(key.begin(), key.end(), '-', '_');
-// 			std::string value = line.substr(pos + 1);
-// 			value.erase(0, value.find_first_not_of(" "));
-// 			value.erase(value.find_last_not_of(" ") + 1);
-// 			m_headers.try_emplace(key, value);
-// 		} else
-// 			throw HttpException::badRequest();
-// 	}
-// 	if (m_headers.find("HOST") == m_headers.end())
-// 		throw HttpException::badRequest();
 // }
 
 // void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)

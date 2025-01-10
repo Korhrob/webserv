@@ -26,30 +26,7 @@ typedef std::chrono::steady_clock::time_point t_time;
 
 // TODO: move inline function to their own .cpp file
 
-// struct s_part {
-// 	std::string	filename;
-// 	std::string	contentType;
-// 	std::string	content;
-// };
-
-// using multipartMap = std::unordered_map<std::string, s_part>;
-
-// enum	e_multipart
-// {
-// 	FILENAME,
-// 	CONTENT_TYPE,
-// 	CONTENT
-// };
-
 using formMap = std::unordered_map<std::string, std::vector<std::string>>;
-
-// struct jsonValue {
-//     std::variant<std::string, double, bool, std::nullptr_t, 
-//                  std::map<std::string, jsonValue>, 
-//                  std::vector<jsonValue>> value;
-// };
-
-// using jsonMap = std::unordered_map<std::string, jsonValue>;
 
 class Client
 {
@@ -62,12 +39,9 @@ class Client
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
-
-		std::string										m_boundary;
 		formMap											m_formData;
-		// multipartMap									m_multipartData;
-		// jsonMap										m_jsonData;
 		std::ofstream									m_file;
+		bool											m_close_connection = false;
 
 	public:
 
@@ -152,31 +126,6 @@ class Client
 			m_pollfd.revents = 0;
 		}
 
-		void	setBoundary(std::string boundary)
-		{
-			m_boundary = boundary;
-		}
-
-		std::string	getBoundary()
-		{
-			return m_boundary;
-		}
-
-		char	hexToChar(std::string hex)
-		{
-			return stoi(hex, nullptr, 16);
-		}
-
-		void	addFormData(std::string key, std::string value)
-		{
-			m_formData[key].push_back(value);
-		}
-
-		std::vector<std::string>	getFormData(std::string key)
-		{
-			return (m_formData[key]);
-		}
-
 		std::ofstream&	openFile(std::string name)
 		{
 			// auto now = std::chrono::steady_clock::now();
@@ -196,49 +145,20 @@ class Client
 			m_file.close();
 		}
 
-		// void	addMultipartData(std::string key, int type, std::string value)
-		// {
-		// 	switch (type) {
-		// 		case FILENAME:
-		// 			m_multipartData[key].filename = value;
-		// 			break;
-		// 		case CONTENT_TYPE:
-		// 			m_multipartData[key].contentType = value;
-		// 			break;
-		// 		case CONTENT:
-		// 			m_multipartData[key].content.append(value);
-		// 	}
-		// }
+		void	closeConnection()
+		{
+			m_close_connection = true;
+		}
+		
+		void	addFormData(std::string key, std::string value)
+		{
+			m_formData[key].push_back(value);
+		}
 
-		// void	addJsonData(std::string& key, jsonValue& value) 
-		// {
-		// 	m_jsonData[key] = value;
-		// }
-
-		// std::string	getFilename(std::string name)
-		// {
-		// 	return m_multipartData[name].filename;
-		// }
-
-		// std::string	getContentType(std::string name)
-		// {
-		// 	return m_multipartData[name].contentType;
-		// }
-
-		// std::string	getContent(std::string name)
-		// {
-		// 	return m_multipartData[name].content;
-		// }
-
-		// void	displayMultipartData() // debug
-		// {
-		// 	for (auto [key, value]: m_multipartData) {
-		// 	log("key: " + key);
-		// 	log("filename: " + value.filename);
-		// 	log("content-type: " + value.contentType);
-		// 	log("content: " + value.content);
-		// 	}
-		// }
+		std::vector<std::string>	getFormData(std::string key)
+		{
+			return (m_formData[key]);
+		}
 
 		void	displayFormData() // debug
 		{
