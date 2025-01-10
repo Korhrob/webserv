@@ -116,7 +116,7 @@ void	Server::startListen()
 
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	Response	http_response(client);
+	Response	http_response(client, m_config);
 
 	if (http_response.getStatus() == STATUS_FAIL)
 	{

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Client.hpp"
+#include "Config.hpp"
+
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -33,7 +35,7 @@ class Response
 	private:
 		std::string										m_request;
 		e_method										m_method;
-		std::string										m_path = "/index.html";
+		std::string										m_path;
 		std::string										m_version;
 		int												m_code;
 		e_status										m_status;
@@ -45,18 +47,21 @@ class Response
 		// bool											m_connection;
 
 	public:
-		Response(std::shared_ptr<Client> client);
+		Response(std::shared_ptr<Client> client, Config& config);
 
-		bool	readRequest(int fd);
-		void	parseRequest(std::shared_ptr<Client> client);
-		void	parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
+		bool		readRequest(int fd);
+		void		parseRequest(std::shared_ptr<Client> client, Config& config);
+		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 
 		bool		setMethod(std::string method);
 
 		e_status	getStatus() { return m_status; }
 		e_type		getSendType() { return m_send_type; }
 
-		bool		version() { return m_version == "HTTP/1.1"; }
+		bool		version();
+		bool		pathIsDirectory();
+
+		void		sanitizePath();
 
 		std::string	str();
 		std::string	header();

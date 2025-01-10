@@ -23,6 +23,21 @@ typedef std::chrono::steady_clock::time_point t_time;
 
 // TODO: move inline function to their own .cpp file
 
+struct s_part {
+	std::string	filename;
+	std::string	contentType;
+	std::string	content;
+};
+
+using multipart = std::unordered_map<std::string, s_part>;
+
+enum	e_multipart
+{
+	FILENAME,
+	CONTENT_TYPE,
+	CONTENT
+};
+
 class Client
 {
 
@@ -36,6 +51,7 @@ class Client
 		t_time											m_last_activity;
 
 		std::string										m_boundary;
+		multipart										m_multipartData;
 		std::unordered_map<std::string, std::string>	m_formData;
 		std::ofstream									m_file;
 
@@ -132,8 +148,18 @@ class Client
 			return m_boundary;
 		}
 
+		char	hexToChar(std::string hex)
+		{
+			return stoi(hex, nullptr, 16);
+		}
+
 		void	setFormData(std::string key, std::string value)
 		{
+			while (value.find('%') != std::string::npos) {
+				size_t pos = value.find('%');
+				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
+				value.erase(pos + 1, 3);
+			}
 			m_formData.insert_or_assign(key, value);
 		}
 
@@ -153,6 +179,7 @@ class Client
 			// auto now = std::chrono::steady_clock::now();
 			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
+			
 			return m_file;
 		}
 		
@@ -165,4 +192,34 @@ class Client
 		{
 			m_file.close();
 		}
+
+		void	addMultipartData(std::string key, int type, std::string value)
+		{
+			switch (type) {
+				case FILENAME:
+					m_multipartData[key].filename = value;
+					break;
+				case CONTENT_TYPE:
+					m_multipartData[key].contentType = value;
+					break;
+				case CONTENT:
+					m_multipartData[key].content.append(value);
+			}
+		}
+
+		std::string	getFilename(std::string name) { return m_multipartData[name].filename; }
+
+		std::string	getContentType(std::string name) { return m_multipartData[name].contentType; }
+
+		std::string	getContent(std::string name) { return m_multipartData[name].content; }
+
+		void	displayMultipartData()
+		{
+			for (auto [key, value]: m_multipartData) {
+			log("key: " + key);
+			log("filename: " + value.filename);
+			log("content-type: " + value.contentType);
+			log("content: " + value.content);
+		}
+	}
 };

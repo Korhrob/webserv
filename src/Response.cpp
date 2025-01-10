@@ -15,19 +15,19 @@
 #include <vector>
 #include <regex>
 
-struct s_part {
-	std::string	filename;
-	std::string	content_type;
-	std::string	content;
-};
+// struct s_part {
+// 	std::string	filename;
+// 	std::string	content_type;
+// 	std::string	content;
+// };
 
-using part = s_part;
-using multipart = std::unordered_map<std::string, part>;
+// using part = s_part;
+// using multipart = std::unordered_map<std::string, part>;
 
-Response::Response(std::shared_ptr<Client> client) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
+Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	if (readRequest(client->fd()))
-		parseRequest(client);
+		parseRequest(client, config);
 
 	// client->displayFormData(); // for debugging
 
@@ -81,18 +81,15 @@ bool	Response::readRequest(int fd)
 
 void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
 {
-	log("IN MULTIPART PARSING");
+	// log("IN MULTIPART PARSING");
 	/*
 		Validate content_length
 		Headers always begin right after the boundary line.
 		Content is always separated from the headers by a blank line (\r\n\r\n).
 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
 	*/
-	std::string	boundary = client->getBoundary();
-	std::string name;
-	std::string key;
-	std::string	value;
-	multipart	parsedData;
+	std::string	boundary(client->getBoundary());
+	std::string	name;
 	size_t		startPos;
 	size_t		endPos;
 
@@ -104,41 +101,36 @@ void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream
 		if (line == boundary + "--")
 			break;
 		if (line.find("Content-Disposition") != std::string::npos) {
-				startPos = line.find("name=\"");
+			startPos = line.find("name=\"");
 			if (startPos != std::string::npos) {
 				startPos += 6;
 				endPos = line.find("\"", startPos);
 				name = line.substr(startPos, endPos - startPos);
-				parsedData[name];
 			}
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
-				parsedData[name].filename = line.substr(startPos, endPos - startPos);
-				client->openFile(parsedData[name].filename);
+				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+				client->openFile(client->getFilename(name));
 			}
 		} else if (line.find("Content-Type: ") != std::string::npos) {
 			startPos = line.find("Content-Type: ") + 14;
-			parsedData[name].content_type = line.substr(startPos);
+			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
 		} else {
-			if (parsedData[name].filename.empty())
-				parsedData[name].content = line;
+			if (client->getFilename(name).empty())
+				client->addMultipartData(name, CONTENT, line);
 			else
 				client->getFileStream() << line << "\n";
 		}
 	}
-	for (auto [key, value]: parsedData) {
-		log("key: " + key);
-		log("filename: " + value.filename);
-		log("content-type: " + value.content_type);
-		log("content: " + value.content);
-	}
 	client->closeFile();
 }
 
-void	Response::parseRequest(std::shared_ptr<Client> client)
+void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 {
+	(void)config;
+
 	size_t	pos = m_request.find('\n');
 	if (pos == std::string::npos || pos == std::string::npos - 1) {
 		logError("Invalid request");
@@ -158,10 +150,46 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	if (!setMethod(method))
 		return;
 
+	// std::vector<std::string>	out;
+
+	// sanitizePath();
+
+	// config.tryGetDirective("root", out);
+	// m_path = out.empty() ? m_path : *out.begin() + m_path;
+
+	// std::ifstream	file(m_path);
+
+	// if (pathIsDirectory()) {
+	// 	config.tryGetDirective("index", out);
+	// 	for (std::string idx: out) {
+	// 		std::string newPath = m_path + idx;
+	// 		file.clear();
+	// 		file = std::ifstream(newPath);
+	// 		if (file.good())
+	// 		{
+	// 			m_path = newPath;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+	// if (!file.good()) {
+	// 	log("HERE path is " + m_path);
+	// 	m_code = 404; // not found
+	// 	return;
+	// }
+	// try {
+	// 	m_size = std::filesystem::file_size(m_path);
+	// 	m_code = 200;
+	// } catch (const std::exception& e) {
+	// 	m_size = 0;
+	// 	m_code = 404;
+	// 	std::cerr << e.what() << '\n';
+	// }
+
 	std::istringstream	request(m_request.substr(pos + 1));
-	std::regex 			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
 	std::string			key;
-	std::string 		value;
+	std::string			value;
 
 	for (std::string line; getline(request, line);) {
 		if (line.back() == '\r')
@@ -178,18 +206,16 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 			value.erase(value.find_last_not_of(" ") + 1);
 			m_headers.try_emplace(key, value);
 		} else {
-			m_code = 400; // Bad Request
+			m_code = 200; // Bad Request
 			return;
 		}
 	}
 	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
 	// if (m_method == GET) {
-	if (m_path.empty() || m_path == "/")
-		m_path = "/index.html";
+	// if (m_path.empty() || m_path == "/")
+	// 	m_path = "/index.html";
 		
 	m_path = m_path.substr(1);
-
-	//m_path = m_path.substr(1);
 
 	const std::vector<std::string> alt { ".html", "/index.html" };
 
@@ -240,16 +266,20 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 		}
 			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
 				// Parse key-value pairs from the body to a map
+				// Convert url-encoded values
 				for (std::string line; getline(request, line, '&');) {
 					pos = line.find('=');
 					if (pos != std::string::npos)
 						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
+					// client->displayFormData();
 				}
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
+				// log("PARSED MULTIPART DATA");
+				// client->displayMultipartData();
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
-				// Parse the body as JSON using a library or custom parser
+				// Parse the body as JSON
 			// }
 		} // else bad request
 	}
@@ -262,6 +292,14 @@ void	Response::parseRequest(std::shared_ptr<Client> client)
 	}
 }
 
+bool	Response::version()
+{
+	if (m_version == "HTTP/1.1")
+		return true;
+	m_code = 505; // HTTP Version Not Supported
+	return false;
+}
+
 bool	Response::setMethod(std::string method)
 {
 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
@@ -270,8 +308,20 @@ bool	Response::setMethod(std::string method)
 		return true;
 	} else {
 		logError("Invalid or missing method");
-		m_code = 405; // Method Not Allowed
+		m_code = 501; // Not Implemented
 		return false;
+	}
+}
+
+bool	Response::pathIsDirectory()
+{
+	return (m_path.back() == '/');
+}
+
+void	Response::sanitizePath()
+{
+	while (m_path.find("../") == 0) {
+		m_path.erase(0, 3);
 	}
 }
 
@@ -294,4 +344,3 @@ std::string	Response::path()
 {
 	return m_path;
 }
-
