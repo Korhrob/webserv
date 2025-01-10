@@ -7,6 +7,13 @@
 #include <string>
 #include <unordered_map>
 
+enum	e_phase
+{
+	CHUNKED,
+	MULTIPART,
+	COMPLETE
+};
+
 enum	e_method
 {
 	GET,
@@ -58,7 +65,7 @@ class Response
 		formMap											m_queryData;
 		// bool											m_connection;
 		Config&											m_config;
-		bool											m_complete = false;
+		e_phase											m_phase;
 		std::vector<char>								m_content;
 		std::vector<multipart>							m_multipartData;
 		bool											m_isCgi = false;
@@ -72,18 +79,18 @@ class Response
 		void			validateURI();
 		void			validateHost();
 		void			parseQueryString();
-		void			decode(std::string& str);
-		void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
+		void			decodeURI(std::string& str);
 		bool			headerFound(const std::string& header);
 		void			parseMultipart();
-		void			unchunkContent();
+		void			parseChunked();
 		int				getChunkSize(std::string& hex);
 		size_t			getContentLength();
-		void			displayQueryData(); // debug
 		std::string		getBoundary();
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
-		void			displayMultipart();
 		void			validateCgi();
+		void			displayQueryData(); // debug
+		void			displayMultipart(); // debug
+		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:
 		Response(std::shared_ptr<Client> client, Config& config);

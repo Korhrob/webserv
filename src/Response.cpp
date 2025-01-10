@@ -21,14 +21,22 @@ Response::Response(std::shared_ptr<Client> client, Config& config)
 	: m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0), m_config(config)
 {
 	try {
-		// while (!m_complete) {
+		while (m_phase != COMPLETE) {
 			readRequest(client->fd());
-			parseRequest();
-		// } 
+			if (m_phase == CHUNKED)
+				parseChunked();
+			else if (m_phase == MULTIPART)
+				parseMultipart();
+			else
+				parseRequest();
+		} 
 	} catch (HttpException& e) {
 		m_code = e.getStatusCode();
 		m_msg = e.what(); 
 	}
+
+	log("DEBUG");
+	displayMultipart();
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -103,7 +111,7 @@ void	Response::parseRequest()
 		if (headerFound("TRANSFER-ENCODING")) {
 			if (m_headers["TRANSFER-ENCODING"] != "chunked")
 				throw HttpException::notImplemented(); // is this only for methods?
-			unchunkContent();
+			parseChunked();
 			return;
 		}
 		if (m_headers["CONTENT-TYPE"].find("multipart") != std::string::npos)
@@ -145,13 +153,13 @@ void	Response::validateURI()
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
-	decode(m_path);
+	decodeURI(m_path);
 	parseQueryString();
 	validateCgi();
 
 	std::vector<std::string>	out;
 
-	m_config.tryGetDirective("root", out); // what if there are multiple roots in config file
+	m_config.tryGetDirective("root", out); // what if there are multiple roots in config file?
 	m_path = out.empty() ? m_path : *out.begin() + m_path; // should there always be at least one?
 	m_path.erase(0, 1);
 
@@ -217,7 +225,7 @@ void	Response::validateHost()
 	throw HttpException::badRequest("invalid host");
 }
 
-void	Response::decode(std::string& str) {
+void	Response::decodeURI(std::string& str) {
 	while (str.find('%') != std::string::npos) {
 		size_t pos = str.find('%');
 		str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
@@ -241,7 +249,7 @@ void	Response::parseQueryString()
 	}
 }
 
-void	Response::unchunkContent() {
+void	Response::parseChunked() {
 	log("IN UNCHUNK CONTENT");
 	
 	std::string	end("0\r\n\r\n");
@@ -253,7 +261,7 @@ void	Response::unchunkContent() {
 	// unchunking happens here
 
 	log("COMPLETE");
-	m_complete = true;
+	m_phase = COMPLETE;
 }
 
 int	Response::getChunkSize(std::string& hex) {
@@ -285,28 +293,6 @@ bool	Response::headerFound(const std::string& header)
 	return false;
 }
 
-void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
-{
-	for (std::string line; getline(body, line, '&');) {
-		size_t pos = line.find('=');
-		if (pos != std::string::npos) {
-			std::string value = line.substr(pos + 1);
-			decode(value);
-			replace(value.begin(), value.end(), '+', ' ');
-			client->addFormData(line.substr(0, pos), value);
-		}
-	}
-}
-
-void	Response::displayQueryData() // debug
-{
-	for (auto& [key, values] : m_queryData) {
-		std::cout << key << "=";
-		for (std::string value: values)
-			std::cout << value << "\n";
-	}
-}
-
 std::string	Response::str()
 {
 	return m_header + m_body;
@@ -334,8 +320,10 @@ size_t Response::size()
 
 void	Response::parseMultipart()
 {
-	if (getContentLength() != m_request.size())
+	if (getContentLength() != m_request.size()) {
+		m_phase = MULTIPART;
 		return;
+	}
 	
 	std::string	boundary = getBoundary();
 	std::string	emptyLine = "\r\n\r\n";
@@ -367,7 +355,7 @@ void	Response::parseMultipart()
 		m_multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
-	m_complete = true;
+	m_phase = COMPLETE;
 }
 
 void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
@@ -411,7 +399,16 @@ std::string	Response::getBoundary()
 	return "--" + m_headers["CONTENT-TYPE"].substr(startOfBoundary + 9);
 }
 
-void	Response::displayMultipart() 
+void	Response::displayQueryData() // debug
+{
+	for (auto& [key, values] : m_queryData) {
+		std::cout << key << "=";
+		for (std::string value: values)
+			std::cout << value << "\n";
+	}
+}
+
+void	Response::displayMultipart() // debug
 {
 	for (multipart part: m_multipartData) {
 		log("name: " + part.name);
@@ -420,6 +417,19 @@ void	Response::displayMultipart()
 		log("content: " + std::string(part.content.begin(), part.content.end()));
 	}
 }
+
+// void	Response::parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body)
+// {
+// 	for (std::string line; getline(body, line, '&');) {
+// 		size_t pos = line.find('=');
+// 		if (pos != std::string::npos) {
+// 			std::string value = line.substr(pos + 1);
+// 			decode(value);
+// 			replace(value.begin(), value.end(), '+', ' ');
+// 			client->addFormData(line.substr(0, pos), value);
+// 		}
+// 	}
+// }
 
 // void	Response::parseMultipart(std::istringstream& body)
 // {
