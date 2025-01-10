@@ -1,6 +1,6 @@
 
 #include "Server.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 
 #include <iostream>
 #include <signal.h>
@@ -34,7 +34,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	log("Clean Exit!");
+	Logger::getInstance().log("Clean Exit!");
 
 	return 0;
 }

@@ -13,7 +13,7 @@
 #include <vector> // vector
 #include <memory> // unique ptr
 
-#include "ILog.hpp"
+#include "Logger.hpp"
 #include "Client.hpp"
 #include "Const.hpp"
 #include "Config.hpp"
@@ -38,7 +38,6 @@ class Server
 		std::vector<struct pollfd>					m_pollfd;
 		std::vector<std::shared_ptr<Client>>		m_clients;
 		struct pollfd&								m_listener;	// alias
-		
 
 	public:
 		Server(const std::string& ip, int port);

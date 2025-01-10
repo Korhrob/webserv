@@ -1,7 +1,7 @@
 #include "Config.hpp"
 #include "ConfigNode.hpp"
 #include "Const.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 
 #include <string>
 #include <fstream>
@@ -64,13 +64,13 @@ bool	Config::parse(std::ifstream& stream)
 			{
 				node_name = node_name.substr(9);
 				node_name = trim(node_name);
-				log("location node = [" + node_name + "]");
+				Logger::getInstance().log("location node = [" + node_name + "]");
 			}
 
 			if (findNode(node_name) != nullptr)
 			{
-				logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
-				logError(line);
+				Logger::getInstance().logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
+				Logger::getInstance().logError(line);
 				return false;
 			}
 
@@ -88,8 +88,8 @@ bool	Config::parse(std::ifstream& stream)
 		{
 			if (tree.empty())
 			{
-				logError("unexpected end of block on line " + std::to_string(line_nbr) + ":");
-				logError(line);
+				Logger::getInstance().logError("unexpected end of block on line " + std::to_string(line_nbr) + ":");
+				Logger::getInstance().logError(line);
 				return false;
 			}
 			tree.pop_back();
@@ -100,8 +100,8 @@ bool	Config::parse(std::ifstream& stream)
 
 		if (tree.empty())
 		{
-			logError("unexpected directive on line " + std::to_string(line_nbr) + ":");
-			logError(line);
+			Logger::getInstance().logError("unexpected directive on line " + std::to_string(line_nbr) + ":");
+			Logger::getInstance().logError(line);
 			return false;
 		}
 
@@ -118,15 +118,15 @@ bool	Config::parse(std::ifstream& stream)
 
 		if (it == VALID_DIRECTIVES.end())
 		{
-			logError(name + " is not a valid directive, line " + std::to_string(line_nbr) + ":");
-			logError(line);
+			Logger::getInstance().logError(name + " is not a valid directive, line " + std::to_string(line_nbr) + ":");
+			Logger::getInstance().logError(line);
 			return false;
 		}
 
 		if (!tree.back()->findDirective(name).empty())
 		{
-			logError("duplicate directive " + name + " on line " + std::to_string(line_nbr) + ":");
-			logError(line);
+			Logger::getInstance().logError("duplicate directive " + name + " on line " + std::to_string(line_nbr) + ":");
+			Logger::getInstance().logError(line);
 			return false;
 		}
 
@@ -137,14 +137,14 @@ bool	Config::parse(std::ifstream& stream)
 
 	if (!tree.empty())
 	{
-		logError("unexpected end of file, missing } somewhere");
+		Logger::getInstance().logError("unexpected end of file, missing } somewhere");
 		return false;
 	}
 
 	std::shared_ptr<ConfigNode>	serverNode = findNode("server");
 	if (serverNode == nullptr)
 	{
-		logError("missing server node");
+		Logger::getInstance().logError("missing server node");
 		return false;
 	}
 
@@ -153,24 +153,24 @@ bool	Config::parse(std::ifstream& stream)
 	{
 		if (!serverNode->tryGetDirective(str, d))
 		{
-			logError("missing mandatory directive '" + str + "'");
+			Logger::getInstance().logError("missing mandatory directive '" + str + "'");
 			return false;
 		}
 	}
 
-	//log("Config OK");
+	//Logger::getInstance().log("Config OK");
 
 	// some test functions
 	// if (findNode("/") != nullptr)
 	// {
-	// 	log("location / (root) found!");
+	// 	Logger::getInstance().log("location / (root) found!");
 		
 	// }
 
 	// std::vector<std::string> t;
 
 	// if (tryGetDirective("root", t)) {
-	// 	log("found root");
+	// 	Logger::getInstance().log("found root");
 	// }
 
 	return true;
@@ -182,7 +182,7 @@ unsigned int	Config::getPort()
 
 	if (directive.empty())
 	{
-		logError("server block does not contain listen directive");
+		Logger::getInstance().logError("server block does not contain listen directive");
 		return 8080; // default
 	}
 
@@ -193,14 +193,14 @@ unsigned int	Config::getPort()
 	}
 	catch (const std::invalid_argument& e)
 	{
-		logError("Invalid argument");
+		Logger::getInstance().logError("Invalid argument");
 	}
 	catch (const std::out_of_range& e)
 	{
-		logError("Out of range");
+		Logger::getInstance().logError("Out of range");
 	}
 
-	logError("using default port 8080");
+	Logger::getInstance().logError("using default port 8080");
 	return 8080; // default
 }
 
@@ -211,8 +211,8 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 
 	if (line.back() != ';')
 	{
-		logError("missing ; on line " + std::to_string(line_nbr) + ":");
-		logError(line);
+		Logger::getInstance().logError("missing ; on line " + std::to_string(line_nbr) + ":");
+		Logger::getInstance().logError(line);
 		return result;
 	}
 	else

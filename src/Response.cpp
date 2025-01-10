@@ -1,7 +1,7 @@
 #include "Response.hpp"
 #include "ConfigNode.hpp"
 #include "Parse.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
 
@@ -40,18 +40,20 @@ Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(ST
 	{
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
+		
 		if (!m_body.empty())
-		m_size = m_body.size();
+			m_size = m_body.size();
+
 		m_header = getHeaderSingle(m_size, m_code);
 
-		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
 		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
-		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
+		Logger::getInstance().log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
 	m_status = STATUS_OK;
@@ -63,11 +65,11 @@ bool	Response::readRequest(int fd)
 	char	buffer[PACKET_SIZE];
 	size_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read <= 0) // bad request tms?
 	{
-		logError("Empty or invalid request");
+		//Logger::getInstance().logError("Empty or invalid request");
 		m_status = STATUS_FAIL;
 		m_code = 404;
 		return false;
@@ -75,13 +77,13 @@ bool	Response::readRequest(int fd)
 
 	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
-	log(m_request);
+	Logger::getInstance().log(m_request);
 	return true;
 }
 
 void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
 {
-	// log("IN MULTIPART PARSING");
+	// Logger::getInstance().log("IN MULTIPART PARSING");
 	/*
 		Validate content_length
 		Headers always begin right after the boundary line.
@@ -133,7 +135,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 
 	size_t	pos = m_request.find('\n');
 	if (pos == std::string::npos || pos == std::string::npos - 1) {
-		logError("Invalid request");
+		Logger::getInstance().logError("Invalid request");
 		return;
 	}
 
@@ -142,7 +144,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	std::string			extra;
 
 	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
-		logError("Invalid request line");
+		Logger::getInstance().logError("Invalid request line");
 		m_code = 400;
 		return;
 	}
@@ -173,7 +175,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	// 	}
 	// }
 	// if (!file.good()) {
-	// 	log("HERE path is " + m_path);
+	// 	Logger::getInstance().log("HERE path is " + m_path);
 	// 	m_code = 404; // not found
 	// 	return;
 	// }
@@ -225,7 +227,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 		for (auto& it : alt)
 		{
 			std::string	new_path = m_path + it;
-			log("Try " + new_path);
+			Logger::getInstance().log("Try " + new_path);
 			file.clear();
 			file = std::ifstream(new_path);
 			if (file.good())
@@ -241,7 +243,8 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 	} catch (const std::exception& e) {
 		m_size = 0;
 		m_code = 404;
-		std::cerr << e.what() << '\n';
+		Logger::getInstance().logError(e.what());
+		//std::cerr << e.what() << '\n';
 	}
 	// }
 	/*
@@ -258,7 +261,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
 				std::string length = m_headers["CONTENT_LENGTH"];
 				if (body.str().size() != std::stoul(length)) {
-					logError("Invalid content length");
+					Logger::getInstance().logError("Invalid content length");
 					// m_code = 
 					return;
 				}
@@ -276,7 +279,7 @@ void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
 			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
 				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
 				parseMultipart(client, body);
-				// log("PARSED MULTIPART DATA");
+				// Logger::getInstance().log("PARSED MULTIPART DATA");
 				// client->displayMultipartData();
 			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
 				// Parse the body as JSON
@@ -307,7 +310,7 @@ bool	Response::setMethod(std::string method)
 		m_method = methods[method];
 		return true;
 	} else {
-		logError("Invalid or missing method");
+		Logger::getInstance().logError("Invalid or missing method");
 		m_code = 501; // Not Implemented
 		return false;
 	}

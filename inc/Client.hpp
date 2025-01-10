@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <fstream> // ofstream
 
-#include "ILog.hpp" // log,  logError
+#include "Logger.hpp" // log,  logError
 #include "Const.hpp"
 
 typedef struct sockaddr_in t_sockaddr_in;
@@ -92,7 +92,7 @@ class Client
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			log("Client connected!");
+			Logger::getInstance().log("Client connected!");
 
 			return true;
 		}
@@ -105,7 +105,7 @@ class Client
 			m_pollfd.revents = 0;
 			m_alive = false;
 
-			log("Client disconnected!");
+			Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)
@@ -115,8 +115,8 @@ class Client
 
 		int	respond(const std::string& response)
 		{
-			int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
-			log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
+			int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL); // 0
+			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
 			m_pollfd.revents = POLLOUT; 
 
@@ -216,10 +216,10 @@ class Client
 		void	displayMultipartData()
 		{
 			for (auto [key, value]: m_multipartData) {
-			log("key: " + key);
-			log("filename: " + value.filename);
-			log("content-type: " + value.contentType);
-			log("content: " + value.content);
+			Logger::getInstance().log("key: " + key);
+			Logger::getInstance().log("filename: " + value.filename);
+			Logger::getInstance().log("content-type: " + value.contentType);
+			Logger::getInstance().log("content: " + value.content);
 		}
 	}
 };
