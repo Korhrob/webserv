@@ -43,7 +43,8 @@ Response::Response(std::shared_ptr<Client> client, Config& config)
 	}
 
 	log("---- DEBUG ----");
-	displayMultipart();
+	log(std::string(m_unchunked.begin(), m_unchunked.end()));
+	// displayMultipart();
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -80,11 +81,11 @@ void	Response::readRequest(int fd)
 	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read == -1)
-		throw HttpException::internalServerError();
+		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
 	{
 		m_status = STATUS_FAIL;
-		throw HttpException::badRequest("empty or invalid request");
+		throw HttpException::badRequest("empty request");
 	}
 
 	buffer[bytes_read] = '\0';
@@ -152,8 +153,9 @@ void	Response::validateVersion()
 
 void	Response::validateMethod()
 {
-	std::vector<std::string> methods = {"GET", "POST", "DELETE"};
-	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
+	std::vector<std::string> allowedMethods;
+	m_config.tryGetDirective("methods", allowedMethods);
+	if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
 		throw HttpException::notImplemented();
 }
 
@@ -266,8 +268,13 @@ void	Response::parseQueryString()
 	}
 }
 
-void	Response::parseChunked() { // not tested
+void	Response::parseChunked() { // not properly tested
 	log("PARSING CHUNKS");
+	if (m_request.empty()) {
+		log("EMPTY CHUNK");
+		m_parsing = CHUNKED;
+		return;
+	}
 	std::string					delim = "\r\n";
 	std::vector<char>::iterator	currentPos = m_request.begin();
 	std::vector<char>::iterator	endOfSize;
@@ -465,126 +472,6 @@ void	Response::displayMultipart() // debug
 // 			client->addFormData(line.substr(0, pos), value);
 // 		}
 // 	}
-// }
-
-// void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
-// {
-// 	// log("IN MULTIPART PARSING");
-// 	/*
-// 		Validate content_length
-// 		Headers always begin right after the boundary line.
-// 		Content is always separated from the headers by a blank line (\r\n\r\n).
-// 		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
-// 	*/
-// 	std::string	boundary(client->getBoundary());
-// 	std::string	name;
-// 	size_t		startPos;
-// 	size_t		endPos;
-
-// 	for (std::string line; getline(body, line);) {
-// 		if (line.back() == '\r')
-// 			line.pop_back();
-// 		if (line.empty() || line == boundary)
-// 			continue;
-// 		if (line == boundary + "--")
-// 			break;
-// 		if (line.find("Content-Disposition") != std::string::npos) {
-// 			startPos = line.find("name=\"");
-// 			if (startPos != std::string::npos) {
-// 				startPos += 6;
-// 				endPos = line.find("\"", startPos);
-// 				name = line.substr(startPos, endPos - startPos);
-// 			}
-// 			startPos = line.find("filename=\"");
-// 			if (startPos != std::string::npos) {
-// 				startPos += 10;
-// 				endPos = line.find("\"", startPos);
-// 				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
-// 				client->openFile(client->getFilename(name));
-// 			}
-// 		} else if (line.find("Content-Type: ") != std::string::npos) {
-// 			startPos = line.find("Content-Type: ") + 14;
-// 			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
-// 		} else {
-// 			if (client->getFilename(name).empty())
-// 				client->addMultipartData(name, CONTENT, line);
-// 			else
-// 				client->getFileStream() << line << "\n";
-// 		}
-// 	}
-// 	client->closeFile();
-// }
-
-// jsonValue	parseJsonValue(std::string& body, size_t& pos)
-// {
-// 	size_t	end = body.find('\n', pos);
-// 	if (end == std::string::npos)
-// 		throw HttpException::badRequest();
-// 	std::string	str = body.substr(pos, end - pos);
-// 	if (str.back() == ',')
-// 		str.pop_back();
-// 	jsonValue	val;
-// 	try {
-// 		size_t	idx;
-// 		double	numVal = std::stod(str, &idx);
-// 		if (idx == str.length()) {
-// 			val.value = numVal;
-// 			pos = end;
-// 			return val;
-// 		}
-// 	} catch (std::exception& e) {}
-// 	if (str == "null")
-// 		val.value = nullptr;
-// 	else if (str == "true" || str == "false") 
-// 		val.value = str == "true" ? true : false;
-// 	else if (str.front() == '\'' && str.back() == '\'') 
-// 		val.value = str.substr(1, str.length() - 2);
-// 	else if (str.front() == '[') {
-// 		val.value = str; // temp
-// 	}
-// 	else if (str.front() == '{') {
-// 		val.value = str; // temp
-// 	}
-// 	else
-// 		throw HttpException::badRequest();
-// 	pos = end;
-// 	return val;
-// }
-
-// std::string	parseJsonKey(std::string& body, size_t& pos)
-// {
-// 	size_t	delimiter = body.find(':', pos);
-// 	if (delimiter == std::string::npos)
-// 		throw HttpException::badRequest();
-// 	if (body[pos] != '\'' || body[delimiter - 1] != '\'')
-// 		throw HttpException::badRequest();
-// 	std::string	key = body.substr(pos + 1, delimiter - pos - 2);
-// 	pos = delimiter++;
-// 	return key;
-// }
-
-// void	parseJsonObject(std::shared_ptr<Client> client, std::string body, size_t& pos)
-// {
-// 	while (std::isspace(body[pos]))
-// 		pos++;
-// 	while (body[pos] != '}') {
-// 		std::string key = parseJsonKey(body, pos);
-// 		while (std::isspace(body[pos]))
-// 			pos++;
-// 		jsonValue	value = parseJsonValue(body, pos);
-// 		while (std::isspace(body[pos]))
-// 			pos++;
-// 		client->addJsonData(key, value);
-// 	}
-// }
-
-// void	Response::parseJson(std::shared_ptr<Client> client, std::string body)
-// {
-// 	size_t	pos = 1;
-// 	if (body.front() == '{')
-// 		parseJsonObject(client, body, pos);
-// 	// else if (body.front() == '[')
-// 	// 	parseJsonList(clien, body, pos);
 // }
 
 // void	Response::validateMethod()
