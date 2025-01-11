@@ -12,7 +12,7 @@
 
 Config::Config() : m_valid(false)
 {
-	std::ifstream	file("config");
+	std::ifstream	file("config.conf");
 
 	if (!file.is_open() || !file.good())
 		return;
