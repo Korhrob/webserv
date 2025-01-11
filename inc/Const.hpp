@@ -10,4 +10,4 @@ static const unsigned int CLIENT_TIMEOUT = 5000; // 5 seconds
 const std::string				WHITESPACE = " \t";
 const std::vector<std::string>	EMPTY_VECTOR;
 const std::vector<std::string>	MANDATORY_DIRECTIVES { "listen", "server_name" };
-const std::vector<std::string>	VALID_DIRECTIVES { "listen", "server_name", "index", "root", "methods", "client_max_body_size", "access_log", "error_log", "worker_connections" };
+const std::vector<std::string>	VALID_DIRECTIVES { "listen", "server_name", "index", "root", "methods", "cgi", "client_max_body_size", "access_log", "error_log", "worker_connections" };
