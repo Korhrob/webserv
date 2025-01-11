@@ -195,8 +195,14 @@ void	Response::validateURI()
 
 void	Response::validateCgi()
 {
-	if (m_path.size() > 4 && (m_path.compare(m_path.size() - 4, 4, ".cgi")
-		|| m_path.compare(m_path.size() - 4, 4, ".php")))
+	if (m_path.find(".") == std::string::npos)
+		return;
+	
+	std::string					extension(m_path.substr(m_path.find_last_of(".")));
+	std::vector<std::string>	cgiList;
+	
+	m_config.tryGetDirective("cgi", cgiList);
+	if (std::find(cgiList.begin(), cgiList.end(), extension) != cgiList.end())
 		m_status = STATUS_CGI;
 }
 
