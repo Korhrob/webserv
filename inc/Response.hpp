@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-enum	e_parse
+enum	e_parsing
 {
 	REQUEST,
 	CHUNKED,
@@ -51,22 +51,22 @@ class Response
 	private:
 		std::shared_ptr<Client>							m_client;
 		Config&											m_config;
+		e_parsing										m_parsing;
+		int												m_code;
+		std::string										m_msg;
+		e_status										m_status;
+		std::string										m_header;
+		std::string										m_body;
+		size_t											m_size;
 		std::vector<char>								m_request;
 		std::string										m_method;
 		std::string										m_path;
 		std::string										m_version;
-		int												m_code = 200;
-		std::string										m_msg = "OK";
-		e_status										m_status;
 		std::unordered_map<std::string, std::string>	m_headers;
-		std::string										m_header;
-		std::string										m_body;
-		e_type											m_send_type;
-		size_t											m_size;
 		formMap											m_queryData;
-		e_parse											m_parsing = REQUEST;
 		std::vector<char>								m_unchunked;
 		std::vector<multipart>							m_multipartData;
+		e_type											m_send_type;
 
 		void			readRequest(int fd);
 		void			parseRequest();
@@ -76,7 +76,6 @@ class Response
 		void			validateVersion();
 		void			validateURI();
 		void			validateHost();
-		void			validateConnection();
 		void			parseQueryString();
 		void			decodeURI(std::string& str);
 		bool			headerFound(const std::string& header);
