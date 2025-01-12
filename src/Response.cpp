@@ -17,8 +17,8 @@
 #include <regex>
 #include <variant>
 
-Response::Response(std::shared_ptr<Client> client, Config& config)
-	: m_client(client), m_config(config), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
+Response::Response(std::shared_ptr<Client> client, Config& config) : m_client(client), m_config(config),
+m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	try {
 		while (m_parsing != COMPLETE) {
@@ -92,7 +92,6 @@ void	Response::readRequest(int fd)
 		m_status = STATUS_FAIL;
 		throw HttpException::badRequest("empty request");
 	}
-	
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	log(std::string(buffer, bytes_read));
 }
@@ -101,20 +100,23 @@ void	Response::parseRequest()
 {
 	std::string			emptyLine = "\r\n\r\n";
 	auto 				endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
+
+	if (endOfHeaders == m_request.end())
+		throw HttpException::badRequest("invalid request");
+
 	std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
 	parseRequestLine(request);
 	parseHeaders(request);
 
-
 	if (m_method == "GET") {
 		try {
 			m_size = std::filesystem::file_size(m_path);
+			m_parsing = COMPLETE;
 		} catch (const std::exception& e) {
 			m_size = 0;
 			throw HttpException::notFound();
 		}
-		m_parsing = COMPLETE;
 	}
 	else if (m_method == "POST") {
 		if (!headerFound("content-type"))
@@ -157,6 +159,7 @@ void	Response::validateVersion()
 
 void	Response::validateMethod()
 {
+	//  allowed methods depend on the route
 	std::vector<std::string> allowedMethods;
 	m_config.tryGetDirective("methods", allowedMethods);
 	if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
@@ -165,6 +168,7 @@ void	Response::validateMethod()
 
 void	Response::validateURI()
 {
+	//  cgi, root & index depend on the route
 	if (m_path.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
@@ -174,8 +178,8 @@ void	Response::validateURI()
 
 	std::vector<std::string>	out;
 
-	m_config.tryGetDirective("root", out); // what if there are multiple roots in config file?
-	m_path = out.empty() ? m_path : *out.begin() + m_path; // should there always be at least one?
+	m_config.tryGetDirective("root", out);
+	m_path = out.empty() ? m_path : *out.begin() + m_path;
 
 	std::ifstream	file(m_path);
 
@@ -191,9 +195,37 @@ void	Response::validateURI()
 				break;
 			}
 		}
+		if (!file.good())
+			throw HttpException::notFound();
 	}
-	if (!file.good())
-		throw HttpException::notFound();
+}
+
+void	Response::decodeURI(std::string& str) {
+	try {
+		while (str.find('%') != std::string::npos) {
+			size_t pos = str.find('%');
+			str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
+			str.erase(pos + 1, 3);
+		}
+	} catch (std::exception& e) {
+		throw HttpException::badRequest("decoding query string failed");
+	}
+}
+
+void	Response::parseQueryString()
+{
+	size_t pos = m_path.find("?");
+	if (pos == std::string::npos)
+		return;
+
+	std::istringstream query(m_path.substr(pos + 1));
+	m_path = m_path.substr(0, pos);
+
+	for (std::string line; getline(query, line, '&');) {
+		size_t pos = line.find('=');
+		if (pos != std::string::npos)
+			m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+	}
 }
 
 void	Response::validateCgi()
@@ -228,20 +260,16 @@ void	Response::parseHeaders(std::istringstream& request)
 		value.erase(value.find_last_not_of(" ") + 1);
 		m_headers[key] = value;
 	}
-	validateHost();
-	validateConnection();
-}
 
-void	Response::validateConnection()
-{
-	if (m_headers.find("connection") != m_headers.end()
-		&& m_headers["connection"] == "close")
-		m_client->closeConnection();
+	if (headerFound("connection") && m_headers["connection"] == "close")
+		m_client->setCloseConnection();
+
+	validateHost();
 }
 
 void	Response::validateHost()
 {
-	if (m_headers.find("host") == m_headers.end())
+	if (!headerFound("host"))
 		throw HttpException::badRequest("host not found");
 
 	std::vector<std::string> hosts;
@@ -253,32 +281,8 @@ void	Response::validateHost()
 	throw HttpException::badRequest("invalid host");
 }
 
-void	Response::decodeURI(std::string& str) {
-	while (str.find('%') != std::string::npos) {
-		size_t pos = str.find('%');
-		str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
-		str.erase(pos + 1, 3);
-	}
-}
-
-void	Response::parseQueryString()
-{
-	size_t pos = m_path.find("?");
-	if (pos == std::string::npos)
-		return;
-
-	std::istringstream query(m_path.substr(pos + 1));
-	m_path = m_path.substr(0, pos);
-
-	for (std::string line; getline(query, line, '&');) {
-		size_t pos = line.find('=');
-		if (pos != std::string::npos)
-			m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
-	}
-}
-
 void	Response::parseChunked() { // not properly tested
-	log("PARSING CHUNKS");
+	log("IN CHUNKED PARSING");
 	if (m_request.empty()) {
 		log("EMPTY CHUNK");
 		m_parsing = CHUNKED;
@@ -296,7 +300,7 @@ void	Response::parseChunked() { // not properly tested
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
-			log("PARSING CHUNKS COMPLETE");
+			log("CHUNKED PARSING COMPLETE");
 			m_parsing = COMPLETE;
 			return;
 		}
@@ -304,7 +308,7 @@ void	Response::parseChunked() { // not properly tested
 		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
 		if (endOfContent == m_request.end()) { // incomplete chunk
 			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos); // erase already unchunked part
+				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
 			m_parsing = CHUNKED;
 			return;
 		}
@@ -321,27 +325,6 @@ size_t	Response::getChunkSize(std::string& hex) {
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid chunk size");
 	}
-}
-
-size_t	Response::getContentLength()
-{
-	if (!headerFound("content-length"))
-		throw HttpException::lengthRequired();
-
-	size_t length;
-	try {
-		length = std::stoul(m_headers["content-length"]);
-	} catch (std::exception& e) {
-		throw HttpException::badRequest("invalid content length");
-	}
-	return length; 
-}
-
-bool	Response::headerFound(const std::string& header)
-{
-	if (m_headers.find(header) != m_headers.end())
-		return true;
-	return false;
 }
 
 void	Response::parseMultipart()
@@ -367,8 +350,8 @@ void	Response::parseMultipart()
 		if (endOfHeaders == m_request.end())
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		multipart	part;
-		std::string	headerString(currentPos, endOfHeaders);
-		ParseMultipartHeaders(headerString, part);
+		std::string	headers(currentPos, endOfHeaders);
+		ParseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
@@ -384,6 +367,29 @@ void	Response::parseMultipart()
 	m_parsing = COMPLETE;
 }
 
+size_t	Response::getContentLength()
+{
+	if (!headerFound("content-length"))
+		throw HttpException::lengthRequired();
+
+	size_t length;
+	try {
+		length = std::stoul(m_headers["content-length"]);
+	} catch (std::exception& e) {
+		throw HttpException::badRequest("invalid content length");
+	}
+	return length; 
+}
+
+std::string	Response::getBoundary()
+{
+	size_t startOfBoundary = m_headers["content-type"].find("boundary=");
+	if (startOfBoundary == std::string::npos)
+		throw HttpException::badRequest("missing boundary for multipart/form-data");
+	
+	return "--" + m_headers["content-type"].substr(startOfBoundary + 9);
+}
+
 void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 {
 	std::istringstream	headers(headerString);
@@ -393,8 +399,6 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 	for (std::string line; getline(headers, line);) {
 		if (line.back() == '\r')
 			line.pop_back();
-		if (line.empty())
-			continue;
 		std::transform(line.begin(), line.end(), line.begin(), ::tolower);
 		if (line.find("content-disposition") != std::string::npos) {
 			startPos = line.find("name=\"");
@@ -417,13 +421,11 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 	}
 }
 
-std::string	Response::getBoundary()
+bool	Response::headerFound(const std::string& header)
 {
-	size_t startOfBoundary = m_headers["content-type"].find("boundary=");
-	if (startOfBoundary == std::string::npos)
-		throw HttpException::badRequest("missing boundary for multipart/form-data");
-	
-	return "--" + m_headers["content-type"].substr(startOfBoundary + 9);
+	if (m_headers.find(header) != m_headers.end())
+		return true;
+	return false;
 }
 
 std::string	Response::str()
