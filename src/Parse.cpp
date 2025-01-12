@@ -22,7 +22,7 @@ std::string	getHeaderSingle(const size_t& len, int ecode, std::string msg)
 {
 	std::string	header;
 
-	header = "HTTP/1.1 " + std::to_string(ecode) + " " + msg + "\r\n"; // status code
+	header = "HTTP/1.1 " + std::to_string(ecode) + " " + msg + "\r\n";
 	header += "Content-Type: text/html\r\n";
 	header += "Content-Length: " + std::to_string(len) + "\r\n";
 	header += "\r\n";

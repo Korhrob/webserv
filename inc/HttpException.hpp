@@ -36,8 +36,8 @@ class HttpException : public std::exception {
             return HttpException(415, "Unsupported Media Type");
         }
 
-        static HttpException    internalServerError() {
-            return HttpException(500, "Internal Server Error");
+        static HttpException    internalServerError(std::string log) {
+            return HttpException(500, "Internal Server Error: " + log);
         }
 
         static HttpException    notImplemented() {
