@@ -42,9 +42,14 @@ Response::Response(std::shared_ptr<Client> client, Config& config)
 		m_msg = e.what(); 
 	}
 
-	log("---- DEBUG ----");
-	log(std::string(m_unchunked.begin(), m_unchunked.end()));
+	// log("=================== DEBUG =====================");
+	// log("------------------- QUERY ---------------------");
+	// displayQueryData();
+	// log("------------------ CHUNKED --------------------");
+	// log(std::string(m_unchunked.begin(), m_unchunked.end()));
+	// log("----------------- MULTIPART -------------------");
 	// displayMultipart();
+	// log("===============================================");
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -172,7 +177,6 @@ void	Response::validateURI()
 
 	m_config.tryGetDirective("root", out); // what if there are multiple roots in config file?
 	m_path = out.empty() ? m_path : *out.begin() + m_path; // should there always be at least one?
-	m_path.erase(0, 1);
 
 	std::ifstream	file(m_path);
 
