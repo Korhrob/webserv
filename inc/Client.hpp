@@ -145,7 +145,7 @@ class Client
 			m_file.close();
 		}
 
-		void	closeConnection()
+		void	setCloseConnection()
 		{
 			m_close_connection = true;
 		}
