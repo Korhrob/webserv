@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credits</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    .images {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .images img {
+      width: 150px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    .button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      margin-top: 10px;
+    }
+
+    .button:hover {
+      background-color: #45a049;
+    }
+
+	.buttonindex {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;	}
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="images">
+      <div>
+        <img src="https://cdn.intra.42.fr/users/e63b862894e043e0b5e4a60a405d45fe/amakela.jpg" alt="Portrait 1">
+        <a href="https://github.com/makelannika" class="button">Annika</a>
+      </div>
+      <div>
+        <img src="https://cdn.intra.42.fr/users/40d28f70511f6c9524d6486eb57c7686/rkorhone.jpg" alt="Portrait 2">
+        <a href="https://github.com/Korhrob" class="button">Robert</a>
+      </div>
+      <div>
+        <img src="https://cdn.intra.42.fr/users/dcb1d35d6c00a1c6905aecdea30955d2/avegis.jpg" alt="Portrait 3">
+        <a href="https://github.com/VegisArtur" class="button">Artur</a>
+      </div>
+    </div>
+  </div>
+
+  <button class="buttonindex" onclick="window.location.href='/www/index'">Back to Index</button>
+</body>
+</html>
