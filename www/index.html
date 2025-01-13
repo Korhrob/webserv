@@ -1,3 +1,28 @@
-<html><body>
-	this is a temporary response
-</body></html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Index</title>
+		<style>
+		.button {
+			position: absolute;
+			bottom: 20px;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;	}
+		.button:first-of-type {
+     		left: 30%;	}
+    	.button:last-of-type {
+      		left: 60%;	}
+		</style>
+	  </head>
+	  <body>
+		<button class="button" onclick="window.location.href='http://127.0.0.1:8080/www/upload'">Upload file</button>
+
+		<button class="button" onclick="window.location.href='http://127.0.0.1:8080/www/form'">Submit Form</button>
+	  </body>
+</html>
