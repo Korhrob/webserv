@@ -1,6 +1,7 @@
 #include "Response.hpp"
+#include "ConfigNode.hpp"
 #include "Parse.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
 
@@ -9,153 +10,354 @@
 #include <algorithm> // min
 #include <iostream>
 #include <sstream>
-#include <fstream> // ifstream
-#include <filesystem> // filesize
-#include <vector> // vector
+#include <fstream>
+#include <filesystem>
+#include <vector>
+#include <regex>
 
-Response::Response(std::shared_ptr<Client> client)
+// struct s_part {
+// 	std::string	filename;
+// 	std::string	content_type;
+// 	std::string	content;
+// };
+
+// using part = s_part;
+// using multipart = std::unordered_map<std::string, part>;
+
+Response::Response(std::shared_ptr<Client> client, Config& config) : m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	if (readRequest(client->fd()))
-		parseRequest();
+		parseRequest(client, config);
 
-	if (m_send_type == NONE)
+	// client->displayFormData(); // for debugging
+
+	if (m_send_type == TYPE_NONE)
 		return;
 
 	// WRITE HEADER AND BODY
 
-	if (m_size < PACKET_SIZE)
+	if (m_size <= PACKET_SIZE)
 	{
-		m_send_type = SINGLE;
+		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
-		m_size = m_body.size();
-		m_header = getHeaderSingle(m_size);
+		
+		if (!m_body.empty())
+			m_size = m_body.size();
 
-		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		m_header = getHeaderSingle(m_size, m_code);
+
+		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
-		m_send_type = CHUNK;
+		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
-		log("== CHUNK RESPONSE ==");
+		Logger::getInstance().log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
-	m_success = true;
+	m_status = STATUS_OK;
 
 }
 
 bool	Response::readRequest(int fd)
 {
-	// read a bit about max request size for HTTP/1.1
-	char	buffer[BUFFER_SIZE];
-	//memset(buffer, 0, BUFFER_SIZE);
-	size_t	bytes_read = recv(fd, buffer, BUFFER_SIZE, 0);
+	char	buffer[PACKET_SIZE];
+	size_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
-	if (bytes_read <= 0)
+	if (bytes_read <= 0) // bad request tms?
 	{
-		logError("Empty or invalid request");
-		m_success = false;
+		//Logger::getInstance().logError("Empty or invalid request");
+		m_status = STATUS_FAIL;
+		m_code = 404;
 		return false;
 	}
 
 	buffer[bytes_read] = '\0';
 	m_request = std::string(buffer, bytes_read);
-	log(buffer);
+	Logger::getInstance().log(m_request);
 	return true;
 }
 
-void	Response::parseRequest()
+void	Response::parseMultipart(std::shared_ptr<Client> client, std::istringstream& body)
 {
-	// dont read empty requests
+	// Logger::getInstance().log("IN MULTIPART PARSING");
+	/*
+		Validate content_length
+		Headers always begin right after the boundary line.
+		Content is always separated from the headers by a blank line (\r\n\r\n).
+		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
+	*/
+	std::string	boundary(client->getBoundary());
+	std::string	name;
+	size_t		startPos;
+	size_t		endPos;
 
-	// TODO: Find a better way to parse first line
-	size_t pos = m_request.find('\n');
-
-	if (pos == std::string::npos)
-	{
-		logError("Invalid request header");
-		return;
-	}
-
-	std::string first_line = m_request.substr(0, pos);
-	std::vector<std::string> info;
-	size_t start = 0;
-	size_t end = first_line.find(' ');
-
-	while (end != std::string::npos) {
-		info.push_back(first_line.substr(start, end - start));
-		start = end + 1;
-		end = first_line.find(' ', start);
-	}
-
-	if (info.size() != 2)
-	{
-		logError("Invalid request header(2)");
-		return;
-	}
-
-	if (info[0] == "GET")
-	{
-		m_method = GET;
-
-		// cut the '/' out
-		m_path = info[1].substr(1, info[1].size());
-
-		if (m_path.empty())
-			// m_path = "index.html";
-			m_path = "upload.html";
-
-		log("Testing");
-		if (m_path.find("cgi-bin/") == 0)
-		{
-			executeCgiScript();
+	for (std::string line; getline(body, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty() || line == boundary)
+			continue;
+		if (line == boundary + "--")
+			break;
+		if (line.find("Content-Disposition") != std::string::npos) {
+			startPos = line.find("name=\"");
+			if (startPos != std::string::npos) {
+				startPos += 6;
+				endPos = line.find("\"", startPos);
+				name = line.substr(startPos, endPos - startPos);
+			}
+			startPos = line.find("filename=\"");
+			if (startPos != std::string::npos) {
+				startPos += 10;
+				endPos = line.find("\"", startPos);
+				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+				client->openFile(client->getFilename(name));
+			}
+		} else if (line.find("Content-Type: ") != std::string::npos) {
+			startPos = line.find("Content-Type: ") + 14;
+			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
+		} else {
+			if (client->getFilename(name).empty())
+				client->addMultipartData(name, CONTENT, line);
+			else
+				client->getFileStream() << line << "\n";
 		}
-		else
-		{
-			// test for 'path', 'path.html', 'path/index.html' 
-			// what if path is empty
-			const std::vector<std::string> alt { ".html", "/index.html" };
+	}
+	client->closeFile();
+}
 
-			std::ifstream file(m_path);
-			if (!file.good())
+void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+{
+	(void)config;
+
+	size_t	pos = m_request.find('\n');
+	if (pos == std::string::npos || pos == std::string::npos - 1) {
+		Logger::getInstance().logError("Invalid request");
+		return;
+	}
+
+	std::istringstream	request_line(m_request.substr(0, pos));
+	std::string			method;
+	std::string			extra;
+
+	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
+		Logger::getInstance().logError("Invalid request line");
+		m_code = 400;
+		return;
+	}
+
+	if (!setMethod(method))
+		return;
+
+	// std::vector<std::string>	out;
+
+	// sanitizePath();
+
+	// config.tryGetDirective("root", out);
+	// m_path = out.empty() ? m_path : *out.begin() + m_path;
+
+	// std::ifstream	file(m_path);
+
+	// if (pathIsDirectory()) {
+	// 	config.tryGetDirective("index", out);
+	// 	for (std::string idx: out) {
+	// 		std::string newPath = m_path + idx;
+	// 		file.clear();
+	// 		file = std::ifstream(newPath);
+	// 		if (file.good())
+	// 		{
+	// 			m_path = newPath;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+	// if (!file.good()) {
+	// 	Logger::getInstance().log("HERE path is " + m_path);
+	// 	m_code = 404; // not found
+	// 	return;
+	// }
+	// try {
+	// 	m_size = std::filesystem::file_size(m_path);
+	// 	m_code = 200;
+	// } catch (const std::exception& e) {
+	// 	m_size = 0;
+	// 	m_code = 404;
+	// 	std::cerr << e.what() << '\n';
+	// }
+
+	std::istringstream	request(m_request.substr(pos + 1));
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+	std::string			key;
+	std::string			value;
+
+	for (std::string line; getline(request, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (std::regex_match(line, headerRegex)) {
+			pos = line.find(':');
+			key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
+			std::replace(key.begin(), key.end(), '-', '_');
+			value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
+			m_headers.try_emplace(key, value);
+		} else {
+			m_code = 200; // Bad Request
+			return;
+		}
+	}
+	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
+	// if (m_method == GET) {
+	// if (m_path.empty() || m_path == "/")
+	// 	m_path = "/index.html";
+		
+	m_path = m_path.substr(1);
+
+	const std::vector<std::string> alt { ".html", "/index.html" };
+
+	std::ifstream file(m_path);
+	if (!file.good()) // && text/html
+	{
+		for (auto& it : alt)
+		{
+			std::string	new_path = m_path + it;
+			Logger::getInstance().log("Try " + new_path);
+			file.clear();
+			file = std::ifstream(new_path);
+			if (file.good())
 			{
-				for (auto& it : alt)
-				{
-					std::string	new_path = m_path + it;
-					log("Try " + new_path);
-					file.clear();
-					file = std::ifstream(new_path);
-					if (file.good())
-					{
-						m_path = new_path;
-						break;
-					}
+				m_path = new_path;
+				break;
+			}
+		}
+	}
+	try {
+		m_size = std::filesystem::file_size(m_path);
+		m_code = 200;
+	} catch (const std::exception& e) {
+		m_size = 0;
+		m_code = 404;
+		Logger::getInstance().logError(e.what());
+		//std::cerr << e.what() << '\n';
+	}
+	// }
+	/*
+		if chuncked set output_filestream for client
+		set status code
+	*/
+
+	if (m_method == POST) {
+		// if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
+		std::istringstream	body;
+		pos = m_request.find("\r\n\r\n");
+		if (pos != std::string::npos) {
+			body.str(m_request.substr(pos + 4));
+			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
+				std::string length = m_headers["CONTENT_LENGTH"];
+				if (body.str().size() != std::stoul(length)) {
+					Logger::getInstance().logError("Invalid content length");
+					// m_code = 
+					return;
 				}
 			}
-
-			try
-			{
-				m_size = std::filesystem::file_size(m_path);
-			}
-			catch(const std::exception& e)
-			{
-				// 404
-				m_size = 0;
-				std::cerr << e.what() << '\n';
-			}
-
 		}
-	}
-	else 
-	{
-		// post
-		// delete
-		m_send_type = NONE;
-		logError(info[0] + " not implemented!!");
+			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
+				// Parse key-value pairs from the body to a map
+				// Convert url-encoded values
+				for (std::string line; getline(request, line, '&');) {
+					pos = line.find('=');
+					if (pos != std::string::npos)
+						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
+					// client->displayFormData();
+				}
+			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
+				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+				parseMultipart(client, body);
+				// Logger::getInstance().log("PARSED MULTIPART DATA");
+				// client->displayMultipartData();
+			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
+				// Parse the body as JSON
+			// }
+		} // else bad request
 	}
 
+	if (m_method == DELETE) {
+		/*
+			validate path
+			delete resource identified by the path
+		*/
+	}
+}
+
+bool	Response::version()
+{
+	if (m_version == "HTTP/1.1")
+		return true;
+	m_code = 505; // HTTP Version Not Supported
+	return false;
+}
+
+bool	Response::setMethod(std::string method)
+{
+	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+	if (methods.find(method) != methods.end()) {
+		m_method = methods[method];
+		return true;
+	} else {
+		Logger::getInstance().logError("Invalid or missing method");
+		m_code = 501; // Not Implemented
+		return false;
+	}
+}
+
+bool	Response::pathIsDirectory()
+{
+	return (m_path.back() == '/');
+}
+
+void	Response::sanitizePath()
+{
+	while (m_path.find("../") == 0) {
+		m_path.erase(0, 3);
+	}
+}
+
+void	Response::executeCgiScript()
+{
+	// Example CGI script path
+	std::string script_path = m_path;
+
+	// Create the environment for the CGI script
+	setenv("REQUEST_METHOD", "GET", 1);
+	setenv("QUERY_STRING", "", 1); // Optional: You can handle query parameters if necessary
+
+	// Execute the CGI script using popen
+	FILE* pipe = popen(script_path.c_str(), "r");
+	if (!pipe)
+	{
+		logError("Failed to execute CGI script");
+		return ;
+	}
+
+	// Capture the output from the CGI script
+	char buffer[BUFFER_SIZE];
+	std::ofstream outputFile("cgi-bin/output.html", std::ios::binary);
+	while (fgets(buffer, sizeof(buffer), pipe) != nullptr)
+	{
+		outputFile.write(buffer, strlen(buffer));
+	}
+	outputFile.close();
+	pclose(pipe);
+
+	m_path = "cgi-bin/output.html";
+	m_size = std::filesystem::file_size(m_path);
+	std::cout << "Generated file size: " << m_size << " bytes\n";
 }
 
 void	Response::executeCgiScript()

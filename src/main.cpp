@@ -1,6 +1,6 @@
 
 #include "Server.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 
 #include <iostream>
 #include <signal.h>
@@ -19,8 +19,7 @@ void	program()
 {
 	Server tcpServer("0.0.0.0", 8080);
 
-	tcpServer.startServer();
-	is_running = true;
+	is_running = tcpServer.startServer();
 
 	while (is_running)
 	{
@@ -35,7 +34,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	log("Clean Exit!");
+	Logger::getInstance().log("Clean Exit!");
 
 	return 0;
 }

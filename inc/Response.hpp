@@ -1,47 +1,67 @@
 #pragma once
 
 #include "Client.hpp"
+#include "Config.hpp"
+
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 enum	e_method
 {
 	GET,
-	POST
-	//DELETE
+	POST,
+	DELETE
 	//...
 };
 
 enum	e_type
 {
-	BLANK,
-	SINGLE,
-	CHUNK,
-	NONE
+	TYPE_BLANK,
+	TYPE_SINGLE,
+	TYPE_CHUNK,
+	TYPE_NONE
+};
+
+enum	e_status
+{
+	STATUS_BLANK,
+	STATUS_OK,
+	STATUS_FAIL
 };
 
 class Response
 {
 	private:
-		std::string		m_request;
-		e_method		m_method;
-		e_type			m_send_type;
-		// int				m_code;
-		size_t			m_size;
-		std::string		m_path;
-		std::string		m_header;
-		std::string		m_body;
-		bool			m_success;
+		std::string										m_request;
+		e_method										m_method;
+		std::string										m_path;
+		std::string										m_version;
+		int												m_code;
+		e_status										m_status;
+		std::unordered_map<std::string, std::string>	m_headers;
+		std::string										m_header;
+		std::string										m_body;
+		e_type											m_send_type;
+		size_t											m_size;
+		// bool											m_connection;
 
 	public:
-		Response(std::shared_ptr<Client> client);
+		Response(std::shared_ptr<Client> client, Config& config);
 
-		bool	readRequest(int fd);
-		void	parseRequest();
-		void	executeCgiScript();
+		bool		readRequest(int fd);
+		void		parseRequest(std::shared_ptr<Client> client, Config& config);
+		void		parseMultipart(std::shared_ptr<Client> client, std::istringstream& body);
 
-		bool 	getSuccess() { return m_success; }
-		e_type	getSendType() { return m_send_type; }
+		bool		setMethod(std::string method);
+
+		e_status	getStatus() { return m_status; }
+		e_type		getSendType() { return m_send_type; }
+
+		bool		version();
+		bool		pathIsDirectory();
+
+		void		sanitizePath();
 
 		std::string	str();
 		std::string	header();

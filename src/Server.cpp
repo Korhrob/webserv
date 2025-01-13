@@ -7,32 +7,31 @@
 
 #include <string>
 #include <algorithm> // min
-#include <sstream> //
+#include <sstream>
 #include <fstream>
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server(const std::string& ip, int port) 
+Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
 {
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
 
+	(void)port;
+
 	m_address = ip;
-	m_port = port;
+	m_port = m_config.getPort();
 	m_sock_count = 0;
 
-	m_pollfd.resize(m_max_sockets + 1);
-
+	//m_pollfd.resize(m_max_sockets + 1);
 	m_pollfd[0] = { m_socket, POLLIN, 0 };
-	m_listener = &m_pollfd[0];
 
 	for (int i = 0; i < m_max_sockets; i++)
 	{
-		auto client = std::make_shared<Client>(&m_pollfd[i + 1]);
+		auto client = std::make_shared<Client>(m_pollfd[i + 1], i);
 		m_clients.push_back(client);
 	}
 
-	log("Server constructor done");
 }
 
 Server::~Server()
@@ -43,24 +42,30 @@ Server::~Server()
 	m_clients.clear();
 }
 
-int	Server::startServer()
+bool	Server::startServer()
 {
-	log("Starting Server on " + m_address + ":" + std::to_string(m_port) + "...");
+	if (!m_config.isValid())
+	{
+		Logger::getInstance().logError("Error in config file");
+		return false;
+	}
+
+	Logger::getInstance().log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
 	{
-		logError("Server failed to open socket!");
-		return 0;
+		Logger::getInstance().logError("Server failed to open socket!");
+		return false;
 	}
 
-	int opt = 1;
-	if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-	{
-		perror("setsockopt failed");
-		close(m_socket);
-		return 0;
-	}
+    int opt = 1;
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
+    {
+        perror("setsockopt failed");
+        close(m_socket);
+        return false;
+    }
 
 	m_socket_addr.sin_family = AF_INET;
 	m_socket_addr.sin_addr.s_addr = INADDR_ANY;
@@ -68,22 +73,24 @@ int	Server::startServer()
 
 	if (bind(m_socket, (struct sockaddr*)&m_socket_addr, sizeof(m_socket_addr)) < 0)
 	{
-		logError("Bind failed");
+		Logger::getInstance().logError("Bind failed");
 		closeServer();
-		return 0;
+		return false;
 	}
 
-	m_listener->fd = m_socket;
+	m_listener.fd = m_socket;
 
-	log("Server started on " + m_address + ":" + std::to_string(m_port));
+	std::string msg = "Server started on " + m_address + ":" + std::to_string(m_port);
+	Logger::getInstance().log(msg);
+	std::cout << msg << std::endl;
 	startListen();
 
-	return 1;
+	return true;
 }
 
 void	Server::closeServer()
 {
-	log("Closing server...");
+	Logger::getInstance().log("Closing server...");
 
 	if (m_socket >= 0)
 		close(m_socket);
@@ -95,37 +102,44 @@ void	Server::closeServer()
 	}
 
 	usleep(10000); // wait a little bit for close() before exit
-	log("Server closed!");
+	
+	Logger::getInstance().log("Server closed!");
+	std::cout << "Server closed!" << std::endl;
 }
 
 void	Server::startListen()
 {
 	if (listen(m_socket, m_max_backlog) < 0)
 	{
-		logError("Listen failed");
+		Logger::getInstance().logError("Listen failed");
 		closeServer();
 	}
 
-	log("Server is listenning...");
+	Logger::getInstance().log("Server is listening...");
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	Response	http_response(client);
+	Response	http_response(client, m_config);
 
-	if (!http_response.getSuccess())
+	if (http_response.getStatus() == STATUS_FAIL)
 	{
-		logError("Client disconnected or error occured");
+		Logger::getInstance().logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
-	if (http_response.getSendType() == SINGLE)
+	if (http_response.getStatus() == STATUS_BLANK)
+		return ;
+
+	// CGI
+
+	if (http_response.getSendType() == TYPE_SINGLE)
 	{
 		client->respond(http_response.str());
 		//m_sockets[id].revents = POLLOUT;
 	}
-	else if (http_response.getSendType() == CHUNK)
+	else if (http_response.getSendType() == TYPE_CHUNK)
 	{
 		client->respond(http_response.header());
 		//m_sockets[id].revents = POLLOUT;
@@ -158,22 +172,24 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
-			log("chunk encoding");
+			Logger::getInstance().log("chunk encoding");
 		}
 
 		client->respond("0\r\n\r\n");
-		log("end chunk encoding");
+		Logger::getInstance().log("end chunk encoding");
 	}
 }
 
 bool	Server::tryRegisterClient(t_time time)
 {
+	
 	t_sockaddr_in client_addr = {};
+	m_addr_len = sizeof(client_addr);
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
 	if (client_fd < 0)
 	{
-		logError("Accept failed");
+		Logger::getInstance().logError("Accept failed");
 		return false;
 	}
 
@@ -190,7 +206,7 @@ bool	Server::tryRegisterClient(t_time time)
 	}
 
 	if (!success)
-		logError("Failed to connect client");
+		Logger::getInstance().logError("Failed to connect client");
 
 	return success;
 }
@@ -203,13 +219,13 @@ void	Server::handleClients()
 	{
 		if (client->isAlive() && client->timeout(time))
 		{
-			log("Client time out!");
+			Logger::getInstance().log("Client time out!");
 			client->disconnect();
 			m_sock_count--;
 		}
 	}
 
-	if (!(m_listener->revents & POLLIN))
+	if (!(m_listener.revents & POLLIN))
 		return;
 
 	if (m_sock_count >= m_max_sockets)
@@ -217,7 +233,7 @@ void	Server::handleClients()
 
 	tryRegisterClient(time);
 
-	m_listener->revents = 0;
+	m_listener.revents = 0;
 }
 
 void	Server::handleEvents()
@@ -241,7 +257,7 @@ void	Server::handleEvents()
 
 void	Server::update()
 {
-	int	r = poll(m_pollfd.data(), m_max_sockets, 5000);
+	int	r = poll(m_pollfd.data(), m_pollfd.size(), 5000);
 
 	// could handle timeouts here
 
@@ -251,4 +267,14 @@ void	Server::update()
 	handleClients();
 	handleEvents();
 
+	// for (int i = m_max_sockets + 1; i < m_pollfd.size(); i++)
+	// {
+
+	// }
+
+}
+
+Config&	Server::getConfig()
+{
+	return m_config;
 }

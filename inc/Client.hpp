@@ -13,9 +13,10 @@
 #include <chrono> // time
 #include <sstream>
 #include <map>
-//#include <fstream> // ofstream
+#include <unordered_map>
+#include <fstream> // ofstream
 
-#include "ILog.hpp" // log,  logError
+#include "Logger.hpp" // log,  logError
 #include "Const.hpp"
 
 typedef struct sockaddr_in 						t_sockaddr_in;
@@ -24,37 +25,57 @@ typedef std::map<std::string, std::string>		mapStr;
 
 // TODO: move inline function to their own .cpp file
 
+struct s_part {
+	std::string	filename;
+	std::string	contentType;
+	std::string	content;
+};
+
+using multipart = std::unordered_map<std::string, s_part>;
+
+enum	e_multipart
+{
+	FILENAME,
+	CONTENT_TYPE,
+	CONTENT
+};
+
 class Client
 {
 
 	private:
-		bool				m_alive;
-		struct pollfd*		m_pollfd; // shortcut
-		t_sockaddr_in		m_addr;
-		// unsigned int		m_addr_len = sizeof(t_sockaddr_in);
-		unsigned int		m_files_sent;
-		t_time				m_last_activity;
-		mapStr				m_env;
+		mapStr											m_env;
+		bool											m_alive;
+		struct pollfd&									m_pollfd; // shortcut
+		int												m_id;
+		t_sockaddr_in									m_addr;
+		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
+		unsigned int									m_files_sent;
+		t_time											m_last_activity;
 
-		//std::ofstream		m_output_file;
+		std::string										m_boundary;
+		multipart										m_multipartData;
+		std::unordered_map<std::string, std::string>	m_formData;
+		std::ofstream									m_file;
 
 	public:
 
-		Client(struct pollfd* fd) : m_pollfd(fd)
+		Client(struct pollfd& pollfd, int id) : m_pollfd(pollfd), m_id(id)
 		{
-			m_pollfd->fd = -1;
-			m_pollfd->events = POLLIN | POLLOUT;
-			m_pollfd->revents = 0;
+			m_pollfd.fd = -1;
+			m_pollfd.events = POLLIN | POLLOUT;
+			m_pollfd.revents = 0;
 			m_alive = false;
 		}
 		~Client() {}
 
 		bool	isAlive() { return m_alive; }
-		bool	incoming() { return m_pollfd->revents & POLLIN; }
-		bool	outgoing() { return m_pollfd->revents & POLLOUT; }
+		bool	incoming() { return m_pollfd.revents & POLLIN; }
+		bool	outgoing() { return m_pollfd.revents & POLLOUT; }
+		bool	fileIsOpen() { return m_file.is_open(); }
 
-		int		fd() { return m_pollfd->fd; }
-		struct pollfd* getPollfd() { return m_pollfd; }
+		int		fd() { return m_pollfd.fd; }
+		struct pollfd& getPollfd() { return m_pollfd; }
 
 		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
 		{
@@ -65,16 +86,16 @@ class Client
 			// check fcntl errors
 
 			// reinitialize client information
-			m_pollfd->fd = fd;
-			m_pollfd->events = POLLIN | POLLOUT;
-			m_pollfd->revents = 0;
+			m_pollfd.fd = fd;
+			m_pollfd.events = POLLIN | POLLOUT;
+			m_pollfd.revents = 0;
 			m_alive = true;
 
 			m_addr = sock_addr;
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			log("Client connected!");
+			Logger::getInstance().log("Client connected!");
 
 			return true;
 		}
@@ -82,12 +103,12 @@ class Client
 
 		void	disconnect()
 		{
-			close(m_pollfd->fd);
-			m_pollfd->fd = -1;
-			m_pollfd->revents = 0;
+			close(m_pollfd.fd);
+			m_pollfd.fd = -1;
+			m_pollfd.revents = 0;
 			m_alive = false;
 
-			log("Client disconnected!");
+			Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)
@@ -97,17 +118,17 @@ class Client
 
 		int	respond(const std::string& response)
 		{
-			int bytes_sent = send(m_pollfd->fd, response.c_str(), response.size(), 0);
-			log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
+			int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL); // 0
+			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
-			m_pollfd->revents = POLLOUT; 
+			m_pollfd.revents = POLLOUT; 
 
 			return (bytes_sent > 0);
 		}
 
 		bool	timeout(t_time now)
 		{
-			if (m_pollfd->revents & POLLIN)
+			if (m_pollfd.revents & POLLIN)
 				return false;
 
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
@@ -117,7 +138,7 @@ class Client
 
 		void	resetEvents()
 		{
-			m_pollfd->revents = 0;
+			m_pollfd.revents = 0;
 		}
 
 		// Env functions
@@ -129,4 +150,89 @@ class Client
 		void populateEnv();
 		void freeEnv(char** env);
 		char** mallocEnv();
+		
+		void	setBoundary(std::string boundary)
+		{
+			m_boundary = boundary;
+		}
+
+		std::string	getBoundary()
+		{
+			return m_boundary;
+		}
+
+		char	hexToChar(std::string hex)
+		{
+			return stoi(hex, nullptr, 16);
+		}
+
+		void	setFormData(std::string key, std::string value)
+		{
+			while (value.find('%') != std::string::npos) {
+				size_t pos = value.find('%');
+				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
+				value.erase(pos + 1, 3);
+			}
+			m_formData.insert_or_assign(key, value);
+		}
+
+		std::string	getFormData(std::string key)
+		{
+			return (m_formData[key]);
+		}
+
+		void	displayFormData() // for debugging
+		{
+			for (auto& [key, value] : m_formData)
+				std::cout << key << "=" << value << "\n";
+		}
+		
+		std::ofstream&	openFile(std::string name)
+		{
+			// auto now = std::chrono::steady_clock::now();
+			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
+			
+			return m_file;
+		}
+		
+		std::ofstream&	getFileStream()
+		{
+			return m_file;
+		}
+
+		void	closeFile()
+		{
+			m_file.close();
+		}
+
+		void	addMultipartData(std::string key, int type, std::string value)
+		{
+			switch (type) {
+				case FILENAME:
+					m_multipartData[key].filename = value;
+					break;
+				case CONTENT_TYPE:
+					m_multipartData[key].contentType = value;
+					break;
+				case CONTENT:
+					m_multipartData[key].content.append(value);
+			}
+		}
+
+		std::string	getFilename(std::string name) { return m_multipartData[name].filename; }
+
+		std::string	getContentType(std::string name) { return m_multipartData[name].contentType; }
+
+		std::string	getContent(std::string name) { return m_multipartData[name].content; }
+
+		void	displayMultipartData()
+		{
+			for (auto [key, value]: m_multipartData) {
+			Logger::getInstance().log("key: " + key);
+			Logger::getInstance().log("filename: " + value.filename);
+			Logger::getInstance().log("content-type: " + value.contentType);
+			Logger::getInstance().log("content: " + value.content);
+		}
+	}
 };
