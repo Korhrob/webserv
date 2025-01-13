@@ -54,13 +54,13 @@ int	Server::startServer()
 		return 0;
 	}
 
-    int opt = 1;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-    {
-        perror("setsockopt failed");
-        close(m_socket);
-        return 0;
-    }
+	int opt = 1;
+	if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+	{
+		perror("setsockopt failed");
+		close(m_socket);
+		return 0;
+	}
 
 	m_socket_addr.sin_family = AF_INET;
 	m_socket_addr.sin_addr.s_addr = INADDR_ANY;

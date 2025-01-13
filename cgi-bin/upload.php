@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file']))
 		exit;
 	}
 
-	$uploadDir = '/../uploads/';
+	$uploadDir = '../uploads/';
 	$uploadFile = $uploadDir . basename($file['name']);
 
 	if (file_exists($uploadFile))

@@ -12,13 +12,15 @@
 #include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
+#include <map>
 //#include <fstream> // ofstream
 
 #include "ILog.hpp" // log,  logError
 #include "Const.hpp"
 
-typedef struct sockaddr_in t_sockaddr_in;
-typedef std::chrono::steady_clock::time_point t_time;
+typedef struct sockaddr_in 						t_sockaddr_in;
+typedef std::chrono::steady_clock::time_point 	t_time;
+typedef std::map<std::string, std::string>		mapStr;
 
 // TODO: move inline function to their own .cpp file
 
@@ -32,6 +34,7 @@ class Client
 		// unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int		m_files_sent;
 		t_time				m_last_activity;
+		mapStr				m_env;
 
 		//std::ofstream		m_output_file;
 
@@ -57,7 +60,7 @@ class Client
 		{
 			// set up non blocking fd
 			int flags = fcntl(fd, F_GETFL, 0);
-    		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+			fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
 			// check fcntl errors
 
@@ -117,4 +120,13 @@ class Client
 			m_pollfd->revents = 0;
 		}
 
+		// Env functions
+		void setEnv(std::string envp);
+		void setEnvValue(std::string envp, std::string value);
+		void unsetEnv();
+		mapStr getEnv();
+		std::string getEnvValue(std::string envp);
+		void populateEnv();
+		void freeEnv(char** env);
+		char** mallocEnv();
 };
