@@ -134,7 +134,9 @@ void	Response::parseRequest()
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
 			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
-	else if (m_method == "DELETE") {}
+	else if (m_method == "DELETE") {
+		
+	}
 }
 
 void	Response::parseRequestLine(std::istringstream& request)
@@ -145,12 +147,12 @@ void	Response::parseRequestLine(std::istringstream& request)
 	getline(request, line);
 	std::istringstream	requestLine(line);
 
-	if (!(requestLine >> m_method >> m_path >> m_version) || requestLine >> excess)
+	if (!(requestLine >> m_method >> m_target >> m_version) || requestLine >> excess)
 		throw HttpException::badRequest("invalid request line");
 
 	validateVersion();
-	validateMethod();
 	validateURI();
+	validateMethod();
 }
 
 void	Response::validateVersion()
@@ -161,34 +163,33 @@ void	Response::validateVersion()
 
 void	Response::validateMethod()
 {
-	//  allowed methods depend on the route
-	std::vector<std::string> allowedMethods;
-	m_config.tryGetDirective("methods", allowedMethods);
-	if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
+	std::vector<std::string>	methods;
+
+	getDirective("methods", methods);
+	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
 		throw HttpException::notImplemented();
 }
 
 void	Response::validateURI()
 {
-	//  cgi, root & index depend on the route
-	if (m_path.find("../") != std::string::npos)
+	if (m_target.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
-	decodeURI(m_path);
+	decodeURI();
 	parseQueryString();
 	validateCgi();
 
-	std::vector<std::string>	out;
+	std::vector<std::string>	directive;
 
-	m_config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path;
+	getDirective("root", directive);
+	m_path = directive.empty() ? m_target : directive.front() + m_target;
 
 	std::ifstream	file(m_path);
 
 	if (!file.good()) {
-		m_config.tryGetDirective("index", out);
-		for (std::string idx: out) {
-			std::string newPath = m_path + idx;
+		getDirective("index", directive);
+		for (std::string index: directive) {
+			std::string newPath = m_path + index;
 			file.clear();
 			file = std::ifstream(newPath);
 			if (file.good())
@@ -202,12 +203,12 @@ void	Response::validateURI()
 	}
 }
 
-void	Response::decodeURI(std::string& str) {
+void	Response::decodeURI() {
 	try {
-		while (str.find('%') != std::string::npos) {
-			size_t pos = str.find('%');
-			str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
-			str.erase(pos + 1, 3);
+		while (m_target.find('%') != std::string::npos) {
+			size_t pos = m_target.find('%');
+			m_target.insert(pos, 1, stoi(m_target.substr(pos + 1, 2), nullptr, 16));
+			m_target.erase(pos + 1, 3);
 		}
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("decoding query string failed");
@@ -216,12 +217,12 @@ void	Response::decodeURI(std::string& str) {
 
 void	Response::parseQueryString()
 {
-	size_t pos = m_path.find("?");
+	size_t pos = m_target.find("?");
 	if (pos == std::string::npos)
 		return;
 
-	std::istringstream query(m_path.substr(pos + 1));
-	m_path = m_path.substr(0, pos);
+	std::istringstream query(m_target.substr(pos + 1));
+	m_target = m_target.substr(0, pos);
 
 	for (std::string line; getline(query, line, '&');) {
 		size_t pos = line.find('=');
@@ -232,14 +233,14 @@ void	Response::parseQueryString()
 
 void	Response::validateCgi()
 {
-	if (m_path.find(".") == std::string::npos)
+	if (m_target.find(".") == std::string::npos)
 		return;
 	
-	std::string					extension(m_path.substr(m_path.find_last_of(".")));
-	std::vector<std::string>	cgiList;
-	
-	m_config.tryGetDirective("cgi", cgiList);
-	if (std::find(cgiList.begin(), cgiList.end(), extension) != cgiList.end())
+	std::string					extension(m_target.substr(m_target.find_last_of(".")));
+	std::vector<std::string>	cgi;
+
+	getDirective("cgi", cgi);
+	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_status = STATUS_CGI;
 }
 
@@ -430,11 +431,13 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 
 std::ofstream	Response::getFileStream(std::string filename)
 {
-	// upload folder depends on the route
+	if (filename.find("../") != std::string::npos)	
+		throw HttpException::badRequest("forbidden traversal pattern in filename");
+	
 	std::string					filePath;
 	std::vector<std::string>	folder;
 
-	m_config.tryGetDirective("uploadFolder", folder); // is this an error
+	getDirective("uploadFolder", folder); // should it be an error if folder is not defined?
 	filePath = folder.empty() ? filename : folder.front() + '/' + filename; // what if there are multiple files with the same name
 
 	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
@@ -474,6 +477,15 @@ std::string	Response::path()
 size_t Response::size()
 {
 	return m_size;
+}
+
+void	Response::getDirective(std::string dir, std::vector<std::string>& out)
+{
+	std::shared_ptr<ConfigNode>	location(m_config.findNode(m_target));
+	if (!location)
+		throw HttpException::notFound();
+	
+	location->tryGetDirective(dir, out);
 }
 
 void	Response::displayQueryData() // debug
