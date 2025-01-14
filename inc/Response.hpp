@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <fstream>
 
 enum	e_parsing
 {
@@ -89,6 +90,7 @@ class Response
 		void			validateCgi();
 		void			displayQueryData(); // debug
 		void			displayMultipart(std::vector<multipart>& multipartData); // debug
+		std::ofstream	getFileStream(std::string filename);
 		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:

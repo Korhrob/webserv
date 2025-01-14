@@ -356,11 +356,12 @@ void	Response::parseMultipart(std::string boundary, std::vector<multipart>& mult
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end()) // content should end with boundary
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		// if (part.filename.empty()) {
+		if (part.filename.empty()) {
 			part.content.insert(part.content.end(), currentPos, endOfContent - 2);
-		// } else {
-			// write to a file but where?
-		// }
+		} else {
+			std::ofstream file = getFileStream(part.filename);
+			file.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
+		}
 		multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
@@ -423,6 +424,22 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		else
 			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
+}
+
+std::ofstream	Response::getFileStream(std::string filename)
+{
+	// upload folder depends on the route
+	std::string					filePath;
+	std::vector<std::string>	folder;
+
+	m_config.tryGetDirective("uploadFolder", folder); // is this an error
+	filePath = folder.empty() ? filename : folder.front() + filename; // what if there are multiple files with the same name
+
+	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
+	if (!filestream)
+		throw HttpException::internalServerError("open failed for file upload");
+			
+	return filestream;
 }
 
 bool	Response::headerFound(const std::string& header)
