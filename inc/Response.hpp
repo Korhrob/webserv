@@ -40,10 +40,11 @@ enum	e_status
 };
 
 struct	multipart {
-	std::string			name;
-	std::string			filename;
-	std::string			contentType;
-	std::vector<char>	content;
+	std::string				name;
+	std::string				filename;
+	std::string				contentType;
+	std::vector<char>		content;
+	std::vector<multipart>	nestedData;
 };
 
 class Response
@@ -79,15 +80,15 @@ class Response
 		void			parseQueryString();
 		void			decodeURI(std::string& str);
 		bool			headerFound(const std::string& header);
-		void			parseMultipart();
+		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);
 		void			parseChunked();
 		size_t			getChunkSize(std::string& hex);
 		size_t			getContentLength();
-		std::string		getBoundary();
+		std::string		getBoundary(std::string& contentType);
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
 		void			validateCgi();
 		void			displayQueryData(); // debug
-		void			displayMultipart(); // debug
+		void			displayMultipart(std::vector<multipart>& multipartData); // debug
 		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:

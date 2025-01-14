@@ -31,7 +31,7 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 					parseChunked();
 					break;
 				case MULTIPART:
-					parseMultipart();
+					parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 					break;
 				case COMPLETE:
 					break;
@@ -42,14 +42,14 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 		m_msg = e.what(); 
 	}
 
-	// log("=================== DEBUG =====================");
+	log("=================== DEBUG =====================");
 	// log("------------------- QUERY ---------------------");
 	// displayQueryData();
 	// log("------------------ CHUNKED --------------------");
 	// log(std::string(m_unchunked.begin(), m_unchunked.end()));
-	// log("----------------- MULTIPART -------------------");
-	// displayMultipart();
-	// log("===============================================");
+	log("----------------- MULTIPART -------------------");
+	displayMultipart(m_multipartData);
+	log("===============================================");
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -130,7 +130,7 @@ void	Response::parseRequest()
 			parseChunked();
 		}
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
-			parseMultipart();
+			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
 	else if (m_method == "DELETE") {}
 }
@@ -295,7 +295,7 @@ void	Response::parseChunked() { // not properly tested
 
 	while (true) {
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
-		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should always begin with size
+		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should begin with size
 			throw HttpException::badRequest("malformed chunked content");
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
@@ -327,41 +327,41 @@ size_t	Response::getChunkSize(std::string& hex) {
 	}
 }
 
-void	Response::parseMultipart()
+void	Response::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
 {
 	if (getContentLength() != m_request.size()) {
 		m_parsing = MULTIPART;
 		return;
 	}
-	
-	std::string	boundary = getBoundary();
+
 	std::string	emptyLine = "\r\n\r\n";
 	std::string end = "--\r\n";
 	size_t		boundaryLen = boundary.length();
 
 	auto firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
-	if (firstBoundary != m_request.begin())
+	if (firstBoundary != m_request.begin()) // multipart/form-data should begin with boundary
 		throw HttpException::badRequest("invalid multipart/form-data content");
 	
 	auto	currentPos = m_request.begin() + boundaryLen;
 
 	while (!std::equal(currentPos, m_request.end(), end.begin(), end.end())) {
+		currentPos += 2; // skip \r\n after boundary
 		auto endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
-		if (endOfHeaders == m_request.end())
+		if (endOfHeaders == m_request.end()) // headers should end with an empty line
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		multipart	part;
 		std::string	headers(currentPos, endOfHeaders);
 		ParseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
-		if (endOfContent == m_request.end())
+		if (endOfContent == m_request.end()) // content should end with boundary
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		// if (part.filename.empty()) {
-			part.content.insert(part.content.end(), currentPos, endOfContent);
+			part.content.insert(part.content.end(), currentPos, endOfContent - 2);
 		// } else {
-			// write to a file	
+			// write to a file but where?
 		// }
-		m_multipartData.push_back(part);
+		multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
 	m_parsing = COMPLETE;
@@ -381,13 +381,13 @@ size_t	Response::getContentLength()
 	return length; 
 }
 
-std::string	Response::getBoundary()
+std::string	Response::getBoundary(std::string& contentType)
 {
-	size_t startOfBoundary = m_headers["content-type"].find("boundary=");
+	size_t startOfBoundary = contentType.find("boundary=");
 	if (startOfBoundary == std::string::npos)
 		throw HttpException::badRequest("missing boundary for multipart/form-data");
 	
-	return "--" + m_headers["content-type"].substr(startOfBoundary + 9);
+	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
 void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
@@ -400,13 +400,13 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		if (line.back() == '\r')
 			line.pop_back();
 		std::transform(line.begin(), line.end(), line.begin(), ::tolower);
-		if (line.find("content-disposition") != std::string::npos) {
+		if (line.find("content-disposition: form-data") != std::string::npos) {
 			startPos = line.find("name=\"");
-			if (startPos != std::string::npos) {
-				startPos += 6;
-				endPos = line.find("\"", startPos);
-				part.name = line.substr(startPos, endPos - startPos);
-			}
+			if (startPos == std::string::npos)
+				throw HttpException::badRequest("invalid header for multipart/form-data");
+			startPos += 6;
+			endPos = line.find("\"", startPos);
+			part.name = line.substr(startPos, endPos - startPos);
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
@@ -417,7 +417,11 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		else if (line.find("content-type: ") != std::string::npos) {
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
+			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart
+				parseMultipart(getBoundary(part.contentType), part.nestedData);
 		}
+		else
+			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
 }
 
@@ -462,13 +466,15 @@ void	Response::displayQueryData() // debug
 	}
 }
 
-void	Response::displayMultipart() // debug
+void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 {
-	for (multipart part: m_multipartData) {
+	for (multipart part: multipartData) {
 		log("name: " + part.name);
 		log("filename: " + part.filename);
 		log("content-type: " + part.contentType);
 		log("content: " + std::string(part.content.begin(), part.content.end()));
+		if (!part.nestedData.empty())
+			displayMultipart(part.nestedData);
 	}
 }
 
