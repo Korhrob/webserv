@@ -418,7 +418,7 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		else if (line.find("content-type: ") != std::string::npos) {
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
-			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart, not tested
+			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart
 				parseMultipart(getBoundary(part.contentType), part.nestedData);
 		}
 		else
