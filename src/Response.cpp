@@ -418,7 +418,7 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		else if (line.find("content-type: ") != std::string::npos) {
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
-			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart
+			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart, not tested
 				parseMultipart(getBoundary(part.contentType), part.nestedData);
 		}
 		else
@@ -490,6 +490,7 @@ void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 		log("filename: " + part.filename);
 		log("content-type: " + part.contentType);
 		log("content: " + std::string(part.content.begin(), part.content.end()));
+		log("");
 		if (!part.nestedData.empty())
 			displayMultipart(part.nestedData);
 	}
