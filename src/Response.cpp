@@ -42,14 +42,16 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 		m_msg = e.what(); 
 	}
 
-	log("=================== DEBUG =====================");
+	// log("=================== DEBUG =====================");
 	// log("------------------- QUERY ---------------------");
 	// displayQueryData();
 	// log("------------------ CHUNKED --------------------");
 	// log(std::string(m_unchunked.begin(), m_unchunked.end()));
-	log("----------------- MULTIPART -------------------");
-	displayMultipart(m_multipartData);
-	log("===============================================");
+	// log("----------------- MULTIPART -------------------");
+	// displayMultipart(m_multipartData);
+	// log("===============================================");
+
+	// set environment variables & invoke CGI here
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -433,7 +435,7 @@ std::ofstream	Response::getFileStream(std::string filename)
 	std::vector<std::string>	folder;
 
 	m_config.tryGetDirective("uploadFolder", folder); // is this an error
-	filePath = folder.empty() ? filename : folder.front() + filename; // what if there are multiple files with the same name
+	filePath = folder.empty() ? filename : folder.front() + '/' + filename; // what if there are multiple files with the same name
 
 	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
 	if (!filestream)
