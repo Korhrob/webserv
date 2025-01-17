@@ -69,3 +69,8 @@ char**	Client::mallocEnv()
 	}
 	return env;
 }
+
+void Client::setHtmlBody(std::string string)
+{
+	m_html_body = string;
+}

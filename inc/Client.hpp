@@ -52,6 +52,7 @@ class Client
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
+		std::string										m_html_body;
 
 		std::string										m_boundary;
 		multipart										m_multipartData;

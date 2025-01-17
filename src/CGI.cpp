@@ -1,12 +1,43 @@
 #include "CGI.hpp"
 
-CGI::CGI()	{
+static void run(std::string cgi, Client &client, int fdtemp, char **env)
+{
+	char	*arg[2] = {(char *)cgi.c_str(), NULL};
+	int		fd;
+	int method = 1; // set enum for post, get and delete, 1 for post
+
+	if (method == 1)
+	{
+		
+	}
+	if (dup2(fdtemp, STDOUT_FILENO) < 0)
+	{
+		perror("dup2");
+		exit(EXIT_FAILURE);
+	}
+	execve((char *)cgi.c_str(), arg, env);
+	perror("execve");
+	exit(0);
 }
 
-CGI::~CGI()	{
+static void setCgiString(FILE *temp, int fdtemp, Client &client)
+{
+	char buffer[4096];
+	std::string string;
+
+	rewind(temp);
+	while (!feof(temp))
+	{
+		if (fgets(buffer, 4096, temp) == NULL)
+			break ;
+		string += buffer;
+	}
+	close(fdtemp);
+	fclose(temp);
+	client.setHtmlBody(string);
 }
 
-int CGI::runCGI(std::string cgi, Client client)
+int runCGI(std::string cgi, Client client)
 {
 	char**		env;
 	pid_t		pid;
