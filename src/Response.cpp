@@ -134,9 +134,7 @@ void	Response::parseRequest()
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
 			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
-	else if (m_method == "DELETE") {
-		
-	}
+	else if (m_method == "DELETE") {}
 }
 
 void	Response::parseRequestLine(std::istringstream& request)
