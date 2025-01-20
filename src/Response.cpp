@@ -65,12 +65,7 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 		
 		if (!m_body.empty())
 			m_size = m_body.size();
-<<<<<<< HEAD
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
-=======
-
-		m_header = getHeaderSingle(m_size, m_code);
->>>>>>> master
 
 		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
@@ -97,43 +92,17 @@ void	Response::readRequest(int fd)
 		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
 	{
-<<<<<<< HEAD
-=======
-		//Logger::getInstance().logError("Empty or invalid request");
->>>>>>> master
 		m_status = STATUS_FAIL;
 		throw HttpException::badRequest("empty request");
 	}
-<<<<<<< HEAD
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
-=======
-
-	buffer[bytes_read] = '\0';
-	m_request = std::string(buffer, bytes_read);
-	Logger::getInstance().log(m_request);
-	return true;
->>>>>>> master
 }
 
 void	Response::parseRequest()
 {
-<<<<<<< HEAD
 	std::string			emptyLine = "\r\n\r\n";
 	auto 				endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
-=======
-	// Logger::getInstance().log("IN MULTIPART PARSING");
-	/*
-		Validate content_length
-		Headers always begin right after the boundary line.
-		Content is always separated from the headers by a blank line (\r\n\r\n).
-		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
-	*/
-	std::string	boundary(client->getBoundary());
-	std::string	name;
-	size_t		startPos;
-	size_t		endPos;
->>>>>>> master
 
 	if (endOfHeaders == m_request.end())
 		throw HttpException::badRequest("invalid request");
@@ -445,7 +414,6 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
-<<<<<<< HEAD
 				part.filename = line.substr(startPos, endPos - startPos);
 			}
 		}
@@ -485,34 +453,6 @@ bool	Response::headerFound(const std::string& header)
 	return false;
 }
 
-<<<<<<< HEAD
-=======
-bool	Response::setMethod(std::string method)
-{
-	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-	if (methods.find(method) != methods.end()) {
-		m_method = methods[method];
-		return true;
-	} else {
-		Logger::getInstance().logError("Invalid or missing method");
-		m_code = 501; // Not Implemented
-		return false;
-	}
-}
-
-bool	Response::pathIsDirectory()
-{
-	return (m_path.back() == '/');
-}
-
-void	Response::sanitizePath()
-{
-	while (m_path.find("../") == 0) {
-		m_path.erase(0, 3);
-	}
-}
-
->>>>>>> master
 std::string	Response::str()
 {
 	return m_header + m_body;
@@ -559,11 +499,11 @@ void	Response::displayQueryData() // debug
 void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 {
 	for (multipart part: multipartData) {
-		log("name: " + part.name);
-		log("filename: " + part.filename);
-		log("content-type: " + part.contentType);
-		log("content: " + std::string(part.content.begin(), part.content.end()));
-		log("");
+		Logger::getInstance().log("name: " + part.name);
+		Logger::getInstance().log("filename: " + part.filename);
+		Logger::getInstance().log("content-type: " + part.contentType);
+		Logger::getInstance().log("content: " + std::string(part.content.begin(), part.content.end()));
+		Logger::getInstance().log("");
 		if (!part.nestedData.empty())
 			displayMultipart(part.nestedData);
 	}
