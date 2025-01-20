@@ -2,7 +2,7 @@
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
 #include "Parse.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
 
@@ -62,18 +62,19 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 	{
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
+		
 		if (!m_body.empty())
 			m_size = m_body.size();
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
 
-		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
 		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
-		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
+		Logger::getInstance().log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
 	m_status = STATUS_OK;
@@ -85,7 +86,7 @@ void	Response::readRequest(int fd)
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to recieve request");
@@ -95,7 +96,7 @@ void	Response::readRequest(int fd)
 		throw HttpException::badRequest("empty request");
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	log(std::string(buffer, bytes_read));
+	Logger::getInstance().log(std::string(buffer, bytes_read));
 }
 
 void	Response::parseRequest()
@@ -283,9 +284,9 @@ void	Response::validateHost()
 }
 
 void	Response::parseChunked() { // not properly tested
-	log("IN CHUNKED PARSING");
+	Logger::getInstance().log("IN CHUNKED PARSING");
 	if (m_request.empty()) {
-		log("EMPTY CHUNK");
+		Logger::getInstance().log("EMPTY CHUNK");
 		m_parsing = CHUNKED;
 		return;
 	}
@@ -301,7 +302,7 @@ void	Response::parseChunked() { // not properly tested
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
-			log("CHUNKED PARSING COMPLETE");
+			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
 			m_parsing = COMPLETE;
 			return;
 		}
@@ -498,11 +499,11 @@ void	Response::displayQueryData() // debug
 void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 {
 	for (multipart part: multipartData) {
-		log("name: " + part.name);
-		log("filename: " + part.filename);
-		log("content-type: " + part.contentType);
-		log("content: " + std::string(part.content.begin(), part.content.end()));
-		log("");
+		Logger::getInstance().log("name: " + part.name);
+		Logger::getInstance().log("filename: " + part.filename);
+		Logger::getInstance().log("content-type: " + part.contentType);
+		Logger::getInstance().log("content: " + std::string(part.content.begin(), part.content.end()));
+		Logger::getInstance().log("");
 		if (!part.nestedData.empty())
 			displayMultipart(part.nestedData);
 	}
