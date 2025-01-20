@@ -103,7 +103,11 @@ class Client
 
 		int	respond(const std::string& response)
 		{
-			int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL); // 0
+			#ifdef MSG_NOSIGNAL
+				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL);
+			#else
+				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
+			#endif
 			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
 			m_pollfd.revents = POLLOUT; 
