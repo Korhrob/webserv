@@ -481,7 +481,7 @@ void	Response::getDirective(std::string dir, std::vector<std::string>& out)
 {
 	std::shared_ptr<ConfigNode>	location(m_config.findNode(m_target));
 	if (!location)
-		throw HttpException::notFound();
+		location = m_config.findNode("/");
 	
 	location->tryGetDirective(dir, out);
 }
