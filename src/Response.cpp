@@ -106,7 +106,7 @@ void	Response::readRequest(int fd)
 	}
 <<<<<<< HEAD
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	log(std::string(buffer, bytes_read));
+	Logger::getInstance().log(std::string(buffer, bytes_read));
 =======
 
 	buffer[bytes_read] = '\0';
@@ -315,9 +315,9 @@ void	Response::validateHost()
 }
 
 void	Response::parseChunked() { // not properly tested
-	log("IN CHUNKED PARSING");
+	Logger::getInstance().log("IN CHUNKED PARSING");
 	if (m_request.empty()) {
-		log("EMPTY CHUNK");
+		Logger::getInstance().log("EMPTY CHUNK");
 		m_parsing = CHUNKED;
 		return;
 	}
@@ -333,7 +333,7 @@ void	Response::parseChunked() { // not properly tested
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
-			log("CHUNKED PARSING COMPLETE");
+			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
 			m_parsing = COMPLETE;
 			return;
 		}
