@@ -17,8 +17,10 @@ Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m
 	// should read config file and initialize all server variables here
 	// read more about config files for NGINX for reference
 
+	(void)port;
+
 	m_address = ip;
-	m_port = port;
+	m_port = m_config.getPort();
 	m_sock_count = 0;
 
 	//m_pollfd.resize(m_max_sockets + 1);
@@ -44,21 +46,21 @@ bool	Server::startServer()
 {
 	if (!m_config.isValid())
 	{
-		logError("Error in config file");
+		Logger::getInstance().logError("Error in config file");
 		return false;
 	}
 
-	log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
+	Logger::getInstance().log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
 	{
-		logError("Server failed to open socket!");
+		Logger::getInstance().logError("Server failed to open socket!");
 		return false;
 	}
 
     int opt = 1;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
         perror("setsockopt failed");
         close(m_socket);
@@ -71,14 +73,16 @@ bool	Server::startServer()
 
 	if (bind(m_socket, (struct sockaddr*)&m_socket_addr, sizeof(m_socket_addr)) < 0)
 	{
-		logError("Bind failed");
+		Logger::getInstance().logError("Bind failed");
 		closeServer();
 		return false;
 	}
 
 	m_listener.fd = m_socket;
 
-	log("Server started on " + m_address + ":" + std::to_string(m_port));
+	std::string msg = "Server started on " + m_address + ":" + std::to_string(m_port);
+	Logger::getInstance().log(msg);
+	std::cout << msg << std::endl;
 	startListen();
 
 	return true;
@@ -86,7 +90,7 @@ bool	Server::startServer()
 
 void	Server::closeServer()
 {
-	log("Closing server...");
+	Logger::getInstance().log("Closing server...");
 
 	if (m_socket >= 0)
 		close(m_socket);
@@ -98,18 +102,20 @@ void	Server::closeServer()
 	}
 
 	usleep(10000); // wait a little bit for close() before exit
-	log("Server closed!");
+	
+	Logger::getInstance().log("Server closed!");
+	std::cout << "Server closed!" << std::endl;
 }
 
 void	Server::startListen()
 {
 	if (listen(m_socket, m_max_backlog) < 0)
 	{
-		logError("Listen failed");
+		Logger::getInstance().logError("Listen failed");
 		closeServer();
 	}
 
-	log("Server is listening...");
+	Logger::getInstance().log("Server is listening...");
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
@@ -118,13 +124,15 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 
 	if (http_response.getStatus() == STATUS_FAIL)
 	{
-		logError("Client disconnected or error occured");
+		Logger::getInstance().logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
 
 	if (http_response.getStatus() == STATUS_BLANK)
 		return ;
+
+	// CGI
 
 	if (http_response.getSendType() == TYPE_SINGLE)
 	{
@@ -164,22 +172,24 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
-			log("chunk encoding");
+			Logger::getInstance().log("chunk encoding");
 		}
 
 		client->respond("0\r\n\r\n");
-		log("end chunk encoding");
+		Logger::getInstance().log("end chunk encoding");
 	}
 }
 
 bool	Server::tryRegisterClient(t_time time)
 {
+	
 	t_sockaddr_in client_addr = {};
+	m_addr_len = sizeof(client_addr);
 	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
 
 	if (client_fd < 0)
 	{
-		logError("Accept failed");
+		Logger::getInstance().logError("Accept failed");
 		return false;
 	}
 
@@ -196,7 +206,7 @@ bool	Server::tryRegisterClient(t_time time)
 	}
 
 	if (!success)
-		logError("Failed to connect client");
+		Logger::getInstance().logError("Failed to connect client");
 
 	return success;
 }
@@ -209,7 +219,7 @@ void	Server::handleClients()
 	{
 		if (client->isAlive() && client->timeout(time))
 		{
-			log("Client time out!");
+			Logger::getInstance().log("Client time out!");
 			client->disconnect();
 			m_sock_count--;
 		}

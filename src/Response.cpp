@@ -2,7 +2,7 @@
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
 #include "Parse.hpp"
-#include "ILog.hpp"
+#include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
 
@@ -60,18 +60,24 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 	{
 		m_send_type = TYPE_SINGLE;
 		m_body = getBody(m_path);
+		
 		if (!m_body.empty())
 			m_size = m_body.size();
+<<<<<<< HEAD
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
+=======
 
-		log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		m_header = getHeaderSingle(m_size, m_code);
+>>>>>>> master
+
+		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
 	}
 	else
 	{
 		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
-		log("== CHUNK RESPONSE ==" + std::to_string(m_size));
+		Logger::getInstance().log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
 	m_status = STATUS_OK;
@@ -83,23 +89,49 @@ void	Response::readRequest(int fd)
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
 	{
+<<<<<<< HEAD
+=======
+		//Logger::getInstance().logError("Empty or invalid request");
+>>>>>>> master
 		m_status = STATUS_FAIL;
 		throw HttpException::badRequest("empty request");
 	}
+<<<<<<< HEAD
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	log(std::string(buffer, bytes_read));
+=======
+
+	buffer[bytes_read] = '\0';
+	m_request = std::string(buffer, bytes_read);
+	Logger::getInstance().log(m_request);
+	return true;
+>>>>>>> master
 }
 
 void	Response::parseRequest()
 {
+<<<<<<< HEAD
 	std::string			emptyLine = "\r\n\r\n";
 	auto 				endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
+=======
+	// Logger::getInstance().log("IN MULTIPART PARSING");
+	/*
+		Validate content_length
+		Headers always begin right after the boundary line.
+		Content is always separated from the headers by a blank line (\r\n\r\n).
+		Each part is separated by the boundary, and the last boundary is marked by boundary-- to indicate the end of the request.
+	*/
+	std::string	boundary(client->getBoundary());
+	std::string	name;
+	size_t		startPos;
+	size_t		endPos;
+>>>>>>> master
 
 	if (endOfHeaders == m_request.end())
 		throw HttpException::badRequest("invalid request");
@@ -411,6 +443,7 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
+<<<<<<< HEAD
 				part.filename = line.substr(startPos, endPos - startPos);
 			}
 		}
@@ -418,6 +451,187 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
 		}
+=======
+				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
+				client->openFile(client->getFilename(name));
+			}
+		} else if (line.find("Content-Type: ") != std::string::npos) {
+			startPos = line.find("Content-Type: ") + 14;
+			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
+		} else {
+			if (client->getFilename(name).empty())
+				client->addMultipartData(name, CONTENT, line);
+			else
+				client->getFileStream() << line << "\n";
+		}
+	}
+	client->closeFile();
+}
+
+void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+{
+	(void)config;
+
+	size_t	pos = m_request.find('\n');
+	if (pos == std::string::npos || pos == std::string::npos - 1) {
+		Logger::getInstance().logError("Invalid request");
+		return;
+	}
+
+	std::istringstream	request_line(m_request.substr(0, pos));
+	std::string			method;
+	std::string			extra;
+
+	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
+		Logger::getInstance().logError("Invalid request line");
+		m_code = 400;
+		return;
+	}
+
+	if (!setMethod(method))
+		return;
+
+	// std::vector<std::string>	out;
+
+	// sanitizePath();
+
+	// config.tryGetDirective("root", out);
+	// m_path = out.empty() ? m_path : *out.begin() + m_path;
+
+	// std::ifstream	file(m_path);
+
+	// if (pathIsDirectory()) {
+	// 	config.tryGetDirective("index", out);
+	// 	for (std::string idx: out) {
+	// 		std::string newPath = m_path + idx;
+	// 		file.clear();
+	// 		file = std::ifstream(newPath);
+	// 		if (file.good())
+	// 		{
+	// 			m_path = newPath;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+	// if (!file.good()) {
+	// 	Logger::getInstance().log("HERE path is " + m_path);
+	// 	m_code = 404; // not found
+	// 	return;
+	// }
+	// try {
+	// 	m_size = std::filesystem::file_size(m_path);
+	// 	m_code = 200;
+	// } catch (const std::exception& e) {
+	// 	m_size = 0;
+	// 	m_code = 404;
+	// 	std::cerr << e.what() << '\n';
+	// }
+
+	std::istringstream	request(m_request.substr(pos + 1));
+	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
+	std::string			key;
+	std::string			value;
+
+	for (std::string line; getline(request, line);) {
+		if (line.back() == '\r')
+			line.pop_back();
+		if (line.empty())
+			break;
+    	if (std::regex_match(line, headerRegex)) {
+			pos = line.find(':');
+			key = line.substr(0, pos);
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
+			std::replace(key.begin(), key.end(), '-', '_');
+			value = line.substr(pos + 1);
+			value.erase(0, value.find_first_not_of(" "));
+			value.erase(value.find_last_not_of(" ") + 1);
+			m_headers.try_emplace(key, value);
+		} else {
+			m_code = 200; // Bad Request
+			return;
+		}
+	}
+	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
+	// if (m_method == GET) {
+	// if (m_path.empty() || m_path == "/")
+	// 	m_path = "/index.html";
+		
+	m_path = m_path.substr(1);
+
+	const std::vector<std::string> alt { ".html", "/index.html" };
+
+	std::ifstream file(m_path);
+	if (!file.good()) // && text/html
+	{
+		for (auto& it : alt)
+		{
+			std::string	new_path = m_path + it;
+			Logger::getInstance().log("Try " + new_path);
+			file.clear();
+			file = std::ifstream(new_path);
+			if (file.good())
+			{
+				m_path = new_path;
+				break;
+			}
+		}
+	}
+	try {
+		m_size = std::filesystem::file_size(m_path);
+		m_code = 200;
+	} catch (const std::exception& e) {
+		m_size = 0;
+		m_code = 404;
+		Logger::getInstance().logError(e.what());
+		//std::cerr << e.what() << '\n';
+	}
+	// }
+	/*
+		if chuncked set output_filestream for client
+		set status code
+	*/
+
+	if (m_method == POST) {
+		// if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
+		std::istringstream	body;
+		pos = m_request.find("\r\n\r\n");
+		if (pos != std::string::npos) {
+			body.str(m_request.substr(pos + 4));
+			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
+				std::string length = m_headers["CONTENT_LENGTH"];
+				if (body.str().size() != std::stoul(length)) {
+					Logger::getInstance().logError("Invalid content length");
+					// m_code = 
+					return;
+				}
+			}
+		}
+			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
+				// Parse key-value pairs from the body to a map
+				// Convert url-encoded values
+				for (std::string line; getline(request, line, '&');) {
+					pos = line.find('=');
+					if (pos != std::string::npos)
+						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
+					// client->displayFormData();
+				}
+			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
+				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
+				parseMultipart(client, body);
+				// Logger::getInstance().log("PARSED MULTIPART DATA");
+				// client->displayMultipartData();
+			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
+				// Parse the body as JSON
+			// }
+		} // else bad request
+	}
+
+	if (m_method == DELETE) {
+		/*
+			validate path
+			delete resource identified by the path
+		*/
+>>>>>>> master
 	}
 }
 
@@ -428,6 +642,34 @@ bool	Response::headerFound(const std::string& header)
 	return false;
 }
 
+<<<<<<< HEAD
+=======
+bool	Response::setMethod(std::string method)
+{
+	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
+	if (methods.find(method) != methods.end()) {
+		m_method = methods[method];
+		return true;
+	} else {
+		Logger::getInstance().logError("Invalid or missing method");
+		m_code = 501; // Not Implemented
+		return false;
+	}
+}
+
+bool	Response::pathIsDirectory()
+{
+	return (m_path.back() == '/');
+}
+
+void	Response::sanitizePath()
+{
+	while (m_path.find("../") == 0) {
+		m_path.erase(0, 3);
+	}
+}
+
+>>>>>>> master
 std::string	Response::str()
 {
 	return m_header + m_body;
