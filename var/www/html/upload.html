@@ -3,18 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload Form</title>
+    <title>Nested Multipart File Upload Form</title>
 </head>
 <body>
-    <h1>Upload a File</h1>
-    <form action="/index" method="post" enctype="multipart/form-data">
-		<label for="name">Name:</label><br>
-        <input type="text" id="name" name="name" required><br><br>
-        <label for="fileInput">Choose a file:</label>
-        <input type="file" id="fileInput" name="file" required>
-        <br><br>
+    <h1>Upload Multiple Files with Nested Data</h1>
+    <form action="/uploads" method="post" enctype="multipart/form-data">
+        <!-- User Information Section -->
+        <fieldset>
+            <legend>User Information</legend>
+            <label for="name">Name:</label><br>
+            <input type="text" id="name" name="name" required><br><br>
+        </fieldset>
+
+        <!-- First File Group -->
+        <fieldset>
+            <legend>First File</legend>
+            <label for="fileInput1">Choose file:</label>
+            <input type="file" id="fileInput1" name="first file" multiple><br><br>
+        </fieldset>
+
+        <!-- Second File Group -->
+        <fieldset>
+            <legend>Second File</legend>
+            <label for="fileInput2">Choose file:</label>
+            <input type="file" id="fileInput2" name="second file" multiple><br><br>
+        </fieldset>
+
         <button type="submit">Upload</button>
     </form>
-	<img src="index"/>
 </body>
 </html>

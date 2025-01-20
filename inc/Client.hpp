@@ -34,18 +34,18 @@ class Client
 	private:
 		bool											m_alive;
 		struct pollfd&									m_pollfd; // shortcut
-		int												m_id;
+		// int												m_id;
 		t_sockaddr_in									m_addr;
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
-		formMap											m_formData;
-		std::ofstream									m_file;
+		// formMap											m_formData;
+		// std::ofstream									m_file;
 		bool											m_close_connection = false;
 
 	public:
 
-		Client(struct pollfd& pollfd, int id) : m_pollfd(pollfd), m_id(id)
+		Client(struct pollfd& pollfd) : m_pollfd(pollfd)
 		{
 			m_pollfd.fd = -1;
 			m_pollfd.events = POLLIN | POLLOUT;
@@ -57,7 +57,7 @@ class Client
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd.revents & POLLIN; }
 		bool	outgoing() { return m_pollfd.revents & POLLOUT; }
-		bool	fileIsOpen() { return m_file.is_open(); }
+		// bool	fileIsOpen() { return m_file.is_open(); }
 
 		int		fd() { return m_pollfd.fd; }
 		struct pollfd& getPollfd() { return m_pollfd; }
@@ -126,47 +126,46 @@ class Client
 			m_pollfd.revents = 0;
 		}
 
-		std::ofstream&	openFile(std::string name)
-		{
-			// auto now = std::chrono::steady_clock::now();
-			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
+		// std::ofstream&	openFile(std::string name)
+		// {
+		// 	// auto now = std::chrono::steady_clock::now();
+		// 	// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+		// 	m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::binary);
 			
-			return m_file;
-		}
+		// 	return m_file;
+		// }
 		
-		std::ofstream&	getFileStream()
-		{
-			return m_file;
-		}
+		// std::ofstream&	getFileStream()
+		// {
+		// 	return m_file;
+		// }
 
-		void	closeFile()
-		{
-			m_file.close();
-		}
+		// void	closeFile()
+		// {
+		// 	m_file.close();
+		// }
 
 		void	setCloseConnection()
 		{
 			m_close_connection = true;
 		}
 		
-		void	addFormData(std::string key, std::string value)
-		{
-			m_formData[key].push_back(value);
-		}
+		// void	addFormData(std::string key, std::string value)
+		// {
+		// 	m_formData[key].push_back(value);
+		// }
 
-		std::vector<std::string>	getFormData(std::string key)
-		{
-			return (m_formData[key]);
-		}
+		// std::vector<std::string>	getFormData(std::string key)
+		// {
+		// 	return (m_formData[key]);
+		// }
 
-		void	displayFormData() // debug
-		{
-			for (auto [key, value]: m_multipartData) {
-			Logger::getInstance().log("key: " + key);
-			Logger::getInstance().log("filename: " + value.filename);
-			Logger::getInstance().log("content-type: " + value.contentType);
-			Logger::getInstance().log("content: " + value.content);
-		}
-	}
+		// void	displayFormData() // debug
+		// {
+		// 	for (auto& [key, values] : m_formData) {
+		// 		std::cout << key << "=";
+		// 		for (std::string value: values)
+		// 			std::cout << value << "\n";
+		// 	}
+		// }
 };

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <fstream>
 
 enum	e_parsing
 {
@@ -40,10 +41,11 @@ enum	e_status
 };
 
 struct	multipart {
-	std::string			name;
-	std::string			filename;
-	std::string			contentType;
-	std::vector<char>	content;
+	std::string				name;
+	std::string				filename;
+	std::string				contentType;
+	std::vector<char>		content;
+	std::vector<multipart>	nestedData;
 };
 
 class Response
@@ -60,6 +62,7 @@ class Response
 		size_t											m_size;
 		std::vector<char>								m_request;
 		std::string										m_method;
+		std::string										m_target;
 		std::string										m_path;
 		std::string										m_version;
 		std::unordered_map<std::string, std::string>	m_headers;
@@ -71,23 +74,25 @@ class Response
 		void			readRequest(int fd);
 		void			parseRequest();
 		void			parseRequestLine(std::istringstream& request);
-		void			parseHeaders(std::istringstream& request);
-		void			validateMethod();
 		void			validateVersion();
+		void			validateMethod();
 		void			validateURI();
-		void			validateHost();
+		void			decodeURI();
 		void			parseQueryString();
-		void			decodeURI(std::string& str);
-		bool			headerFound(const std::string& header);
-		void			parseMultipart();
+		void			validateCgi();
+		void			parseHeaders(std::istringstream& request);
+		void			validateHost();
 		void			parseChunked();
 		size_t			getChunkSize(std::string& hex);
+		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);
 		size_t			getContentLength();
-		std::string		getBoundary();
+		std::string		getBoundary(std::string& contentType);
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
-		void			validateCgi();
+		std::ofstream	getFileStream(std::string filename);
+		bool			headerFound(const std::string& header);
+		void			getDirective(std::string dir, std::vector<std::string>& out);
 		void			displayQueryData(); // debug
-		void			displayMultipart(); // debug
+		void			displayMultipart(std::vector<multipart>& multipartData); // debug
 		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:
@@ -101,5 +106,4 @@ class Response
 		std::string	body();
 		std::string	path();
 		size_t		size();
-
 };

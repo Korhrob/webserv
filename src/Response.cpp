@@ -31,7 +31,7 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 					parseChunked();
 					break;
 				case MULTIPART:
-					parseMultipart();
+					parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 					break;
 				case COMPLETE:
 					break;
@@ -48,8 +48,10 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 	// log("------------------ CHUNKED --------------------");
 	// log(std::string(m_unchunked.begin(), m_unchunked.end()));
 	// log("----------------- MULTIPART -------------------");
-	// displayMultipart();
+	// displayMultipart(m_multipartData);
 	// log("===============================================");
+
+	// set environment variables & invoke CGI here
 
 	if (m_send_type == TYPE_NONE)
 		return;
@@ -162,7 +164,7 @@ void	Response::parseRequest()
 			parseChunked();
 		}
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
-			parseMultipart();
+			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
 	else if (m_method == "DELETE") {}
 }
@@ -175,12 +177,12 @@ void	Response::parseRequestLine(std::istringstream& request)
 	getline(request, line);
 	std::istringstream	requestLine(line);
 
-	if (!(requestLine >> m_method >> m_path >> m_version) || requestLine >> excess)
+	if (!(requestLine >> m_method >> m_target >> m_version) || requestLine >> excess)
 		throw HttpException::badRequest("invalid request line");
 
 	validateVersion();
-	validateMethod();
 	validateURI();
+	validateMethod();
 }
 
 void	Response::validateVersion()
@@ -191,34 +193,33 @@ void	Response::validateVersion()
 
 void	Response::validateMethod()
 {
-	//  allowed methods depend on the route
-	std::vector<std::string> allowedMethods;
-	m_config.tryGetDirective("methods", allowedMethods);
-	if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
+	std::vector<std::string>	methods;
+
+	getDirective("methods", methods);
+	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
 		throw HttpException::notImplemented();
 }
 
 void	Response::validateURI()
 {
-	//  cgi, root & index depend on the route
-	if (m_path.find("../") != std::string::npos)
+	if (m_target.find("../") != std::string::npos)
 		throw HttpException::badRequest("forbidden traversal pattern in URI");
 	
-	decodeURI(m_path);
+	decodeURI();
 	parseQueryString();
 	validateCgi();
 
-	std::vector<std::string>	out;
+	std::vector<std::string>	directive;
 
-	m_config.tryGetDirective("root", out);
-	m_path = out.empty() ? m_path : *out.begin() + m_path;
+	getDirective("root", directive);
+	m_path = directive.empty() ? m_target : directive.front() + m_target;
 
 	std::ifstream	file(m_path);
 
 	if (!file.good()) {
-		m_config.tryGetDirective("index", out);
-		for (std::string idx: out) {
-			std::string newPath = m_path + idx;
+		getDirective("index", directive);
+		for (std::string index: directive) {
+			std::string newPath = m_path + index;
 			file.clear();
 			file = std::ifstream(newPath);
 			if (file.good())
@@ -232,12 +233,12 @@ void	Response::validateURI()
 	}
 }
 
-void	Response::decodeURI(std::string& str) {
+void	Response::decodeURI() {
 	try {
-		while (str.find('%') != std::string::npos) {
-			size_t pos = str.find('%');
-			str.insert(pos, 1, stoi(str.substr(pos + 1, 2), nullptr, 16));
-			str.erase(pos + 1, 3);
+		while (m_target.find('%') != std::string::npos) {
+			size_t pos = m_target.find('%');
+			m_target.insert(pos, 1, stoi(m_target.substr(pos + 1, 2), nullptr, 16));
+			m_target.erase(pos + 1, 3);
 		}
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("decoding query string failed");
@@ -246,12 +247,12 @@ void	Response::decodeURI(std::string& str) {
 
 void	Response::parseQueryString()
 {
-	size_t pos = m_path.find("?");
+	size_t pos = m_target.find("?");
 	if (pos == std::string::npos)
 		return;
 
-	std::istringstream query(m_path.substr(pos + 1));
-	m_path = m_path.substr(0, pos);
+	std::istringstream query(m_target.substr(pos + 1));
+	m_target = m_target.substr(0, pos);
 
 	for (std::string line; getline(query, line, '&');) {
 		size_t pos = line.find('=');
@@ -262,14 +263,14 @@ void	Response::parseQueryString()
 
 void	Response::validateCgi()
 {
-	if (m_path.find(".") == std::string::npos)
+	if (m_target.find(".") == std::string::npos)
 		return;
 	
-	std::string					extension(m_path.substr(m_path.find_last_of(".")));
-	std::vector<std::string>	cgiList;
-	
-	m_config.tryGetDirective("cgi", cgiList);
-	if (std::find(cgiList.begin(), cgiList.end(), extension) != cgiList.end())
+	std::string					extension(m_target.substr(m_target.find_last_of(".")));
+	std::vector<std::string>	cgi;
+
+	getDirective("cgi", cgi);
+	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_status = STATUS_CGI;
 }
 
@@ -327,7 +328,7 @@ void	Response::parseChunked() { // not properly tested
 
 	while (true) {
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
-		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should always begin with size
+		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should begin with size
 			throw HttpException::badRequest("malformed chunked content");
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
@@ -359,41 +360,42 @@ size_t	Response::getChunkSize(std::string& hex) {
 	}
 }
 
-void	Response::parseMultipart()
+void	Response::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
 {
 	if (getContentLength() != m_request.size()) {
 		m_parsing = MULTIPART;
 		return;
 	}
-	
-	std::string	boundary = getBoundary();
+
 	std::string	emptyLine = "\r\n\r\n";
 	std::string end = "--\r\n";
 	size_t		boundaryLen = boundary.length();
 
 	auto firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
-	if (firstBoundary != m_request.begin())
+	if (firstBoundary != m_request.begin()) // multipart/form-data should begin with boundary
 		throw HttpException::badRequest("invalid multipart/form-data content");
 	
 	auto	currentPos = m_request.begin() + boundaryLen;
 
 	while (!std::equal(currentPos, m_request.end(), end.begin(), end.end())) {
+		currentPos += 2; // skip \r\n after boundary
 		auto endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
-		if (endOfHeaders == m_request.end())
+		if (endOfHeaders == m_request.end()) // headers should end with an empty line
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		multipart	part;
 		std::string	headers(currentPos, endOfHeaders);
 		ParseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
-		if (endOfContent == m_request.end())
+		if (endOfContent == m_request.end()) // content should end with boundary
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		// if (part.filename.empty()) {
-			part.content.insert(part.content.end(), currentPos, endOfContent);
-		// } else {
-			// write to a file	
-		// }
-		m_multipartData.push_back(part);
+		if (part.filename.empty()) {
+			part.content.insert(part.content.end(), currentPos, endOfContent - 2);
+		} else {
+			std::ofstream file = getFileStream(part.filename);
+			file.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
+		}
+		multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
 	m_parsing = COMPLETE;
@@ -413,13 +415,13 @@ size_t	Response::getContentLength()
 	return length; 
 }
 
-std::string	Response::getBoundary()
+std::string	Response::getBoundary(std::string& contentType)
 {
-	size_t startOfBoundary = m_headers["content-type"].find("boundary=");
+	size_t startOfBoundary = contentType.find("boundary=");
 	if (startOfBoundary == std::string::npos)
 		throw HttpException::badRequest("missing boundary for multipart/form-data");
 	
-	return "--" + m_headers["content-type"].substr(startOfBoundary + 9);
+	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
 void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
@@ -432,13 +434,13 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		if (line.back() == '\r')
 			line.pop_back();
 		std::transform(line.begin(), line.end(), line.begin(), ::tolower);
-		if (line.find("content-disposition") != std::string::npos) {
+		if (line.find("content-disposition: form-data") != std::string::npos) {
 			startPos = line.find("name=\"");
-			if (startPos != std::string::npos) {
-				startPos += 6;
-				endPos = line.find("\"", startPos);
-				part.name = line.substr(startPos, endPos - startPos);
-			}
+			if (startPos == std::string::npos)
+				throw HttpException::badRequest("invalid header for multipart/form-data");
+			startPos += 6;
+			endPos = line.find("\"", startPos);
+			part.name = line.substr(startPos, endPos - startPos);
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
@@ -450,189 +452,30 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 		else if (line.find("content-type: ") != std::string::npos) {
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
+			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart
+				parseMultipart(getBoundary(part.contentType), part.nestedData);
 		}
-=======
-				client->addMultipartData(name, FILENAME, line.substr(startPos, endPos - startPos));
-				client->openFile(client->getFilename(name));
-			}
-		} else if (line.find("Content-Type: ") != std::string::npos) {
-			startPos = line.find("Content-Type: ") + 14;
-			client->addMultipartData(name, CONTENT_TYPE, line.substr(startPos));
-		} else {
-			if (client->getFilename(name).empty())
-				client->addMultipartData(name, CONTENT, line);
-			else
-				client->getFileStream() << line << "\n";
-		}
+		else
+			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
-	client->closeFile();
 }
 
-void	Response::parseRequest(std::shared_ptr<Client> client, Config& config)
+std::ofstream	Response::getFileStream(std::string filename)
 {
-	(void)config;
+	if (filename.find("../") != std::string::npos)	
+		throw HttpException::badRequest("forbidden traversal pattern in filename");
+	
+	std::string					filePath;
+	std::vector<std::string>	folder;
 
-	size_t	pos = m_request.find('\n');
-	if (pos == std::string::npos || pos == std::string::npos - 1) {
-		Logger::getInstance().logError("Invalid request");
-		return;
-	}
+	getDirective("uploadFolder", folder); // should it be an error if folder is not defined?
+	filePath = folder.empty() ? filename : folder.front() + '/' + filename; // what if there are multiple files with the same name
 
-	std::istringstream	request_line(m_request.substr(0, pos));
-	std::string			method;
-	std::string			extra;
-
-	if (!(request_line >> method >> m_path >> m_version) || request_line >> extra || !version()) {
-		Logger::getInstance().logError("Invalid request line");
-		m_code = 400;
-		return;
-	}
-
-	if (!setMethod(method))
-		return;
-
-	// std::vector<std::string>	out;
-
-	// sanitizePath();
-
-	// config.tryGetDirective("root", out);
-	// m_path = out.empty() ? m_path : *out.begin() + m_path;
-
-	// std::ifstream	file(m_path);
-
-	// if (pathIsDirectory()) {
-	// 	config.tryGetDirective("index", out);
-	// 	for (std::string idx: out) {
-	// 		std::string newPath = m_path + idx;
-	// 		file.clear();
-	// 		file = std::ifstream(newPath);
-	// 		if (file.good())
-	// 		{
-	// 			m_path = newPath;
-	// 			break;
-	// 		}
-	// 	}
-	// }
-	// if (!file.good()) {
-	// 	Logger::getInstance().log("HERE path is " + m_path);
-	// 	m_code = 404; // not found
-	// 	return;
-	// }
-	// try {
-	// 	m_size = std::filesystem::file_size(m_path);
-	// 	m_code = 200;
-	// } catch (const std::exception& e) {
-	// 	m_size = 0;
-	// 	m_code = 404;
-	// 	std::cerr << e.what() << '\n';
-	// }
-
-	std::istringstream	request(m_request.substr(pos + 1));
-	std::regex			headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*[\x20-\x7E]*$)");
-	std::string			key;
-	std::string			value;
-
-	for (std::string line; getline(request, line);) {
-		if (line.back() == '\r')
-			line.pop_back();
-		if (line.empty())
-			break;
-    	if (std::regex_match(line, headerRegex)) {
-			pos = line.find(':');
-			key = line.substr(0, pos);
-			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c){ return std::toupper(c); });
-			std::replace(key.begin(), key.end(), '-', '_');
-			value = line.substr(pos + 1);
-			value.erase(0, value.find_first_not_of(" "));
-			value.erase(value.find_last_not_of(" ") + 1);
-			m_headers.try_emplace(key, value);
-		} else {
-			m_code = 200; // Bad Request
-			return;
-		}
-	}
-	// with certain file extension specified in the config file invoke CGI handler (GET,POST)
-	// if (m_method == GET) {
-	// if (m_path.empty() || m_path == "/")
-	// 	m_path = "/index.html";
-		
-	m_path = m_path.substr(1);
-
-	const std::vector<std::string> alt { ".html", "/index.html" };
-
-	std::ifstream file(m_path);
-	if (!file.good()) // && text/html
-	{
-		for (auto& it : alt)
-		{
-			std::string	new_path = m_path + it;
-			Logger::getInstance().log("Try " + new_path);
-			file.clear();
-			file = std::ifstream(new_path);
-			if (file.good())
-			{
-				m_path = new_path;
-				break;
-			}
-		}
-	}
-	try {
-		m_size = std::filesystem::file_size(m_path);
-		m_code = 200;
-	} catch (const std::exception& e) {
-		m_size = 0;
-		m_code = 404;
-		Logger::getInstance().logError(e.what());
-		//std::cerr << e.what() << '\n';
-	}
-	// }
-	/*
-		if chuncked set output_filestream for client
-		set status code
-	*/
-
-	if (m_method == POST) {
-		// if (m_headers.find("CONTENT_TYPE") != m_headers.end()) { // has a body to parse
-		std::istringstream	body;
-		pos = m_request.find("\r\n\r\n");
-		if (pos != std::string::npos) {
-			body.str(m_request.substr(pos + 4));
-			if (m_headers.find("CONTENT_LENGTH") != m_headers.end()) {
-				std::string length = m_headers["CONTENT_LENGTH"];
-				if (body.str().size() != std::stoul(length)) {
-					Logger::getInstance().logError("Invalid content length");
-					// m_code = 
-					return;
-				}
-			}
-		}
-			if (m_headers["CONTENT_TYPE"] == "application/x-www-form-urlencoded") {
-				// Parse key-value pairs from the body to a map
-				// Convert url-encoded values
-				for (std::string line; getline(request, line, '&');) {
-					pos = line.find('=');
-					if (pos != std::string::npos)
-						client->setFormData(line.substr(0, pos), line.substr(pos + 1));
-					// client->displayFormData();
-				}
-			} else if (m_headers["CONTENT_TYPE"].find("multipart/form-data") != std::string::npos) {
-				client->setBoundary("--" + m_headers["CONTENT_TYPE"].substr(m_headers["CONTENT_TYPE"].find("=") + 1));
-				parseMultipart(client, body);
-				// Logger::getInstance().log("PARSED MULTIPART DATA");
-				// client->displayMultipartData();
-			} else if (m_headers["CONTENT_TYPE"] == "application/json") {
-				// Parse the body as JSON
-			// }
-		} // else bad request
-	}
-
-	if (m_method == DELETE) {
-		/*
-			validate path
-			delete resource identified by the path
-		*/
->>>>>>> master
-	}
+	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
+	if (!filestream)
+		throw HttpException::internalServerError("open failed for file upload");
+			
+	return filestream;
 }
 
 bool	Response::headerFound(const std::string& header)
@@ -695,6 +538,15 @@ size_t Response::size()
 	return m_size;
 }
 
+void	Response::getDirective(std::string dir, std::vector<std::string>& out)
+{
+	std::shared_ptr<ConfigNode>	location(m_config.findNode(m_target));
+	if (!location)
+		throw HttpException::notFound();
+	
+	location->tryGetDirective(dir, out);
+}
+
 void	Response::displayQueryData() // debug
 {
 	for (auto& [key, values] : m_queryData) {
@@ -704,13 +556,16 @@ void	Response::displayQueryData() // debug
 	}
 }
 
-void	Response::displayMultipart() // debug
+void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 {
-	for (multipart part: m_multipartData) {
+	for (multipart part: multipartData) {
 		log("name: " + part.name);
 		log("filename: " + part.filename);
 		log("content-type: " + part.contentType);
 		log("content: " + std::string(part.content.begin(), part.content.end()));
+		log("");
+		if (!part.nestedData.empty())
+			displayMultipart(part.nestedData);
 	}
 }
 
