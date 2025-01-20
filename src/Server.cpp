@@ -28,7 +28,7 @@ Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m
 
 	for (int i = 0; i < m_max_sockets; i++)
 	{
-		auto client = std::make_shared<Client>(m_pollfd[i + 1], i);
+		auto client = std::make_shared<Client>(m_pollfd[i + 1]);
 		m_clients.push_back(client);
 	}
 
