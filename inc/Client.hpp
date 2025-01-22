@@ -80,7 +80,7 @@ class Client
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			Logger::getInstance().log("Client connected!");
+			Logger::getInstance().log("Client connected!" + std::to_string(m_pollfd.fd));
 
 			return true;
 		}
@@ -88,12 +88,12 @@ class Client
 
 		void	disconnect()
 		{
+			Logger::getInstance().log("Client disconnected!" + std::to_string(m_pollfd.fd));
 			close(m_pollfd.fd);
 			m_pollfd.fd = -1;
 			m_pollfd.revents = 0;
 			m_alive = false;
 
-			Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)
