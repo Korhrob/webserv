@@ -45,6 +45,7 @@ class Client
 		// formMap											m_formData;
 		// std::ofstream									m_file;
 		bool											m_close_connection = false;
+		std::string										m_html_body;
 
 	public:
 
@@ -142,6 +143,8 @@ class Client
 		void populateEnv();
 		void freeEnv(char** env);
 		char** mallocEnv();
+
+		void setHtmlBody(std::string string);
 		
 		// std::ofstream&	openFile(std::string name)
 		// {
