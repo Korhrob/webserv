@@ -42,18 +42,9 @@ class Client
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
-<<<<<<< HEAD
-		std::string										m_html_body;
-
-		std::string										m_boundary;
-		multipart										m_multipartData;
-		std::unordered_map<std::string, std::string>	m_formData;
-		std::ofstream									m_file;
-=======
 		// formMap											m_formData;
 		// std::ofstream									m_file;
 		bool											m_close_connection = false;
->>>>>>> origin/master
 
 	public:
 
@@ -142,7 +133,6 @@ class Client
 			m_pollfd.revents = 0;
 		}
 
-<<<<<<< HEAD
 		// Env functions
 		void setEnv(std::string envp);
 		void setEnvValue(std::string envp, std::string value);
@@ -153,54 +143,16 @@ class Client
 		void freeEnv(char** env);
 		char** mallocEnv();
 		
-		void	setBoundary(std::string boundary)
-		{
-			m_boundary = boundary;
-		}
-
-		std::string	getBoundary()
-		{
-			return m_boundary;
-		}
-
-		char	hexToChar(std::string hex)
-		{
-			return stoi(hex, nullptr, 16);
-		}
-
-		void	setFormData(std::string key, std::string value)
-		{
-			while (value.find('%') != std::string::npos) {
-				size_t pos = value.find('%');
-				value.insert(pos, 1, stoi(value.substr(pos + 1, 2), nullptr, 16));
-				value.erase(pos + 1, 3);
-			}
-			m_formData.insert_or_assign(key, value);
-		}
-
-		std::string	getFormData(std::string key)
-		{
-			return (m_formData[key]);
-		}
-
-		void	displayFormData() // for debugging
-		{
-			for (auto& [key, value] : m_formData)
-				std::cout << key << "=" << value << "\n";
-		}
-		
-		std::ofstream&	openFile(std::string name)
-		{
+		// std::ofstream&	openFile(std::string name)
+		// {
 			// auto now = std::chrono::steady_clock::now();
 			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
-=======
+			// m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
 		// std::ofstream&	openFile(std::string name)
 		// {
 		// 	// auto now = std::chrono::steady_clock::now();
 		// 	// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 		// 	m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::binary);
->>>>>>> origin/master
 			
 		// 	return m_file;
 		// }
