@@ -15,6 +15,9 @@
 #include <map>
 #include <unordered_map>
 #include <fstream> // ofstream
+#include <variant>
+#include <vector>
+#include <map>
 
 #include "Logger.hpp" // log,  logError
 #include "Const.hpp"
@@ -25,20 +28,7 @@ typedef std::map<std::string, std::string>		mapStr;
 
 // TODO: move inline function to their own .cpp file
 
-struct s_part {
-	std::string	filename;
-	std::string	contentType;
-	std::string	content;
-};
-
-using multipart = std::unordered_map<std::string, s_part>;
-
-enum	e_multipart
-{
-	FILENAME,
-	CONTENT_TYPE,
-	CONTENT
-};
+using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class Client
 {
@@ -47,21 +37,27 @@ class Client
 		mapStr											m_env;
 		bool											m_alive;
 		struct pollfd&									m_pollfd; // shortcut
-		int												m_id;
+		// int												m_id;
 		t_sockaddr_in									m_addr;
 		// unsigned int									m_addr_len = sizeof(t_sockaddr_in);
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
+<<<<<<< HEAD
 		std::string										m_html_body;
 
 		std::string										m_boundary;
 		multipart										m_multipartData;
 		std::unordered_map<std::string, std::string>	m_formData;
 		std::ofstream									m_file;
+=======
+		// formMap											m_formData;
+		// std::ofstream									m_file;
+		bool											m_close_connection = false;
+>>>>>>> origin/master
 
 	public:
 
-		Client(struct pollfd& pollfd, int id) : m_pollfd(pollfd), m_id(id)
+		Client(struct pollfd& pollfd) : m_pollfd(pollfd)
 		{
 			m_pollfd.fd = -1;
 			m_pollfd.events = POLLIN | POLLOUT;
@@ -73,7 +69,7 @@ class Client
 		bool	isAlive() { return m_alive; }
 		bool	incoming() { return m_pollfd.revents & POLLIN; }
 		bool	outgoing() { return m_pollfd.revents & POLLOUT; }
-		bool	fileIsOpen() { return m_file.is_open(); }
+		// bool	fileIsOpen() { return m_file.is_open(); }
 
 		int		fd() { return m_pollfd.fd; }
 		struct pollfd& getPollfd() { return m_pollfd; }
@@ -119,7 +115,11 @@ class Client
 
 		int	respond(const std::string& response)
 		{
-			int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL); // 0
+			#ifdef MSG_NOSIGNAL
+				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL);
+			#else
+				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
+			#endif
 			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
 			m_pollfd.revents = POLLOUT; 
@@ -142,6 +142,7 @@ class Client
 			m_pollfd.revents = 0;
 		}
 
+<<<<<<< HEAD
 		// Env functions
 		void setEnv(std::string envp);
 		void setEnvValue(std::string envp, std::string value);
@@ -193,47 +194,48 @@ class Client
 			// auto now = std::chrono::steady_clock::now();
 			// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 			m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::app | std::ios::binary);
+=======
+		// std::ofstream&	openFile(std::string name)
+		// {
+		// 	// auto now = std::chrono::steady_clock::now();
+		// 	// auto stamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+		// 	m_file.open(std::to_string(m_id) + "_" + name, std::ios::out | std::ios::binary);
+>>>>>>> origin/master
 			
-			return m_file;
+		// 	return m_file;
+		// }
+		
+		// std::ofstream&	getFileStream()
+		// {
+		// 	return m_file;
+		// }
+
+		// void	closeFile()
+		// {
+		// 	m_file.close();
+		// }
+
+		void	setCloseConnection()
+		{
+			m_close_connection = true;
 		}
 		
-		std::ofstream&	getFileStream()
-		{
-			return m_file;
-		}
+		// void	addFormData(std::string key, std::string value)
+		// {
+		// 	m_formData[key].push_back(value);
+		// }
 
-		void	closeFile()
-		{
-			m_file.close();
-		}
+		// std::vector<std::string>	getFormData(std::string key)
+		// {
+		// 	return (m_formData[key]);
+		// }
 
-		void	addMultipartData(std::string key, int type, std::string value)
-		{
-			switch (type) {
-				case FILENAME:
-					m_multipartData[key].filename = value;
-					break;
-				case CONTENT_TYPE:
-					m_multipartData[key].contentType = value;
-					break;
-				case CONTENT:
-					m_multipartData[key].content.append(value);
-			}
-		}
-
-		std::string	getFilename(std::string name) { return m_multipartData[name].filename; }
-
-		std::string	getContentType(std::string name) { return m_multipartData[name].contentType; }
-
-		std::string	getContent(std::string name) { return m_multipartData[name].content; }
-
-		void	displayMultipartData()
-		{
-			for (auto [key, value]: m_multipartData) {
-			Logger::getInstance().log("key: " + key);
-			Logger::getInstance().log("filename: " + value.filename);
-			Logger::getInstance().log("content-type: " + value.contentType);
-			Logger::getInstance().log("content: " + value.content);
-		}
-	}
+		// void	displayFormData() // debug
+		// {
+		// 	for (auto& [key, values] : m_formData) {
+		// 		std::cout << key << "=";
+		// 		for (std::string value: values)
+		// 			std::cout << value << "\n";
+		// 	}
+		// }
 };
