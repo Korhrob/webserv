@@ -24,6 +24,10 @@ class HttpException : public std::exception {
             return HttpException(400, "Bad Request: " + log);
         }
 
+        static HttpException    forbidden() {
+            return HttpException(403, "Forbidden");
+        }
+
         static HttpException    notFound() {
             return HttpException(404, "Not Found");
         }
