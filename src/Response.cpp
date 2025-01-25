@@ -114,6 +114,7 @@ void	Response::parseRequest()
 
 	if (m_method == "GET") {
 		try {
+			std::cout << "PATH: " + m_path + "\n";
 			m_size = std::filesystem::file_size(m_path);
 			m_parsing = COMPLETE;
 		} catch (const std::exception& e) {
@@ -178,27 +179,27 @@ void	Response::validateURI()
 	parseQueryString();
 	validateCgi();
 
-	std::vector<std::string>	directive;
+	std::vector<std::string> root;
+	getDirective("root", root);
+	m_path = root.empty() ? m_target : root.front() + m_target;
 
-	getDirective("root", directive);
-	m_path = directive.empty() ? m_target : directive.front() + m_target;
-
-	std::ifstream	file(m_path);
-
-	if (!file.good()) {
-		getDirective("index", directive);
-		for (std::string index: directive) {
-			std::string newPath = m_path + index;
-			file.clear();
-			file = std::ifstream(newPath);
-			if (file.good())
-			{
-				m_path = newPath;
-				break;
+	try {
+		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
+			std::vector<std::string> indices;
+			getDirective("index", indices);
+			for (std::string index: indices) {
+				std::string newPath = m_path + index;
+				if (std::filesystem::exists(newPath)) {
+					m_path = newPath;
+					break;
+				}
 			}
 		}
-		if (!file.good())
-			throw HttpException::notFound();
+		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
+		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+			throw HttpException::forbidden();
+	} catch (std::exception& e) {
+		throw HttpException::notFound();
 	}
 }
 
