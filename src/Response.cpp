@@ -196,7 +196,7 @@ void	Response::validateURI()
 			}
 		}
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
-		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden();
 	} catch (std::exception& e) {
 		throw HttpException::notFound();
