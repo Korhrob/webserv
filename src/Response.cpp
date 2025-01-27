@@ -89,7 +89,10 @@ void	Response::readRequest(int fd)
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 
 	if (bytes_read == -1)
+	{
+		m_status = STATUS_FAIL;
 		throw HttpException::internalServerError("failed to recieve request");
+	}
 	if (bytes_read == 0)
 	{
 		m_status = STATUS_FAIL;

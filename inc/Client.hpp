@@ -107,6 +107,12 @@ class Client
 
 		int	respond(const std::string& response)
 		{
+			if (response.size() <= 0)
+			{
+				Logger::getInstance().log("!! RESPONSE IS 0 OR LESS !!\n\n");
+				return false;
+			}
+
 			#ifdef MSG_NOSIGNAL
 				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL);
 			#else
