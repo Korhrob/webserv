@@ -94,7 +94,9 @@ void	Response::readRequest(int fd)
 	{
 		m_status = STATUS_BLANK;
 		m_send_type = TYPE_NONE;
-		//throw HttpException::badRequest("empty request");
+		m_parsing = COMPLETE;
+		// throw HttpException::badRequest("empty request");
+		return ;
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));

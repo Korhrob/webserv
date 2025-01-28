@@ -1,10 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nested Multipart File Upload Form</title>
-</head>
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
 <body>
     <h1>Upload Multiple Files with Nested Data</h1>
     <form action="/uploads" method="post" enctype="multipart/form-data">
@@ -31,5 +46,8 @@
 
         <button type="submit">Upload</button>
     </form>
+	<img src="index"/>
+
+	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
 </body>
 </html>
