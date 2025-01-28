@@ -82,7 +82,6 @@ bool	Server::startServer()
 
 	std::string msg = "Server started on " + m_address + ":" + std::to_string(m_port);
 	Logger::getInstance().log(msg);
-	std::cout << msg << std::endl;
 	startListen();
 
 	return true;
