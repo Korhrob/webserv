@@ -1,0 +1,113 @@
+location node = [/]
+location node = [/uploads]
+Starting server on 0.0.0.0:8080...
+Server started on 0.0.0.0:8080
+Server is listening...
+Client connected!6
+-- BYTES READ 456--
+
+
+GET /index.html HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+== SINGLE RESPONSE ==
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 1040
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index</title>
+    <style>
+        .button-container {
+            display: flex;
+            justify-content: space-evenly;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            padding: 0 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container for buttons -->
+    <div class="button-container">
+        <a href="/upload" class="button">Upload file</a>
+        <a href="/credit" class="button">Credits</a>
+        <a href="/form" class="button">Submit Form</a>
+    </div>
+
+</body>
+</html>
+
+
+
+-- BYTES SENT 1106--
+
+
+Client time out!
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Client connected!6
+Client disconnected!6
+Client connected!6
+Client time out!
+Client disconnected!6
+Closing server...
+Server closed!
+Clean Exit!
