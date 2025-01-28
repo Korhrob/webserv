@@ -94,6 +94,7 @@ void	Response::readRequest(int fd)
 	{
 		m_status = STATUS_BLANK;
 		m_send_type = TYPE_NONE;
+		return;
 		//throw HttpException::badRequest("empty request");
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
