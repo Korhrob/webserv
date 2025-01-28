@@ -35,15 +35,16 @@ class Server
 		t_sockaddr_in		m_socket_addr;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 
-		int											m_max_backlog = 512;
+		int											m_max_backlog = 128;
 		int											m_sock_count;
-		int											m_max_sockets = 200;	// events { worker_connections}
+		int											m_max_sockets = 128;	// events { worker_connections}
 		std::vector<struct pollfd>					m_pollfd;
 		std::vector<std::shared_ptr<Client>>		m_clients;
 		struct pollfd&								m_listener;	// alias
 
 	public:
 		// Server(const std::string& ip, int port); // depracated
+		Server();
 		Server(std::shared_ptr<ConfigNode> server_node);
 		~Server();
 

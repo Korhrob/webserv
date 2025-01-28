@@ -12,30 +12,14 @@
 #include <poll.h>
 #include <fcntl.h>
 
-// Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
-// {
-// 	// should read config file and initialize all server variables here
-// 	// read more about config files for NGINX for reference
-
-// 	(void)port;
-
-// 	m_address = ip;
-// 	m_port = m_config.getPort();
-// 	m_sock_count = 0;
-
-// 	//m_pollfd.resize(m_max_sockets + 1);
-// 	m_pollfd[0] = { m_socket, POLLIN, 0 };
-
-// 	for (int i = 0; i < m_max_sockets; i++)
-// 	{
-// 		auto client = std::make_shared<Client>(m_pollfd[i + 1]);
-// 		m_clients.push_back(client);
-// 	}
-
-// }
+Server::Server() : m_pollfd(1), m_listener(m_pollfd[0])
+{
+}
 
 Server::Server(std::shared_ptr<ConfigNode> node) : m_server_node(node), m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
 {
+	Logger::getInstance().log(node->getName());
+
 	m_address = "0.0.0.0"; // get from server_block;
 	m_port = std::stoul(node->findDirective("listen").front());
 	m_sock_count = 0;
@@ -280,6 +264,7 @@ void	Server::handleEvents()
 
 void	Server::update()
 {
+
 	int	r = poll(m_pollfd.data(), m_pollfd.size(), 5000);
 
 	// could handle timeouts here

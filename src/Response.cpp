@@ -481,9 +481,10 @@ size_t Response::size()
 void	Response::getDirective(std::string dir, std::vector<std::string>& out)
 {
 	std::shared_ptr<ConfigNode>	location(m_server_node->findNode(m_target));
-	if (!location)
+	if (location == nullptr)
 		location = m_server_node->findNode("/");
 	
+	// DANGER DANGER
 	location->tryGetDirective(dir, out);
 }
 

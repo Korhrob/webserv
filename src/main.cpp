@@ -19,21 +19,22 @@ void	handleSigint(int sig)
 
 void	program()
 {
-	std::vector<Server> instances;
+	std::vector<std::shared_ptr<Server>> instances;
 	Config config("config.conf");
 
 	if (!config.isValid())
 		return ;
 
 	NodeMap	nodeMap = config.getNodeMap();
-	is_running = false;
+	//is_running = false;
+
+	// is_running = tpc_server.startServer();
 
 	for (auto server_block : nodeMap)
 	{
 		// introduce try catch block and throw exceptions
-		Logger::getInstance().log(server_block.first);
-		Server tpc_server(server_block.second);
-		is_running = tpc_server.startServer();
+		std::shared_ptr<Server> tpc_server = std::make_shared<Server>(server_block.second);
+		is_running = tpc_server->startServer();
 
 		if (!is_running)
 			break;
@@ -45,8 +46,8 @@ void	program()
 
 	while (is_running)
 	{
-		for (Server& tpc_server : instances)
-			tpc_server.update();
+		for (std::shared_ptr<Server> tpc_server : instances)
+			tpc_server->update();
 	}
 
 	// for (Server& tpc_server : server_instances)
