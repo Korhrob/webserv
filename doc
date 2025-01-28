@@ -1,0 +1,32 @@
+
+TODO:
+
+Server:
+	- handle receiving chunk encoded data (potentially via POST method)
+	- (optional) implement data compression for large files
+	- (optional) switch poll() to epoll()
+	- stress test
+	- handle timeouts faster, even if client still requests Connection keep-open (potentially caching web pages)
+	- implement cache and cookies
+
+Parsing:
+	GET
+		- check requested filepath, if filepath is a folder, check for index.html file
+		- if path doesn't exist set header to 404 
+		- 
+	POST
+		- parse POST method request
+	DELETE
+		- parse DELETE method request
+
+	- Upgrade h2c and Connection Upgrade response with 505 HTTP version not supported
+
+	Config
+		- read config file on server startup, initialize server variables (check NGINX)
+		- check for invalid directive names
+		- check variables $
+		- check potentially empty directives     ) ;# Incorrect closing brace
+		- validate listen port (numerical value)
+
+CGI:
+	- idk
