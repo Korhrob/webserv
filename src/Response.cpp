@@ -92,8 +92,9 @@ void	Response::readRequest(int fd)
 		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
 	{
-		m_status = STATUS_FAIL;
-		throw HttpException::badRequest("empty request");
+		m_status = STATUS_BLANK;
+		m_send_type = TYPE_NONE;
+		//throw HttpException::badRequest("empty request");
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
