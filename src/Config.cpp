@@ -10,7 +10,9 @@
 #include <memory>
 #include <algorithm> // std::find
 
-Config::Config() : m_valid(false)
+#include <utility> // std::pair
+
+Config::Config() : m_valid(false), m_server_count(0)
 {
 	std::ifstream	file("config.conf");
 
@@ -19,7 +21,17 @@ Config::Config() : m_valid(false)
 
 	m_valid = parse(file);
 	file.close();
+}
 
+Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
+{
+	std::ifstream	file(filename);
+
+	if (!file.is_open() || !file.good())
+		return;
+
+	m_valid = parse(file);
+	file.close();
 }
 
 Config::~Config()
@@ -57,6 +69,17 @@ bool	Config::parse(std::ifstream& stream)
 		{
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
+
+			if (node_name == "server")
+			{
+				if (!tree.empty())
+				{
+					Logger::getInstance().logError("unexpected server node on line " + std::to_string(line_nbr) + ":");
+					Logger::getInstance().logError(line);
+					return false;
+				}
+				node_name += "_" + std::to_string(m_server_count++);
+			}
 
 			// if node name starts with "location", we treat node as the path
 			// ex. "location /" becomes "/"
@@ -141,20 +164,30 @@ bool	Config::parse(std::ifstream& stream)
 		return false;
 	}
 
-	std::shared_ptr<ConfigNode>	serverNode = findNode("server");
-	if (serverNode == nullptr)
+	// std::shared_ptr<ConfigNode>	serverNode = findNode("server");
+	// if (serverNode == nullptr)
+	// {
+	// 	Logger::getInstance().logError("missing server node");
+	// 	return false;
+	// }
+
+	if (m_server_count == 0)
 	{
 		Logger::getInstance().logError("missing server node");
 		return false;
 	}
 
-	std::vector<std::string> d;
-	for (auto& str : MANDATORY_DIRECTIVES)
+	for (auto& nodePair : m_nodes)
 	{
-		if (!serverNode->tryGetDirective(str, d))
+		std::shared_ptr<ConfigNode> serverNode = nodePair.second;
+		std::vector<std::string> d;
+		for (auto& str : MANDATORY_DIRECTIVES)
 		{
-			Logger::getInstance().logError("missing mandatory directive '" + str + "'");
-			return false;
+			if (!serverNode->tryGetDirective(str, d))
+			{
+				Logger::getInstance().logError(nodePair.first + " missing mandatory directive '" + str + "'");
+				return false;
+			}
 		}
 	}
 
@@ -292,4 +325,14 @@ bool	Config::tryGetDirective(const std::string&key, std::vector<std::string>& ou
 	if (!out.empty())
 		return true;
 	return false;
+}
+
+int	Config::getServerCount()
+{
+	return m_server_count;
+}
+
+const NodeMap&	Config::getNodeMap()
+{
+	return m_nodes;
 }

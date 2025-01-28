@@ -12,15 +12,32 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
+// Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
+// {
+// 	// should read config file and initialize all server variables here
+// 	// read more about config files for NGINX for reference
+
+// 	(void)port;
+
+// 	m_address = ip;
+// 	m_port = m_config.getPort();
+// 	m_sock_count = 0;
+
+// 	//m_pollfd.resize(m_max_sockets + 1);
+// 	m_pollfd[0] = { m_socket, POLLIN, 0 };
+
+// 	for (int i = 0; i < m_max_sockets; i++)
+// 	{
+// 		auto client = std::make_shared<Client>(m_pollfd[i + 1]);
+// 		m_clients.push_back(client);
+// 	}
+
+// }
+
+Server::Server(std::shared_ptr<ConfigNode> node) : m_server_node(node), m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
 {
-	// should read config file and initialize all server variables here
-	// read more about config files for NGINX for reference
-
-	(void)port;
-
-	m_address = ip;
-	m_port = m_config.getPort();
+	m_address = "0.0.0.0"; // get from server_block;
+	m_port = std::stoul(node->findDirective("listen").front());
 	m_sock_count = 0;
 
 	//m_pollfd.resize(m_max_sockets + 1);
@@ -31,12 +48,20 @@ Server::Server(const std::string& ip, int port) : m_pollfd(m_max_sockets + 1), m
 		auto client = std::make_shared<Client>(m_pollfd[i + 1]);
 		m_clients.push_back(client);
 	}
-
 }
 
 Server::~Server()
 {
-	closeServer();
+	//closeServer();
+
+	if (m_socket >= 0)
+		close(m_socket);
+
+	for (auto& pollfd : m_pollfd)
+	{
+		if (pollfd.fd > 0)
+			close(pollfd.fd);
+	}
 
 	m_pollfd.clear();
 	m_clients.clear();
@@ -44,11 +69,12 @@ Server::~Server()
 
 bool	Server::startServer()
 {
-	if (!m_config.isValid())
-	{
-		Logger::getInstance().logError("Error in config file");
-		return false;
-	}
+	// already checked before start server, could add validate server block function
+	// if (!m_config.isValid())
+	// {
+	// 	Logger::getInstance().logError("Error in config file");
+	// 	return false;
+	// }
 
 	Logger::getInstance().log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
@@ -62,6 +88,7 @@ bool	Server::startServer()
     int opt = 1;
     if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
+		Logger::getInstance().logError("setsockopt failed!");
         perror("setsockopt failed");
         close(m_socket);
         return false;
@@ -80,17 +107,16 @@ bool	Server::startServer()
 
 	m_listener.fd = m_socket;
 
-	std::string msg = "Server started on " + m_address + ":" + std::to_string(m_port);
-	Logger::getInstance().log(msg);
-	std::cout << msg << std::endl;
+	Logger::getInstance().log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
 
 	return true;
 }
 
+// technically not required
 void	Server::closeServer()
 {
-	Logger::getInstance().log("Closing server...");
+	Logger::getInstance().log("Closing " + m_server_node->getName() + "...");
 
 	if (m_socket >= 0)
 		close(m_socket);
@@ -101,10 +127,7 @@ void	Server::closeServer()
 			close(pollfd.fd);
 	}
 
-	usleep(10000); // wait a little bit for close() before exit
-	
 	Logger::getInstance().log("Server closed!");
-	std::cout << "Server closed!" << std::endl;
 }
 
 void	Server::startListen()
@@ -120,7 +143,7 @@ void	Server::startListen()
 
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	Response	http_response(client, m_config);
+	Response	http_response(client, m_server_node);
 
 	if (http_response.getStatus() == STATUS_FAIL)
 	{
@@ -274,7 +297,3 @@ void	Server::update()
 
 }
 
-Config&	Server::getConfig()
-{
-	return m_config;
-}

@@ -25,7 +25,10 @@ class Server
 {
 
 	private:
-		Config				m_config;
+		// Config			m_config; // deprecated
+		std::shared_ptr<ConfigNode>	m_server_node; // instance server block;
+
+
 		std::string			m_address;
 		int					m_port;
 		int					m_socket;
@@ -40,7 +43,8 @@ class Server
 		struct pollfd&								m_listener;	// alias
 
 	public:
-		Server(const std::string& ip, int port);
+		// Server(const std::string& ip, int port); // depracated
+		Server(std::shared_ptr<ConfigNode> server_node);
 		~Server();
 
 		bool	startServer();
@@ -51,5 +55,4 @@ class Server
 		void	handleClients();
 		void	handleEvents();
 		void	update();
-		Config&	getConfig();
 };
