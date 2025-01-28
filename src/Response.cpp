@@ -87,13 +87,15 @@ void	Response::readRequest(int fd)
 	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
-
 	if (bytes_read == -1)
-		throw HttpException::internalServerError("failed to recieve request");
+		throw HttpException::internalServerError("failed to receive request");
 	if (bytes_read == 0)
 	{
 		m_status = STATUS_FAIL;
+		m_send_type = TYPE_NONE;
+		m_parsing = COMPLETE;
 		throw HttpException::badRequest("empty request");
+		// return ;
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
