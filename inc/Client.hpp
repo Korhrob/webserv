@@ -80,7 +80,7 @@ class Client
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			Logger::getInstance().log("Client " + std::to_string(m_pollfd.fd) + " connected!");
+			Logger::log("Client " + std::to_string(m_pollfd.fd) + " connected!");
 
 			return true;
 		}
@@ -88,7 +88,7 @@ class Client
 
 		void	disconnect()
 		{
-			Logger::getInstance().log("Client " + std::to_string(m_pollfd.fd) + " disconnected!");
+			Logger::log("Client " + std::to_string(m_pollfd.fd) + " disconnected!");
 			close(m_pollfd.fd);
 			m_pollfd.fd = -1;
 			m_pollfd.revents = 0;
@@ -108,7 +108,7 @@ class Client
 			#else
 				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
 			#endif
-			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
+			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
 			m_pollfd.revents = POLLOUT; 
 

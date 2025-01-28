@@ -25,6 +25,8 @@ void	program()
 	if (!config.isValid())
 		return ;
 
+	Logger::init();
+
 	NodeMap	nodeMap = config.getNodeMap();
 	//is_running = false;
 
@@ -42,7 +44,7 @@ void	program()
 		instances.push_back(tpc_server);
 	}
 
-	//Logger::getInstance().log("number of instances started " + std::to_string(config.getServerCount()));
+	//Logger::log("number of instances started " + std::to_string(config.getServerCount()));
 
 	while (is_running)
 	{
@@ -59,7 +61,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	Logger::getInstance().log("Clean Exit!");
+	Logger::log("Clean Exit!");
 
 	return 0;
 }

@@ -43,6 +43,17 @@ const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
 	return nullptr;
 }
 
+const	std::shared_ptr<ConfigNode>	ConfigNode::findClosestMatch(const std::string& key)
+{
+	if (m_children.find(key) != m_children.end())
+		return m_children[key];
+	// for (auto& child : m_children)
+	// {
+	// 	// try match key with child.first
+	// }
+	return nullptr;
+}
+
 bool	ConfigNode::tryGetDirective(const std::string&key, std::vector<std::string>& out)
 {
 	out = findDirective(key);

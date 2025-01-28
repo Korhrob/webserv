@@ -18,7 +18,7 @@ Server::Server() : m_pollfd(1), m_listener(m_pollfd[0])
 
 Server::Server(std::shared_ptr<ConfigNode> node) : m_server_node(node), m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
 {
-	Logger::getInstance().log(node->getName());
+	Logger::log(node->getName());
 
 	m_address = "0.0.0.0"; // get from server_block;
 	m_port = std::stoul(node->findDirective("listen").front());
@@ -56,23 +56,23 @@ bool	Server::startServer()
 	// already checked before start server, could add validate server block function
 	// if (!m_config.isValid())
 	// {
-	// 	Logger::getInstance().logError("Error in config file");
+	// 	Logger::logError("Error in config file");
 	// 	return false;
 	// }
 
-	Logger::getInstance().log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
+	Logger::log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
 
 	m_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (m_socket <= 0)
 	{
-		Logger::getInstance().logError("Server failed to open socket!");
+		Logger::logError("Server failed to open socket!");
 		return false;
 	}
 
     int opt = 1;
     if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
-		Logger::getInstance().logError("setsockopt failed!");
+		Logger::logError("setsockopt failed!");
         perror("setsockopt failed");
         close(m_socket);
         return false;
@@ -84,14 +84,14 @@ bool	Server::startServer()
 
 	if (bind(m_socket, (struct sockaddr*)&m_socket_addr, sizeof(m_socket_addr)) < 0)
 	{
-		Logger::getInstance().logError("Bind failed");
+		Logger::logError("Bind failed");
 		closeServer();
 		return false;
 	}
 
 	m_listener.fd = m_socket;
 
-	Logger::getInstance().log("Server started on " + m_address + ":" + std::to_string(m_port));
+	Logger::log("Server started on " + m_address + ":" + std::to_string(m_port));
 	startListen();
 
 	return true;
@@ -100,7 +100,7 @@ bool	Server::startServer()
 // technically not required
 void	Server::closeServer()
 {
-	Logger::getInstance().log("Closing " + m_server_node->getName() + "...");
+	Logger::log("Closing " + m_server_node->getName() + "...");
 
 	if (m_socket >= 0)
 		close(m_socket);
@@ -111,18 +111,18 @@ void	Server::closeServer()
 			close(pollfd.fd);
 	}
 
-	Logger::getInstance().log("Server closed!");
+	Logger::log("Server closed!");
 }
 
 void	Server::startListen()
 {
 	if (listen(m_socket, m_max_backlog) < 0)
 	{
-		Logger::getInstance().logError("Listen failed");
+		Logger::logError("Listen failed");
 		closeServer();
 	}
 
-	Logger::getInstance().log("Server is listening...");
+	Logger::log("Server is listening...");
 }
 
 void	Server::handleClient(std::shared_ptr<Client> client)
@@ -131,7 +131,7 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 
 	if (http_response.getStatus() == STATUS_FAIL)
 	{
-		Logger::getInstance().logError("Client disconnected or error occured");
+		Logger::logError("Client disconnected or error occured");
 		client->disconnect();
 		return;
 	}
@@ -179,11 +179,11 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			oss.write(buffer, count);
 			oss << "\r\n";
 			client->respond(oss.str());
-			Logger::getInstance().log("chunk encoding");
+			Logger::log("chunk encoding");
 		}
 
 		client->respond("0\r\n\r\n");
-		Logger::getInstance().log("end chunk encoding");
+		Logger::log("end chunk encoding");
 	}
 }
 
@@ -196,7 +196,7 @@ bool	Server::tryRegisterClient(t_time time)
 
 	if (client_fd < 0)
 	{
-		Logger::getInstance().logError("Accept failed");
+		Logger::logError("Accept failed");
 		return false;
 	}
 
@@ -213,7 +213,7 @@ bool	Server::tryRegisterClient(t_time time)
 	}
 
 	if (!success)
-		Logger::getInstance().logError("Failed to connect client");
+		Logger::logError("Failed to connect client");
 
 	return success;
 }
@@ -226,7 +226,7 @@ void	Server::handleClients()
 	{
 		if (client->isAlive() && client->timeout(time))
 		{
-			Logger::getInstance().log("Client time out!");
+			Logger::log("Client time out!");
 			client->disconnect();
 			m_sock_count--;
 		}
