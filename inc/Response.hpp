@@ -5,8 +5,9 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
+#include <vector>
 #include <fstream>
+#include <unordered_map>
 
 enum	e_parsing
 {
@@ -14,14 +15,6 @@ enum	e_parsing
 	CHUNKED,
 	MULTIPART,
 	COMPLETE
-};
-
-enum	e_method
-{
-	GET,
-	POST,
-	DELETE
-	//...
 };
 
 enum	e_type
@@ -48,7 +41,7 @@ struct	multipart {
 	std::vector<multipart>	nestedData;
 };
 
-using formMap = std::unordered_map<std::string, std::vector<std::string>>;
+using queryMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class Response
 {
@@ -68,7 +61,7 @@ class Response
 		std::string										m_path;
 		std::string										m_version;
 		std::unordered_map<std::string, std::string>	m_headers;
-		formMap											m_queryData;
+		queryMap										m_queryData;
 		std::vector<char>								m_unchunked;
 		std::vector<multipart>							m_multipartData;
 		e_type											m_send_type;
@@ -84,6 +77,9 @@ class Response
 		void			validateCgi();
 		void			parseHeaders(std::istringstream& request);
 		void			validateHost();
+		void			handleGet();
+		void			handlePost(std::vector<char>::iterator endOfHeaders);
+		void			handleDelete();
 		void			parseChunked();
 		size_t			getChunkSize(std::string& hex);
 		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);

@@ -113,42 +113,55 @@ void	Response::parseRequest()
 	parseRequestLine(request);
 	parseHeaders(request);
 
-	if (m_method == "GET") {
-		try {
-			std::cout << "PATH: " + m_path + "\n";
-			m_size = std::filesystem::file_size(m_path);
+	if (m_method == "GET")
+		return handleGet();
+	if (m_method == "POST")
+		return handlePost(endOfHeaders);
+	if (m_method == "DELETE")
+		return handleDelete();
+}
+
+void	Response::handleGet()
+{
+	try {
+		m_size = std::filesystem::file_size(m_path);
+		m_parsing = COMPLETE;
+	} catch (const std::exception& e) {
+		m_size = 0;
+		throw HttpException::notFound();
+	}
+}
+
+void	Response::handlePost(std::vector<char>::iterator endOfHeaders)
+{
+	if (!headerFound("content-type"))
+		throw HttpException::badRequest("missing content type in a POST request");
+
+	m_request.erase(m_request.begin(), endOfHeaders + 4);
+
+	if (headerFound("transfer-encoding")) {
+		if (m_headers["transfer-encoding"] != "chunked")
+			throw HttpException::notImplemented(); // is this only for methods?
+		parseChunked();
+	}
+	else if (m_headers["content-type"].find("multipart") != std::string::npos)
+		parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
+	// else
+	// 	throw HttpException::notImplemented(); // invalid content type?
+}
+
+void	Response::handleDelete()
+{
+	try {
+		if (std::filesystem::is_directory(m_path))
+			throw HttpException::forbidden();
+		else {
+			Logger::getInstance().log("REMOVING " + m_path);
+			std::filesystem::remove(m_path);
 			m_parsing = COMPLETE;
-		} catch (const std::exception& e) {
-			m_size = 0;
-			throw HttpException::notFound();
 		}
-	}
-	else if (m_method == "POST") {
-		if (!headerFound("content-type"))
-			throw HttpException::badRequest("missing content type in a POST request");
-
-		m_request.erase(m_request.begin(), endOfHeaders + 4);
-
-		if (headerFound("transfer-encoding")) {
-			if (m_headers["transfer-encoding"] != "chunked")
-				throw HttpException::notImplemented(); // is this only for methods?
-			parseChunked();
-		}
-		else if (m_headers["content-type"].find("multipart") != std::string::npos)
-			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
-	}
-	else if (m_method == "DELETE") {
-		try {
-			if (std::filesystem::is_directory(m_path))
-				throw HttpException::forbidden();
-			else {
-				Logger::getInstance().log("REMOVING " + m_path);
-				std::filesystem::remove(m_path);
-				m_parsing = COMPLETE;
-			}
-		} catch (std::filesystem::filesystem_error& e) {
-			throw HttpException::internalServerError("unable to delete target " + m_path);
-		}
+	} catch (std::filesystem::filesystem_error& e) {
+		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
 }
 
@@ -172,15 +185,6 @@ void	Response::validateVersion()
 {
 	if (m_version != "HTTP/1.1")
 		throw HttpException::httpVersionNotSupported();
-}
-
-void	Response::validateMethod()
-{
-	std::vector<std::string>	methods;
-
-	getDirective("methods", methods);
-	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
-		throw HttpException::notImplemented();
 }
 
 void	Response::validateURI()
@@ -216,6 +220,15 @@ void	Response::validateURI()
 	}
 }
 
+void	Response::validateMethod()
+{
+	std::vector<std::string>	methods;
+
+	getDirective("methods", methods);
+	if (std::find(methods.begin(), methods.end(), m_method) == methods.end())
+		throw HttpException::notImplemented();
+}
+
 void	Response::decodeURI() {
 	try {
 		while (m_target.find('%') != std::string::npos) {
@@ -224,7 +237,7 @@ void	Response::decodeURI() {
 			m_target.erase(pos + 1, 3);
 		}
 	} catch (std::exception& e) {
-		throw HttpException::badRequest("decoding query string failed");
+		throw HttpException::badRequest("malformed URI");
 	}
 }
 
@@ -239,8 +252,9 @@ void	Response::parseQueryString()
 
 	for (std::string line; getline(query, line, '&');) {
 		size_t pos = line.find('=');
-		if (pos != std::string::npos)
-			m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+		if (pos == std::string::npos)
+			throw HttpException::badRequest("malformed query string");
+		m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
@@ -286,7 +300,7 @@ void	Response::parseHeaders(std::istringstream& request)
 void	Response::validateHost()
 {
 	if (!headerFound("host"))
-		throw HttpException::badRequest("host not found");
+		throw HttpException::badRequest("missing host header");
 
 	std::vector<std::string> hosts;
 	m_config.tryGetDirective("server_name", hosts);
@@ -390,6 +404,7 @@ size_t	Response::getContentLength()
 		throw HttpException::lengthRequired();
 
 	size_t length;
+
 	try {
 		length = std::stoul(m_headers["content-length"]);
 	} catch (std::exception& e) {
@@ -423,11 +438,15 @@ void	Response::ParseMultipartHeaders(std::string& headerString, multipart& part)
 				throw HttpException::badRequest("invalid header for multipart/form-data");
 			startPos += 6;
 			endPos = line.find("\"", startPos);
+			if (endPos == std::string::npos)
+				throw HttpException::badRequest("malformed multipart header");
 			part.name = line.substr(startPos, endPos - startPos);
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
+				if (endPos == std::string::npos)
+					throw HttpException::badRequest("malformed multipart header");
 				part.filename = line.substr(startPos, endPos - startPos);
 			}
 		}
@@ -534,12 +553,4 @@ void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 // 			client->addFormData(line.substr(0, pos), value);
 // 		}
 // 	}
-// }
-
-// void	Response::validateMethod()
-// {
-// 	std::unordered_map<std::string, e_method> methods = {{"GET", e_method::GET}, {"POST", e_method::POST}, {"DELETE", e_method::DELETE}};
-// 	if (methods.find(m_method) == methods.end())
-// 		throw HttpException::notImplemented();
-// 	m_method = methods[m_method];
 // }
