@@ -78,7 +78,7 @@ class Response
 		void			parseHeaders(std::istringstream& request);
 		void			validateHost();
 		void			handleGet();
-		void			handlePost(std::vector<char>::iterator endOfHeaders);
+		void			handlePost(std::vector<char>::iterator& endOfHeaders);
 		void			handleDelete();
 		void			parseChunked();
 		size_t			getChunkSize(std::string& hex);

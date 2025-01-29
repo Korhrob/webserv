@@ -132,7 +132,7 @@ void	Response::handleGet()
 	}
 }
 
-void	Response::handlePost(std::vector<char>::iterator endOfHeaders)
+void	Response::handlePost(std::vector<char>::iterator& endOfHeaders)
 {
 	if (!headerFound("content-type"))
 		throw HttpException::badRequest("missing content type in a POST request");
