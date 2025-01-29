@@ -136,7 +136,19 @@ void	Response::parseRequest()
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
 			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
-	else if (m_method == "DELETE") {}
+	else if (m_method == "DELETE") {
+		try {
+			if (std::filesystem::is_directory(m_path))
+				throw HttpException::forbidden();
+			else {
+				Logger::getInstance().log("REMOVING " + m_path);
+				std::filesystem::remove(m_path);
+				m_parsing = COMPLETE;
+			}
+		} catch (std::filesystem::filesystem_error& e) {
+			throw HttpException::internalServerError("unable to delete target " + m_path);
+		}
+	}
 }
 
 void	Response::parseRequestLine(std::istringstream& request)
