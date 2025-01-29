@@ -5,6 +5,7 @@
 #include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
+#include "CGI.hpp"
 
 #include <memory> // shared_ptr
 #include <string>
@@ -52,6 +53,20 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 	// log("===============================================");
 
 	// set environment variables & invoke CGI here
+
+	Logger::getInstance().log("\npath " + m_path + "\n\n");
+	if (m_path == "www/people.cgi")
+	{
+		displayMultipart(m_multipartData);
+		m_client->populateEnv(m_multipartData);
+		runCGI("../cgi-bin/people.cgi.php", m_client);
+		m_path = "www/index.html";
+		m_body = m_client->getBody();
+		m_size = m_body.size();
+		m_header = getHeaderSingle(m_size, m_code, m_msg);
+		m_status = STATUS_OK;
+		return ;
+	}
 
 	if (m_send_type == TYPE_NONE)
 		return;

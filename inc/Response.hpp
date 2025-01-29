@@ -40,13 +40,13 @@ enum	e_status
 	STATUS_CGI
 };
 
-struct	multipart {
-	std::string				name;
-	std::string				filename;
-	std::string				contentType;
-	std::vector<char>		content;
-	std::vector<multipart>	nestedData;
-};
+// struct	multipart {
+// 	std::string				name;
+// 	std::string				filename;
+// 	std::string				contentType;
+// 	std::vector<char>		content;
+// 	std::vector<multipart>	nestedData;
+// };
 
 using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
