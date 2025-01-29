@@ -200,7 +200,7 @@ void	Response::validateURI()
 	getDirective("root", root);
 	m_path = root.empty() ? m_target : root.front() + m_target;
 
-	try {
+	try { // fix this - Set a default file to answer if the request is a directory
 		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
 			std::vector<std::string> indices;
 			getDirective("index", indices);
@@ -212,6 +212,8 @@ void	Response::validateURI()
 				}
 			}
 		}
+		if (!std::filesystem::exists(m_path))
+			throw HttpException::notFound();
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden();
