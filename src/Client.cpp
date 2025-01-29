@@ -29,10 +29,14 @@ std::string	Client::getEnvValue(std::string envp)
 void	Client::populateEnv(std::vector<multipart> info)
 {
 	m_env.clear();
-	for (auto it = info.begin(); it != info.end(); ++it) 
+	// for (auto it = info.begin(); it != info.end(); ++it) 
+	// {
+	// 	const multipart& m = *it;
+	// 	m_env[m.name] = m.content[0];
+	// }
+	for (auto part: info) 
 	{
-		const multipart& m = *it;
-		m_env[m.name] = m.content[0];
+		m_env[part.name] = part.content.empty() ? "" : std::string(part.content.begin(), part.content.end());
 	}
 	m_env["SERVER_NAME"] = "localhost";
 	m_env["GATEWAY_INTERFACE"] = "CGI/1.1";
