@@ -92,9 +92,7 @@ void	Response::readRequest(int fd)
 	{
 		m_status = STATUS_FAIL;
 		m_send_type = TYPE_NONE;
-		m_parsing = COMPLETE;
-		// throw HttpException::badRequest("empty request");
-		return ;
+		throw HttpException::badRequest("empty request");
 	}
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
@@ -116,6 +114,7 @@ void	Response::parseRequest()
 
 	if (m_method == "GET") {
 		try {
+			std::cout << "PATH: " + m_path + "\n";
 			m_size = std::filesystem::file_size(m_path);
 			m_parsing = COMPLETE;
 		} catch (const std::exception& e) {
@@ -137,7 +136,19 @@ void	Response::parseRequest()
 		else if (m_headers["content-type"].find("multipart") != std::string::npos)
 			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 	}
-	else if (m_method == "DELETE") {}
+	else if (m_method == "DELETE") {
+		try {
+			if (std::filesystem::is_directory(m_path))
+				throw HttpException::forbidden();
+			else {
+				Logger::getInstance().log("REMOVING " + m_path);
+				std::filesystem::remove(m_path);
+				m_parsing = COMPLETE;
+			}
+		} catch (std::filesystem::filesystem_error& e) {
+			throw HttpException::internalServerError("unable to delete target " + m_path);
+		}
+	}
 }
 
 void	Response::parseRequestLine(std::istringstream& request)
@@ -180,27 +191,27 @@ void	Response::validateURI()
 	parseQueryString();
 	validateCgi();
 
-	std::vector<std::string>	directive;
+	std::vector<std::string> root;
+	getDirective("root", root);
+	m_path = root.empty() ? m_target : root.front() + m_target;
 
-	getDirective("root", directive);
-	m_path = directive.empty() ? m_target : directive.front() + m_target;
-
-	std::ifstream	file(m_path);
-
-	if (!file.good()) {
-		getDirective("index", directive);
-		for (std::string index: directive) {
-			std::string newPath = m_path + index;
-			file.clear();
-			file = std::ifstream(newPath);
-			if (file.good())
-			{
-				m_path = newPath;
-				break;
+	try {
+		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
+			std::vector<std::string> indices;
+			getDirective("index", indices);
+			for (std::string index: indices) {
+				std::string newPath = m_path + index;
+				if (std::filesystem::exists(newPath)) {
+					m_path = newPath;
+					break;
+				}
 			}
 		}
-		if (!file.good())
-			throw HttpException::notFound();
+		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
+		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
+			throw HttpException::forbidden();
+	} catch (std::exception& e) {
+		throw HttpException::notFound();
 	}
 }
 

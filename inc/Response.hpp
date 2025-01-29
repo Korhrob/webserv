@@ -48,6 +48,8 @@ struct	multipart {
 	std::vector<multipart>	nestedData;
 };
 
+using formMap = std::unordered_map<std::string, std::vector<std::string>>;
+
 class Response
 {
 	private:
