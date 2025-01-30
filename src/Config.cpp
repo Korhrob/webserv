@@ -209,9 +209,15 @@ bool	Config::parse(std::ifstream& stream)
 	return true;
 }
 
-unsigned int	Config::getPort()
+unsigned int	Config::getPort(const std::string& server_name)
 {
-	std::vector<std::string> directive = findDirective("listen");
+	if (m_nodes.find(server_name) == m_nodes.end())
+	{
+		Logger::logError("no such server block as " + server_name);
+		return 8080; // default
+	}
+
+	std::vector<std::string> directive = m_nodes[server_name]->findDirective("listen");
 
 	if (directive.empty())
 	{
@@ -226,11 +232,11 @@ unsigned int	Config::getPort()
 	}
 	catch (const std::invalid_argument& e)
 	{
-		Logger::logError("Invalid argument");
+		Logger::logError("Invalid port argument");
 	}
 	catch (const std::out_of_range& e)
 	{
-		Logger::logError("Out of range");
+		Logger::logError("Port out of range");
 	}
 
 	Logger::logError("using default port 8080");

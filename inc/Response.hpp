@@ -52,7 +52,7 @@ class Response
 {
 	private:
 		std::shared_ptr<Client>							m_client;
-		std::shared_ptr<ConfigNode>						m_server_node;
+		Config&											m_server_config;
 		e_parsing										m_parsing;
 		int												m_code;
 		std::string										m_msg;
@@ -96,7 +96,7 @@ class Response
 		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:
-		Response(std::shared_ptr<Client> client, std::shared_ptr<ConfigNode> server_node);
+		Response(std::shared_ptr<Client> client, Config server_config);
 
 		e_status	getStatus() { return m_status; }
 		e_type		getSendType() { return m_send_type; }

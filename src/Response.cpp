@@ -17,7 +17,7 @@
 #include <regex>
 #include <variant>
 
-Response::Response(std::shared_ptr<Client> client, std::shared_ptr<ConfigNode> server_node) : m_client(client), m_server_node(server_node),
+Response::Response(std::shared_ptr<Client> client, Config server_config) : m_client(client), m_server_config(server_config),
 m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	try {
@@ -277,7 +277,7 @@ void	Response::validateHost()
 		throw HttpException::badRequest("host not found");
 
 	std::vector<std::string> hosts;
-	m_server_node->tryGetDirective("server_name", hosts);
+	m_server_config.tryGetDirective("server_name", hosts);
 	for (std::string host: hosts) {
 		if (host == m_headers["host"])
 			return;
@@ -482,11 +482,10 @@ size_t Response::size()
 
 void	Response::getDirective(std::string dir, std::vector<std::string>& out)
 {
-	std::shared_ptr<ConfigNode>	location(m_server_node->findNode(m_target));
+	std::shared_ptr<ConfigNode>	location(m_server_config.findNode(m_target));
 	if (location == nullptr)
-		location = m_server_node->findNode("/");
+		location = m_server_config.findNode("/");
 	
-	// DANGER DANGER
 	location->tryGetDirective(dir, out);
 }
 

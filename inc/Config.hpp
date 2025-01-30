@@ -26,7 +26,7 @@ public:
 	bool								parse(std::ifstream& stream);
 	bool								isValid();
 	std::vector<std::string> 			parseDirective(std::string& line, const int &line_nbr);
-	unsigned int						getPort(); // deprecated
+	unsigned int						getPort(const std::string& server_name);
 
 	// potentially no longer required
 	const std::vector<std::string>&		findDirective(const std::string& key);

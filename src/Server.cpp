@@ -12,36 +12,14 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server() : m_pollfd(1), m_listener(m_pollfd[0])
+Server::Server()
 {
-}
-
-Server::Server(std::shared_ptr<ConfigNode> node) : m_server_node(node), m_pollfd(m_max_sockets + 1), m_listener(m_pollfd[0])
-{
-	Logger::log(node->getName());
-
-	m_address = "0.0.0.0"; // get from server_block;
-	m_port = std::stoul(node->findDirective("listen").front());
-	m_sock_count = 0;
-
-	//m_pollfd.resize(m_max_sockets + 1);
-	m_pollfd[0] = { m_socket, POLLIN, 0 };
-
-	for (int i = 0; i < m_max_sockets; i++)
-	{
-		auto client = std::make_shared<Client>(m_pollfd[i + 1]);
-		m_clients.push_back(client);
-	}
+	//m_pollfd.reserve(128);
 }
 
 Server::~Server()
 {
-	//closeServer();
-
-	if (m_socket >= 0)
-		close(m_socket);
-
-	for (auto& pollfd : m_pollfd)
+	for (auto& pollfd : m_pollfd_vector)
 	{
 		if (pollfd.fd > 0)
 			close(pollfd.fd);
@@ -53,46 +31,74 @@ Server::~Server()
 
 bool	Server::startServer()
 {
-	// already checked before start server, could add validate server block function
-	// if (!m_config.isValid())
-	// {
-	// 	Logger::logError("Error in config file");
-	// 	return false;
-	// }
+	if (!m_config.isValid())
+	{
+		Logger::logError("Error in config file");
+		return false;
+	}
 
-	Logger::log("Starting server on " + m_address + ":" + std::to_string(m_port) + "...");
+	for (auto& [server, node] : m_config.getNodeMap())
+	{
+		int port = m_config.getPort(server);
+		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
 
-	m_socket = socket(AF_INET, SOCK_STREAM, 0);
-	if (m_socket <= 0)
+		if (m_listeners.find(port) == m_listeners.end())
+			createListener(port);
+	}
+
+	return true;
+}
+
+int	Server::createListener(int port)
+{
+	t_sockaddr_in socket_addr;
+
+	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd <= 0)
 	{
 		Logger::logError("Server failed to open socket!");
 		return false;
 	}
 
     int opt = 1;
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
     {
 		Logger::logError("setsockopt failed!");
         perror("setsockopt failed");
-        close(m_socket);
+        close(fd);
         return false;
     }
 
-	m_socket_addr.sin_family = AF_INET;
-	m_socket_addr.sin_addr.s_addr = INADDR_ANY;
-	m_socket_addr.sin_port = htons(m_port);
+	socket_addr.sin_family = AF_INET;
+	socket_addr.sin_addr.s_addr = INADDR_ANY;
+	socket_addr.sin_port = htons(port);
 
-	if (bind(m_socket, (struct sockaddr*)&m_socket_addr, sizeof(m_socket_addr)) < 0)
+	if (bind(fd, (struct sockaddr*)&socket_addr, sizeof(socket_addr)) < 0)
 	{
-		Logger::logError("Bind failed");
+		Logger::logError("Bind " + std::to_string(port) + " failed");
+		close(fd);
 		closeServer();
 		return false;
 	}
 
-	m_listener.fd = m_socket;
+	if (listen(fd, m_max_backlog) < 0)
+	{
+		Logger::logError("Listen " + std::to_string(port) + " failed");
+		close(fd);
+		closeServer();
+		return false;
+	}
 
-	Logger::log("Server started on " + m_address + ":" + std::to_string(m_port));
-	startListen();
+	// safe to use 1 2 3 4 5... here
+	size_t index = m_pollfd.size();
+	pollfd pfd { fd, POLLIN, 0 };
+	m_pollfd_vector.push_back(pfd);
+	m_pollfd[index] = index;
+	m_listeners[port] = index;
+
+	m_socket_addr.push_back(socket_addr); // not sure if required
+
+	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(pfd.fd));
 
 	return true;
 }
@@ -100,12 +106,9 @@ bool	Server::startServer()
 // technically not required
 void	Server::closeServer()
 {
-	Logger::log("Closing " + m_server_node->getName() + "...");
+	Logger::log("Closing server...");
 
-	if (m_socket >= 0)
-		close(m_socket);
-
-	for (auto& pollfd : m_pollfd)
+	for (auto& pollfd : m_pollfd_vector)
 	{
 		if (pollfd.fd > 0)
 			close(pollfd.fd);
@@ -114,25 +117,15 @@ void	Server::closeServer()
 	Logger::log("Server closed!");
 }
 
-void	Server::startListen()
-{
-	if (listen(m_socket, m_max_backlog) < 0)
-	{
-		Logger::logError("Listen failed");
-		closeServer();
-	}
-
-	Logger::log("Server is listening...");
-}
-
 void	Server::handleClient(std::shared_ptr<Client> client)
 {
-	Response	http_response(client, m_server_node);
+	Response	http_response(client, m_config);
 
 	if (http_response.getStatus() == STATUS_FAIL)
 	{
 		Logger::logError("Client disconnected or error occured");
-		client->disconnect();
+		m_disconnect.push_back(client);
+		//removeClient(client);
 		return;
 	}
 
@@ -143,13 +136,11 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 
 	if (http_response.getSendType() == TYPE_SINGLE)
 	{
-		client->respond(http_response.str());
-		//m_sockets[id].revents = POLLOUT;
+		respond(client, http_response.str());
 	}
 	else if (http_response.getSendType() == TYPE_CHUNK)
 	{
-		client->respond(http_response.header());
-		//m_sockets[id].revents = POLLOUT;
+		respond(client, http_response.header());
 
 		std::ifstream file;
 		try
@@ -178,96 +169,120 @@ void	Server::handleClient(std::shared_ptr<Client> client)
 			oss << std::hex << count << "\r\n";
 			oss.write(buffer, count);
 			oss << "\r\n";
-			client->respond(oss.str());
+			respond(client, oss.str());
 			Logger::log("chunk encoding");
 		}
 
-		client->respond("0\r\n\r\n");
+		respond(client, "0\r\n\r\n");
 		Logger::log("end chunk encoding");
 	}
 }
 
 bool	Server::tryRegisterClient(t_time time)
 {
-	
-	t_sockaddr_in client_addr = {};
-	m_addr_len = sizeof(client_addr);
-	int client_fd = accept(m_socket, (struct sockaddr*)&client_addr, &m_addr_len);
+	// if full, should try to disconnect some idle clients
+	// if (m_sock_count >= m_max_sockets)
+	// 	return;
 
-	if (client_fd < 0)
+	for (auto& [port, index] : m_listeners)
 	{
-		Logger::logError("Accept failed");
-		return false;
-	}
 
-	bool	success = false;
-
-	for (auto& client : m_clients)
-	{
-		if (client->isAlive())
+		if (m_pollfd_vector[index].revents & POLLIN) { }
+		else
+		{
 			continue;
-		
-		success = client->connect(client_fd, client_addr, time);
-		m_sock_count++;
-		break;
+		}
+
+		//m_pollfd_vector[index].revents = 0;
+
+		// move to addClient()
+		t_sockaddr_in client_addr = {};
+		m_addr_len = sizeof(client_addr);
+		int client_fd = accept(m_pollfd_vector[index].fd, (struct sockaddr*)&client_addr, &m_addr_len);
+
+		if (client_fd < 0)
+		{
+			Logger::logError("Accept client failed");
+			return false;
+		}
+
+		int	fd_index = m_pollfd_vector.size();
+		struct pollfd npfd { client_fd, POLLIN, 0 };
+		m_pollfd_vector.push_back(npfd);
+
+		std::shared_ptr<Client> client = std::make_shared<Client>(fd_index);
+		bool success = client->connect(client_fd, client_addr, time);
+
+		if (success)
+		{
+			m_pollfd[client_fd] = fd_index;
+			m_clients[client_fd] = client;
+			m_sock_count++;
+		}
+		else
+		{
+			Logger::logError("Failed to connect client");
+			m_pollfd_vector.pop_back();
+		}
+
 	}
 
-	if (!success)
-		Logger::logError("Failed to connect client");
-
-	return success;
+	return true;
 }
 
 void	Server::handleClients()
 {
 	auto time = std::chrono::steady_clock::now();
 
-	for (auto& client : m_clients)
+	std::vector<std::shared_ptr<Client>> client_list;
+
+	for (auto& [index, client] : m_clients)
 	{
 		if (client->isAlive() && client->timeout(time))
 		{
-			Logger::log("Client time out!");
-			client->disconnect();
+			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
+			//removeClient(client);
+			client_list.push_back(client);
 			m_sock_count--;
 		}
 	}
 
-	if (!(m_listener.revents & POLLIN))
-		return;
-
-	if (m_sock_count >= m_max_sockets)
-		return;
+	for (auto& client : client_list)
+		removeClient(client);
 
 	tryRegisterClient(time);
-
-	m_listener.revents = 0;
 }
 
 void	Server::handleEvents()
 {
 	auto now = std::chrono::steady_clock::now();
 
-	for (auto& client : m_clients)
+	for (auto& [index, client] : m_clients)
 	{
 		if (!client->isAlive())
 			continue;
 
-		if (client->incoming())
+		if (clientEvent(client, POLLIN))
 		{
 			handleClient(client);
 			client->update(now);
-			client->resetEvents();
 		}
 	}
+
+	if (m_disconnect.empty())
+		return;
+
+	for (auto& client : m_disconnect)
+		removeClient(client);
+
+	m_disconnect.clear();
 
 }
 
 void	Server::update()
 {
 
-	int	r = poll(m_pollfd.data(), m_pollfd.size(), 5000);
-
-	// could handle timeouts here
+	int	r = poll(m_pollfd_vector.data(), m_pollfd.size(), 1000);
 
 	if (r == -1)
 		return;
@@ -275,10 +290,42 @@ void	Server::update()
 	handleClients();
 	handleEvents();
 
-	// for (int i = m_max_sockets + 1; i < m_pollfd.size(); i++)
-	// {
+}
 
-	// }
+bool	Server::clientEvent(std::shared_ptr<Client> client, int event)
+{
+	return m_pollfd_vector[client->getIndex()].revents & event;
+}
+
+int		Server::respond(std::shared_ptr<Client> client, const std::string& msg)
+{
+	client->respond(msg);
+	m_pollfd_vector[client->getIndex()].revents = POLLOUT;
+	return 1;
+}
+
+void	Server::removeClient(std::shared_ptr<Client> client)
+{
+	if (!client->isAlive())
+		return;
+
+	client->disconnect();
+
+	if (m_clients.find(client->fd()) != m_clients.end())
+		m_clients.erase(client->fd());
+
+	auto it = m_pollfd.find(client->fd());
+	if (it != m_pollfd.end())
+	{
+		m_pollfd_vector.erase(m_pollfd_vector.begin() + it->second);
+		rebuildPollVector();
+	}
 
 }
 
+void	Server::rebuildPollVector()
+{
+	m_pollfd.clear();
+	for (size_t i = 0; i < m_pollfd_vector.size(); ++i)
+		m_pollfd[m_pollfd_vector[i].fd] = i;
+}

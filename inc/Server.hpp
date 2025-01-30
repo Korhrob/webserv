@@ -12,6 +12,7 @@
 #include <chrono> // time
 #include <vector> // vector
 #include <memory> // unique ptr
+#include <map>
 
 #include "Logger.hpp"
 #include "Client.hpp"
@@ -25,35 +26,36 @@ class Server
 {
 
 	private:
-		// Config			m_config; // deprecated
-		std::shared_ptr<ConfigNode>	m_server_node; // instance server block;
-
-
-		std::string			m_address;
-		int					m_port;
-		int					m_socket;
-		t_sockaddr_in		m_socket_addr;
+		Config				m_config;
 		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
 
 		int											m_max_backlog = 128;
 		int											m_sock_count;
 		int											m_max_sockets = 128;	// events { worker_connections}
-		std::vector<struct pollfd>					m_pollfd;
-		std::vector<std::shared_ptr<Client>>		m_clients;
-		struct pollfd&								m_listener;	// alias
+
+		std::vector<struct pollfd>					m_pollfd_vector;
+		std::map<size_t, size_t>					m_pollfd; // index, pollfd_vector index
+		std::map<size_t, std::shared_ptr<Client>>	m_clients; /// index
+		std::vector<t_sockaddr_in>					m_socket_addr;
+		std::map<int, size_t>						m_listeners; // port, index
+		std::vector<std::shared_ptr<Client>>		m_disconnect;
+
 
 	public:
 		// Server(const std::string& ip, int port); // depracated
 		Server();
-		Server(std::shared_ptr<ConfigNode> server_node);
 		~Server();
 
 		bool	startServer();
 		void	closeServer();
-		void	startListen();
+		int		createListener(int port);
 		bool	tryRegisterClient(t_time time);
 		void	handleClient(std::shared_ptr<Client> client);
 		void	handleClients();
 		void	handleEvents();
 		void	update();
+		bool	clientEvent(std::shared_ptr<Client> client, int event);
+		int		respond(std::shared_ptr<Client> client, const std::string& response);
+		void	removeClient(std::shared_ptr<Client> client);
+		void	rebuildPollVector();
 };
