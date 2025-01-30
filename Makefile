@@ -2,7 +2,7 @@ CXX			=	c++ -std=c++17
 CXXFLAGS	=	-Iinc -Wall -Werror -Wextra -g
 LDFLAG		=	#-g -fsanitize=address
 SNAME		=	server
-SSRC		=	src/main.cpp src/Server.cpp src/Parse.cpp src/Response.cpp src/Logger.cpp src/Config.cpp src/ConfigNode.cpp src/Client.cpp src/CGI.cpp
+SSRC		=	src/main.cpp src/Server.cpp src/Parse.cpp src/Response.cpp src/Logger.cpp src/Config.cpp src/ConfigNode.cpp
 SOBJ		=	$(patsubst src/%.cpp, obj/%.o, $(SSRC)) # $(SSRC:.cpp=.o)
 
 all: $(SNAME) 
@@ -19,8 +19,8 @@ obj/:
 
 clean:
 	rm -f $(SOBJ)
-	# rm logs/log
-	# rm logs/error
+	rm logs/log
+	rm logs/error
 
 fclean: clean
 	rm -f $(SNAME)
