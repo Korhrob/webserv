@@ -6,9 +6,9 @@
 #include "Const.hpp"
 #include "Client.hpp"
 
-#include <memory> // shared_ptr
+#include <memory>
 #include <string>
-#include <algorithm> // min
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <fstream>
