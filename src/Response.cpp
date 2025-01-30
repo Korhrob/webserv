@@ -5,6 +5,7 @@
 #include "Logger.hpp"
 #include "Const.hpp"
 #include "Client.hpp"
+#include "CGI.hpp"
 
 #include <memory>
 #include <string>
@@ -53,6 +54,20 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 
 	// set environment variables & invoke CGI here
 
+	Logger::getInstance().log("\npath " + m_path + "\n\n");
+	if (m_path == "www/people.cgi")
+	{
+		displayMultipart(m_multipartData);
+		m_client->populateEnv(m_multipartData);
+		runCGI("../cgi-bin/people.cgi.php", m_client);
+		m_path = "www/index.html";
+		m_body = m_client->getBody();
+		m_size = m_body.size();
+		m_header = getHeaderSingle(m_size, m_code, m_msg);
+		m_status = STATUS_OK;
+		return ;
+	}
+
 	if (m_send_type == TYPE_NONE)
 		return;
 
@@ -86,16 +101,15 @@ void	Response::readRequest(int fd)
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
-
 	if (bytes_read == -1)
-		throw HttpException::internalServerError("failed to recieve request");
+		throw HttpException::internalServerError("failed to receive request");
 	if (bytes_read == 0)
 	{
 		m_status = STATUS_FAIL;
 		m_send_type = TYPE_NONE;
 		throw HttpException::badRequest("empty request");
 	}
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
 }

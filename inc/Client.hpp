@@ -21,14 +21,26 @@
 #include "Logger.hpp" // log,  logError
 #include "Const.hpp"
 
+struct	multipart {
+	std::string				name;
+	std::string				filename;
+	std::string				contentType;
+	std::vector<char>		content;
+	std::vector<multipart>	nestedData;
+};
+
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
+typedef std::map<std::string, std::string>		mapStr;
+using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 // TODO: move inline function to their own .cpp file
 
 class Client
 {
 	private:
+		mapStr											m_env;
+		std::string										m_body;
 		bool											m_alive;
 		struct pollfd&									m_pollfd; // shortcut
 		t_sockaddr_in									m_addr;
@@ -71,19 +83,19 @@ class Client
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			Logger::getInstance().log("Client connected!");
+			Logger::getInstance().log("Client connected!" + std::to_string(m_pollfd.fd));
 
 			return true;
 		}
 
 		void	disconnect()
 		{
+			Logger::getInstance().log("Client disconnected!" + std::to_string(m_pollfd.fd));
 			close(m_pollfd.fd);
 			m_pollfd.fd = -1;
 			m_pollfd.revents = 0;
 			m_alive = false;
 
-			Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)
@@ -124,4 +136,17 @@ class Client
 		{
 			m_close_connection = true;
 		}
+
+		// Env functions
+		void setEnv(std::string envp);
+		void setEnvValue(std::string envp, std::string value);
+		void unsetEnv();
+		mapStr getEnv();
+		std::string getEnvValue(std::string envp);
+		void populateEnv(std::vector<multipart> info);
+		void freeEnv(char** env);
+		char** mallocEnv();
+
+		void setBody(std::string string);
+		std::string getBody();
 };
