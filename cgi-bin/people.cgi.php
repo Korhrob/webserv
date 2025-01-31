@@ -54,4 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['search_name'], $_GET['s
         echo "Please enter a name to search.";
     }
 }
+
+echo "php is functional!";
 ?>

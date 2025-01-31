@@ -51,8 +51,10 @@ void	Client::freeEnv(char** env)
 {
 	unsigned long i = 0;
 
-	while (i < m_env.size())
+	while (i < m_env.size() - 1)
 	{
+		std::string envee = env[i];
+		Logger::getInstance().log(envee + "\n\n"); // debugging print beware
 		free(env[i]);
 		env = NULL;
 		i++;
@@ -85,6 +87,27 @@ char**	Client::mallocEnv()
 		i++;
 	}
 	return env;
+}
+
+std::vector<char*> Client::createEnv()
+{
+	std::vector<std::string> envVars = {
+		"SERVER_NAME=localhost",
+		"GATEWAY_INTERFACE=CGI/1.1",
+		"SERVER_PORT=8080",
+		"SERVER_PROTOCOL=HTTP/1.1",
+		"REMOTE_ADDR=127.0.0.1",
+		"SCRIPT_NAME=/cgi-bin/people.cgi.php",
+		"SCRIPT_FILENAME=/cgi-bin/people.cgi.php",
+		"REQUEST_METHOD=POST"
+	};
+	std::vector<char*> envPtrs;
+	for (auto& envVar : envVars)
+	{
+		envPtrs.push_back(const_cast<char*>(envVar.c_str()));
+	}
+	envPtrs.push_back(nullptr);
+	return envPtrs;
 }
 
 void Client::setBody(std::string string)

@@ -61,7 +61,9 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 		m_client->populateEnv(m_multipartData);
 		runCGI("../cgi-bin/people.cgi.php", m_client);
 		m_path = "www/index.html";
+		m_send_type = TYPE_SINGLE;
 		m_body = m_client->getBody();
+		Logger::getInstance().log("\nbody " + m_body + "\n\n");
 		m_size = m_body.size();
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
 		m_status = STATUS_OK;

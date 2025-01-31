@@ -146,6 +146,7 @@ class Client
 		void populateEnv(std::vector<multipart> info);
 		void freeEnv(char** env);
 		char** mallocEnv();
+		std::vector<char*> createEnv();
 
 		void setBody(std::string string);
 		std::string getBody();
