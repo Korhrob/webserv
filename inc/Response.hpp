@@ -96,7 +96,7 @@ class Response
 		// void			parseUrlencoded(std::shared_ptr<Client> client, std::istringstream& body);
 
 	public:
-		Response(std::shared_ptr<Client> client, Config server_config);
+		Response(std::shared_ptr<Client> client, Config& config);
 
 		e_status	getStatus() { return m_status; }
 		e_type		getSendType() { return m_send_type; }

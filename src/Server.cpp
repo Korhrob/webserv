@@ -44,6 +44,9 @@ bool	Server::startServer()
 
 		if (m_listeners.find(port) == m_listeners.end())
 			createListener(port);
+
+		// host_name, ConfigNode
+		
 	}
 
 	return true;
@@ -117,67 +120,6 @@ void	Server::closeServer()
 	Logger::log("Server closed!");
 }
 
-void	Server::handleClient(std::shared_ptr<Client> client)
-{
-	Response	http_response(client, m_config);
-
-	if (http_response.getStatus() == STATUS_FAIL)
-	{
-		Logger::logError("Client disconnected or error occured");
-		m_disconnect.push_back(client);
-		//removeClient(client);
-		return;
-	}
-
-	if (http_response.getStatus() == STATUS_BLANK)
-		return ;
-
-	// CGI
-
-	if (http_response.getSendType() == TYPE_SINGLE)
-	{
-		respond(client, http_response.str());
-	}
-	else if (http_response.getSendType() == TYPE_CHUNK)
-	{
-		respond(client, http_response.header());
-
-		std::ifstream file;
-		try
-		{
-			file = std::ifstream(http_response.path(), std::ios::binary);
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << e.what() << '\n';
-			return;
-		}
-		
-		char buffer[PACKET_SIZE];
-		while (true) {
-
-			file.read(buffer, PACKET_SIZE);
-			std::streamsize count = file.gcount();
-
-			if (count <= 0)
-				break;
-
-			if (count < PACKET_SIZE)
-				buffer[count] = '\0';
-
-			std::ostringstream	oss;
-			oss << std::hex << count << "\r\n";
-			oss.write(buffer, count);
-			oss << "\r\n";
-			respond(client, oss.str());
-			Logger::log("chunk encoding");
-		}
-
-		respond(client, "0\r\n\r\n");
-		Logger::log("end chunk encoding");
-	}
-}
-
 bool	Server::tryRegisterClient(t_time time)
 {
 	// if full, should try to disconnect some idle clients
@@ -242,6 +184,7 @@ void	Server::handleClients()
 		{
 			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
 			//removeClient(client);
+			//client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
 			client_list.push_back(client);
 			m_sock_count--;
 		}
@@ -253,10 +196,66 @@ void	Server::handleClients()
 	tryRegisterClient(time);
 }
 
+
+void	Server::handleRequest(std::shared_ptr<Client> client)
+{
+	Response	http_response(client, m_config);
+
+	if (http_response.getStatus() == STATUS_BLANK)
+	{
+		//client->update(m_time);
+		m_disconnect.push_back(client);
+		return ;
+	}
+
+	// CGI
+
+	if (http_response.getSendType() == TYPE_SINGLE)
+	{
+		respond(client, http_response.str());
+	}
+	else if (http_response.getSendType() == TYPE_CHUNK)
+	{
+		respond(client, http_response.header());
+
+		std::ifstream file;
+		try
+		{
+			file = std::ifstream(http_response.path(), std::ios::binary);
+		}
+		catch(const std::exception& e)
+		{
+			std::cerr << e.what() << '\n';
+			return;
+		}
+		
+		char buffer[PACKET_SIZE];
+		while (true) {
+
+			file.read(buffer, PACKET_SIZE);
+			std::streamsize count = file.gcount();
+
+			if (count <= 0)
+				break;
+
+			if (count < PACKET_SIZE)
+				buffer[count] = '\0';
+
+			std::ostringstream	oss;
+			oss << std::hex << count << "\r\n";
+			oss.write(buffer, count);
+			oss << "\r\n";
+			respond(client, oss.str());
+			Logger::log("chunk encoding");
+		}
+
+		respond(client, "0\r\n\r\n");
+		Logger::log("end chunk encoding");
+	}
+}
+
 void	Server::handleEvents()
 {
-	auto now = std::chrono::steady_clock::now();
-
 	for (auto& [index, client] : m_clients)
 	{
 		if (!client->isAlive())
@@ -264,8 +263,8 @@ void	Server::handleEvents()
 
 		if (clientEvent(client, POLLIN))
 		{
-			handleClient(client);
-			client->update(now);
+			handleRequest(client);
+			client->update(m_time);
 		}
 	}
 
@@ -281,6 +280,8 @@ void	Server::handleEvents()
 
 void	Server::update()
 {
+
+	m_time = std::chrono::steady_clock::now();
 
 	int	r = poll(m_pollfd_vector.data(), m_pollfd.size(), 1000);
 
@@ -309,6 +310,7 @@ void	Server::removeClient(std::shared_ptr<Client> client)
 	if (!client->isAlive())
 		return;
 
+	client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
 	client->disconnect();
 
 	if (m_clients.find(client->fd()) != m_clients.end())
@@ -329,3 +331,12 @@ void	Server::rebuildPollVector()
 	for (size_t i = 0; i < m_pollfd_vector.size(); ++i)
 		m_pollfd[m_pollfd_vector[i].fd] = i;
 }
+
+// void asd(Config config)
+// {
+// 	ConfigNode server_block = config.getServerBlock("127.0.0.1:8080");
+
+// 	server_block.findDirective()
+
+
+// }
