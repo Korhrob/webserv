@@ -31,10 +31,12 @@ class Server
 
 		int											m_max_backlog = 128;
 		int											m_sock_count;
-		int											m_max_sockets = 128;	// events { worker_connections}
+		//int											m_max_sockets = 128;	// events { worker_connections}
 
+		t_time										m_time;
 		std::vector<struct pollfd>					m_pollfd_vector;
 		std::map<size_t, size_t>					m_pollfd; // index, pollfd_vector index
+		std::map<size_t, ConfigNode>				m_server_block; // fd
 		std::map<size_t, std::shared_ptr<Client>>	m_clients; /// index
 		std::vector<t_sockaddr_in>					m_socket_addr;
 		std::map<int, size_t>						m_listeners; // port, index
@@ -50,7 +52,7 @@ class Server
 		void	closeServer();
 		int		createListener(int port);
 		bool	tryRegisterClient(t_time time);
-		void	handleClient(std::shared_ptr<Client> client);
+		void	handleRequest(std::shared_ptr<Client> client);
 		void	handleClients();
 		void	handleEvents();
 		void	update();

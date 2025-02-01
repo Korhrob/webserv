@@ -17,7 +17,7 @@
 #include <regex>
 #include <variant>
 
-Response::Response(std::shared_ptr<Client> client, Config server_config) : m_client(client), m_server_config(server_config),
+Response::Response(std::shared_ptr<Client> client, Config& config) : m_client(client), m_server_config(config),
 m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
 {
 	try {
@@ -67,7 +67,7 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 			m_size = m_body.size();
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
 
-		Logger::log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		Logger::log("== SINGLE RESPONSE ==\n" + header() + "\n\n");
 	}
 	else
 	{
@@ -91,14 +91,15 @@ void	Response::readRequest(int fd)
 		throw HttpException::internalServerError("failed to receive request");
 	if (bytes_read == 0)
 	{
-		m_status = STATUS_FAIL;
+		//m_header = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
+		m_status = STATUS_BLANK;
 		m_send_type = TYPE_NONE;
 		m_parsing = COMPLETE;
-		throw HttpException::badRequest("empty request");
+		throw HttpException::requestTimeout();
 		// return ;
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	Logger::log(std::string(buffer, bytes_read));
+	Logger::log("== REQUEST ==\n" + std::string(buffer, bytes_read));
 }
 
 void	Response::parseRequest()

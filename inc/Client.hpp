@@ -57,6 +57,7 @@ class Client
 		// bool	fileIsOpen() { return m_file.is_open(); }
 
 		int		getIndex() { return m_pollfd_index; }
+		void	setIndex(int i) { m_pollfd_index = i; }
 		int		fd() { return m_fd; }
 		struct pollfd& getPollfd(std::vector<struct pollfd>& pollfd) { return pollfd[m_pollfd_index]; }
 
@@ -75,7 +76,7 @@ class Client
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			Logger::log("Client " + std::to_string(m_pollfd_index) + " connected!");
+			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " connected!");
 
 			return true;
 		}
@@ -83,7 +84,7 @@ class Client
 
 		void	disconnect()
 		{
-			Logger::log("Client " + std::to_string(m_pollfd_index) + " disconnected!");
+			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " disconnected!");
 			close(m_fd);
 			// m_pollfd.fd = -1;
 			// m_pollfd.revents = 0;
