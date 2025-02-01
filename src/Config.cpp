@@ -297,6 +297,9 @@ std::string	Config::trim(const std::string& str)
 	return str.substr(first, last - first + 1);
 }
 
+/// @brief recursively find directive with key
+/// @param key 
+/// @return vector for directive or constant empty vector
 const std::vector<std::string>&	Config::findDirective(const std::string& key)
 {
 	for (const auto& node : m_nodes)
@@ -308,6 +311,9 @@ const std::vector<std::string>&	Config::findDirective(const std::string& key)
 	return EMPTY_VECTOR;
 }
 
+/// @brief recursively find node with key
+/// @param key node name
+/// @return pointer to found node or nullptr
 const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
 {
 	if (m_nodes.find(key) != m_nodes.end())
@@ -341,4 +347,46 @@ int	Config::getServerCount()
 const NodeMap&	Config::getNodeMap()
 {
 	return m_nodes;
+}
+
+/// @brief find server block with host 
+/// @param host ex. "127.0.0.1:8080"
+/// @return server block or nullptr
+const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host)
+{
+	size_t pos = host.find(":");
+	std::string host_name = host.substr(0, pos);
+	std::string port = host.substr(pos + 1);
+
+	for (auto& [key, node] : m_nodes)
+	{
+		std::vector<std::string> server_port;	
+
+		if (!node->tryGetDirective("listen", server_port)) // no listen directive
+			continue;
+
+		auto port_it = std::find(server_port.begin(), server_port.end(), port);
+
+		if (port_it == server_port.end()) // port doesnt match this block
+			continue;
+
+		std::vector<std::string> server_name;
+
+		if (!node->tryGetDirective("server_name", server_name)) // no server_name directive
+			continue;
+
+		auto it = std::find(server_name.begin(), server_name.end(), host_name);
+
+		if (it == server_name.end()) // server_name doesnt match
+			continue;
+
+		return node;
+	}
+
+	return nullptr;
+}
+
+const std::shared_ptr<ConfigNode>	Config::findClosestNode(const std::string& key)
+{
+	return nullptr;
 }
