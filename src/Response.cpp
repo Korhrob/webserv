@@ -18,7 +18,7 @@
 #include <variant>
 
 Response::Response(std::shared_ptr<Client> client, Config& config) : m_client(client), m_server_config(config),
-m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
+m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0), m_send_type(TYPE_BLANK)
 {
 	try {
 		while (m_parsing != COMPLETE) {
