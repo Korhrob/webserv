@@ -31,7 +31,6 @@ public:
 	const std::vector<std::string>&		findDirective(const std::string& key);
 	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
 	const std::shared_ptr<ConfigNode>	findServerNode(const std::string& host);
-	const std::shared_ptr<ConfigNode>	findClosestNode(const std::string& key);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 
 	int									getServerCount();
