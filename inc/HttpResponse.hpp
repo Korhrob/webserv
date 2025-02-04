@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HttpRequest.hpp"
+
 #include <string>
 
 enum	e_type
@@ -13,7 +15,7 @@ enum	e_type
 class HttpResponse {
 	private:
 		int												m_code;
-		std::string										m_message;
+		std::string										m_msg;
 		std::string										m_body;
 		e_type											m_send_type;
 		// headers & addHeader function?
