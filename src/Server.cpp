@@ -196,12 +196,13 @@ void	Server::handleClients()
 	tryRegisterClient(time);
 }
 
-
+#include "HttpHandler.hpp"
 void	Server::handleRequest(std::shared_ptr<Client> client)
 {
-	Response	http_response(client, m_config);
+	HttpHandler	httpHandler(client->fd(), m_config);
+	HttpResponse httpResponse(httpHandler.handleRequest());
 
-	if (http_response.getStatus() == STATUS_BLANK)
+	if (httpResponse.getStatusCode() == 408)
 	{
 		//client->update(m_time);
 		m_disconnect.push_back(client);
@@ -210,49 +211,107 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 
 	// CGI
 
-	if (http_response.getSendType() == TYPE_SINGLE)
+	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		respond(client, http_response.str());
+		std::cout << httpResponse.getResponse() << "\n\n";
+		respond(client, httpResponse.getResponse());
 	}
-	else if (http_response.getSendType() == TYPE_CHUNK)
-	{
-		respond(client, http_response.header());
+	// else if (httpResponse.getSendType() == TYPE_CHUNK)
+	// {
+	// 	respond(client, httpResponse.header());
 
-		std::ifstream file;
-		try
-		{
-			file = std::ifstream(http_response.path(), std::ios::binary);
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << e.what() << '\n';
-			return;
-		}
+	// 	std::ifstream file;
+	// 	try
+	// 	{
+	// 		file = std::ifstream(httpResponse.path(), std::ios::binary);
+	// 	}
+	// 	catch(const std::exception& e)
+	// 	{
+	// 		std::cerr << e.what() << '\n';
+	// 		return;
+	// 	}
 		
-		char buffer[PACKET_SIZE];
-		while (true) {
+	// 	char buffer[PACKET_SIZE];
+	// 	while (true) {
 
-			file.read(buffer, PACKET_SIZE);
-			std::streamsize count = file.gcount();
+	// 		file.read(buffer, PACKET_SIZE);
+	// 		std::streamsize count = file.gcount();
 
-			if (count <= 0)
-				break;
+	// 		if (count <= 0)
+	// 			break;
 
-			if (count < PACKET_SIZE)
-				buffer[count] = '\0';
+	// 		if (count < PACKET_SIZE)
+	// 			buffer[count] = '\0';
 
-			std::ostringstream	oss;
-			oss << std::hex << count << "\r\n";
-			oss.write(buffer, count);
-			oss << "\r\n";
-			respond(client, oss.str());
-			Logger::log("chunk encoding");
-		}
+	// 		std::ostringstream	oss;
+	// 		oss << std::hex << count << "\r\n";
+	// 		oss.write(buffer, count);
+	// 		oss << "\r\n";
+	// 		respond(client, oss.str());
+	// 		Logger::log("chunk encoding");
+	// 	}
 
-		respond(client, "0\r\n\r\n");
-		Logger::log("end chunk encoding");
-	}
+	// 	respond(client, "0\r\n\r\n");
+	// 	Logger::log("end chunk encoding");
+	// }
 }
+
+// void	Server::handleRequest(std::shared_ptr<Client> client)
+// {
+// 	Response	http_response(client, m_config);
+
+// 	if (http_response.getStatus() == STATUS_BLANK)
+// 	{
+// 		//client->update(m_time);
+// 		m_disconnect.push_back(client);
+// 		return ;
+// 	}
+
+// 	// CGI
+
+// 	if (http_response.getSendType() == TYPE_SINGLE)
+// 	{
+// 		respond(client, http_response.str());
+// 	}
+// 	else if (http_response.getSendType() == TYPE_CHUNK)
+// 	{
+// 		respond(client, http_response.header());
+
+// 		std::ifstream file;
+// 		try
+// 		{
+// 			file = std::ifstream(http_response.path(), std::ios::binary);
+// 		}
+// 		catch(const std::exception& e)
+// 		{
+// 			std::cerr << e.what() << '\n';
+// 			return;
+// 		}
+		
+// 		char buffer[PACKET_SIZE];
+// 		while (true) {
+
+// 			file.read(buffer, PACKET_SIZE);
+// 			std::streamsize count = file.gcount();
+
+// 			if (count <= 0)
+// 				break;
+
+// 			if (count < PACKET_SIZE)
+// 				buffer[count] = '\0';
+
+// 			std::ostringstream	oss;
+// 			oss << std::hex << count << "\r\n";
+// 			oss.write(buffer, count);
+// 			oss << "\r\n";
+// 			respond(client, oss.str());
+// 			Logger::log("chunk encoding");
+// 		}
+
+// 		respond(client, "0\r\n\r\n");
+// 		Logger::log("end chunk encoding");
+// 	}
+// }
 
 void	Server::handleEvents()
 {
