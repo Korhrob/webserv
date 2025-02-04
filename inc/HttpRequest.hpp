@@ -1,15 +1,12 @@
 #pragma once
 
 #include "Client.hpp"
-#include "Config.hpp"
 
-#include <memory>
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include <fstream>
 
-enum	e_parsing
+enum	e_phase
 {
 	REQUEST,
 	CHUNKED,
@@ -29,15 +26,13 @@ using queryMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class HttpRequest {
 	private:
-		Config&											m_config;
-		e_parsing										m_parsing;
+		e_phase											m_phase;
 		std::vector<char>								m_request;
 		std::string										m_method;
 		std::string										m_target;
-		std::string										m_path;
-		std::unordered_map<std::string, std::string>	m_headers;
 		queryMap										m_queryData;
-		std::vector<char>								m_unchunked;
+		std::unordered_map<std::string, std::string>	m_headers;
+		std::vector<char>								m_unchunkedData;
 		std::vector<multipart>							m_multipartData;
 
 		void			readRequest(int fd);
@@ -54,9 +49,8 @@ class HttpRequest {
 		size_t			getContentLength();
 		std::string		getBoundary(std::string& contentType);
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
-		// std::ofstream	getFileStream(std::string filename);
 
 	public:
-		HttpRequest(Config& config, int fd);
+		HttpRequest(int fd);
 		
 };
