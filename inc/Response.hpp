@@ -47,7 +47,7 @@ class Response
 {
 	private:
 		std::shared_ptr<Client>							m_client;
-		Config&											m_config;
+		Config&											m_server_config;
 		e_parsing										m_parsing;
 		int												m_code;
 		std::string										m_msg;

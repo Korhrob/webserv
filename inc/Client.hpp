@@ -30,28 +30,33 @@ class Client
 {
 	private:
 		bool											m_alive;
-		struct pollfd&									m_pollfd; // shortcut
+		int												m_fd;
+		size_t											m_pollfd_index;
 		t_sockaddr_in									m_addr;
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
 		bool											m_close_connection = false;
 
 	public:
-		Client(struct pollfd& pollfd) : m_pollfd(pollfd)
+
+		Client(size_t index) : m_pollfd_index(index)
 		{
-			m_pollfd.fd = -1;
-			m_pollfd.events = POLLIN | POLLOUT;
-			m_pollfd.revents = 0;
-			m_alive = false;
+			// m_pollfd.fd = -1;
+			// m_pollfd.events = POLLIN | POLLOUT;
+			// m_pollfd.revents = 0;
+			// m_alive = false;
 		}
 		~Client() {}
 
 		bool	isAlive() { return m_alive; }
-		bool	incoming() { return m_pollfd.revents & POLLIN; }
-		bool	outgoing() { return m_pollfd.revents & POLLOUT; }
+		// bool	incoming() { return m_pollfd.revents & POLLIN; }
+		// bool	outgoing() { return m_pollfd.revents & POLLOUT; }
+		// bool	fileIsOpen() { return m_file.is_open(); }
 
-		int		fd() { return m_pollfd.fd; }
-		struct pollfd& getPollfd() { return m_pollfd; }
+		int		getIndex() { return m_pollfd_index; }
+		void	setIndex(int i) { m_pollfd_index = i; }
+		int		fd() { return m_fd; }
+		struct pollfd& getPollfd(std::vector<struct pollfd>& pollfd) { return pollfd[m_pollfd_index]; }
 
 		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
 		{
@@ -61,26 +66,24 @@ class Client
 
 			// check fcntl errors
 
-			// reinitialize client information
-			m_pollfd.fd = fd;
-			m_pollfd.events = POLLIN | POLLOUT;
-			m_pollfd.revents = 0;
+			m_fd = fd;
 			m_alive = true;
 
 			m_addr = sock_addr;
 			m_files_sent = 0;
 			m_last_activity = time;
 
-			Logger::getInstance().log("Client connected!");
+			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " connected!");
 
 			return true;
 		}
 
 		void	disconnect()
 		{
-			close(m_pollfd.fd);
-			m_pollfd.fd = -1;
-			m_pollfd.revents = 0;
+			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " disconnected!");
+			close(m_fd);
+			// m_pollfd.fd = -1;
+			// m_pollfd.revents = 0;
 			m_alive = false;
 
 			Logger::getInstance().log("Client disconnected!");
@@ -91,37 +94,31 @@ class Client
 			m_last_activity = time;
 		}
 
+		// rename send
 		int	respond(const std::string& response)
 		{
 			#ifdef MSG_NOSIGNAL
-				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL);
+				int bytes_sent = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
 			#else
-				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
+				int bytes_sent = send(m_fd, response.c_str(), response.size(), 0);
 			#endif
-			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
+			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
 			m_files_sent++;
-			m_pollfd.revents = POLLOUT; 
+			// m_pollfd.revents = POLLOUT; 
 
 			return (bytes_sent > 0);
 		}
 
 		bool	timeout(t_time now)
 		{
-			if (m_pollfd.revents & POLLIN)
-				return false;
-
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
 
 			return (diff > CLIENT_TIMEOUT);
-		}
-
-		void	resetEvents()
-		{
-			m_pollfd.revents = 0;
 		}
 
 		void	setCloseConnection()
 		{
 			m_close_connection = true;
 		}
+
 };

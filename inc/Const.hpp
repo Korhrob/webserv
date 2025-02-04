@@ -8,7 +8,7 @@ static const unsigned int PACKET_SIZE = 8192; // 8 KB
 static const unsigned int CLIENT_TIMEOUT = 5000; // 5 seconds
 
 #ifndef LOG_ENABLE
-# define LOG_ENABLE false
+# define LOG_ENABLE true
 #endif
 #ifndef LOG_STROUT
 # define LOG_STDOUT true

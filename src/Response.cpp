@@ -17,8 +17,8 @@
 #include <regex>
 #include <variant>
 
-Response::Response(std::shared_ptr<Client> client, Config& config) : m_client(client), m_config(config),
-m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0)
+Response::Response(std::shared_ptr<Client> client, Config& config) : m_client(client), m_server_config(config),
+m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header(""), m_body(""), m_size(0), m_send_type(TYPE_BLANK)
 {
 	try {
 		while (m_parsing != COMPLETE) {
@@ -67,14 +67,14 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 			m_size = m_body.size();
 		m_header = getHeaderSingle(m_size, m_code, m_msg);
 
-		Logger::getInstance().log("== SINGLE RESPONSE ==\n" + str() + "\n\n");
+		Logger::log("== SINGLE RESPONSE ==\n" + header() + "\n\n");
 	}
 	else
 	{
 		m_send_type = TYPE_CHUNK;
 		m_header = getHeaderChunk();
 
-		Logger::getInstance().log("== CHUNK RESPONSE ==" + std::to_string(m_size));
+		Logger::log("== CHUNK RESPONSE ==" + std::to_string(m_size));
 	}
 
 	m_status = STATUS_OK;
@@ -86,18 +86,20 @@ void	Response::readRequest(int fd)
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(fd, buffer, PACKET_SIZE, 0);
 
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
-
+	Logger::log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
 	{
-		m_status = STATUS_FAIL;
+		//m_header = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
+		m_status = STATUS_BLANK;
 		m_send_type = TYPE_NONE;
-		throw HttpException::badRequest("empty request");
+		m_parsing = COMPLETE;
+		throw HttpException::requestTimeout();
+		// return ;
 	}
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	Logger::getInstance().log(std::string(buffer, bytes_read));
+	Logger::log("== REQUEST ==\n" + std::string(buffer, bytes_read));
 }
 
 void	Response::parseRequest()
@@ -305,7 +307,7 @@ void	Response::validateHost()
 		throw HttpException::badRequest("missing host header");
 
 	std::vector<std::string> hosts;
-	m_config.tryGetDirective("server_name", hosts);
+	m_server_config.tryGetDirective("server_name", hosts);
 	for (std::string host: hosts) {
 		if (host == m_headers["host"])
 			return;
@@ -314,9 +316,9 @@ void	Response::validateHost()
 }
 
 void	Response::parseChunked() { // not properly tested
-	Logger::getInstance().log("IN CHUNKED PARSING");
+	Logger::log("IN CHUNKED PARSING");
 	if (m_request.empty()) {
-		Logger::getInstance().log("EMPTY CHUNK");
+		Logger::log("EMPTY CHUNK");
 		m_parsing = CHUNKED;
 		return;
 	}
@@ -332,7 +334,7 @@ void	Response::parseChunked() { // not properly tested
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
-			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
+			Logger::log("CHUNKED PARSING COMPLETE");
 			m_parsing = COMPLETE;
 			return;
 		}
@@ -515,9 +517,9 @@ size_t Response::size()
 
 void	Response::getDirective(std::string dir, std::vector<std::string>& out)
 {
-	std::shared_ptr<ConfigNode>	location(m_config.findNode(m_target));
-	if (!location)
-		location = m_config.findNode("/");
+	std::shared_ptr<ConfigNode>	location(m_server_config.findNode(m_target));
+	if (location == nullptr)
+		location = m_server_config.findNode("/");
 	
 	location->tryGetDirective(dir, out);
 }
@@ -534,11 +536,11 @@ void	Response::displayQueryData() // debug
 void	Response::displayMultipart(std::vector<multipart>& multipartData) // debug
 {
 	for (multipart part: multipartData) {
-		Logger::getInstance().log("name: " + part.name);
-		Logger::getInstance().log("filename: " + part.filename);
-		Logger::getInstance().log("content-type: " + part.contentType);
-		Logger::getInstance().log("content: " + std::string(part.content.begin(), part.content.end()));
-		Logger::getInstance().log("");
+		Logger::log("name: " + part.name);
+		Logger::log("filename: " + part.filename);
+		Logger::log("content-type: " + part.contentType);
+		Logger::log("content: " + std::string(part.content.begin(), part.content.end()));
+		Logger::log("");
 		if (!part.nestedData.empty())
 			displayMultipart(part.nestedData);
 	}
