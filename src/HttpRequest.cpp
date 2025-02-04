@@ -7,27 +7,22 @@
 
 HttpRequest::HttpRequest(int fd) : m_phase(REQUEST)
 {
-	try {
-		while (m_phase != COMPLETE) {
-			readRequest(fd);
-			switch (m_phase) {
-				case REQUEST:
-					parseRequest();
-					break;
-				case CHUNKED:
-					parseChunked();
-					break;
-				case MULTIPART:
-					parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
-					break;
-				case COMPLETE:
-					break;
-			}
-		} 
-	} catch (HttpException& e) {
-		HttpResponse response(e.getStatusCode(), e.what());
-	}
-	HttpResponse response(200, "");
+	while (m_phase != COMPLETE) {
+		readRequest(fd);
+		switch (m_phase) {
+			case REQUEST:
+				parseRequest();
+				break;
+			case CHUNKED:
+				parseChunked();
+				break;
+			case MULTIPART:
+				parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
+				break;
+			case COMPLETE:
+				break;
+		}
+	} 
 }
 
 void	HttpRequest::readRequest(int fd)
@@ -40,11 +35,7 @@ void	HttpRequest::readRequest(int fd)
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to recieve request");
 	if (bytes_read == 0)
-	{
-		// m_status = STATUS_FAIL;
-		// m_send_type = TYPE_NONE;
-		throw HttpException::badRequest("empty request");
-	}
+		throw HttpException::requestTimeout();
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
 }
@@ -145,7 +136,7 @@ void	HttpRequest::parseBody(std::vector<char>::iterator endOfHeaders)
 {
 	m_request.erase(m_request.begin(), endOfHeaders + 4);
 	if (m_request.empty()) {
-		m_parsing = COMPLETE;
+		m_phase = COMPLETE;
 		return;
 	}
 
@@ -303,4 +294,19 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 		else
 			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
+}
+
+const std::string&	HttpRequest::getHost()
+{
+	return m_headers["host"];
+}
+
+const std::string&	HttpRequest::getTarget()
+{
+	return m_target;
+}
+
+const std::string&	HttpRequest::getMethod()
+{
+	return m_method;
 }

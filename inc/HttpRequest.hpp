@@ -52,5 +52,8 @@ class HttpRequest {
 
 	public:
 		HttpRequest(int fd);
-		
+
+		const std::string&	getHost();
+		const std::string&	getTarget();
+		const std::string&	getMethod();
 };
