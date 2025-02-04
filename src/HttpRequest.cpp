@@ -1,16 +1,16 @@
 #include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 #include "HttpException.hpp"
 
 #include <algorithm>
-#include <filesystem>
 #include <regex>
 
-HttpRequest::HttpRequest(Config& config, int fd) :  m_config(config), m_parsing(REQUEST)
+HttpRequest::HttpRequest(int fd) : m_phase(REQUEST)
 {
 	try {
-		while (m_parsing != COMPLETE) {
+		while (m_phase != COMPLETE) {
 			readRequest(fd);
-			switch (m_parsing) {
+			switch (m_phase) {
 				case REQUEST:
 					parseRequest();
 					break;
@@ -25,9 +25,9 @@ HttpRequest::HttpRequest(Config& config, int fd) :  m_config(config), m_parsing(
 			}
 		} 
 	} catch (HttpException& e) {
-		// m_code = e.getStatusCode();
-		// m_msg = e.what(); 
+		HttpResponse response(e.getStatusCode(), e.what());
 	}
+	HttpResponse response(200, "");
 }
 
 void	HttpRequest::readRequest(int fd)
@@ -109,10 +109,10 @@ void	HttpRequest::parseQueryString()
 	if (pos == std::string::npos)
 		return;
 
-	std::istringstream query(m_target.substr(pos + 1));
-	m_target = m_target.substr(0, pos);
+	std::istringstream queryString(m_target.substr(pos + 1));
+	m_target.erase(pos);
 
-	for (std::string line; getline(query, line, '&');) {
+	for (std::string line; getline(queryString, line, '&');) {
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
@@ -162,7 +162,7 @@ void	HttpRequest::parseChunked() { // not properly tested
 	Logger::getInstance().log("IN CHUNKED PARSING");
 	if (m_request.empty()) {
 		Logger::getInstance().log("EMPTY CHUNK");
-		m_parsing = CHUNKED;
+		m_phase = CHUNKED;
 		return;
 	}
 	std::string					delim = "\r\n";
@@ -178,7 +178,7 @@ void	HttpRequest::parseChunked() { // not properly tested
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
 			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
-			m_parsing = COMPLETE;
+			m_phase = COMPLETE;
 			return;
 		}
 		endOfSize += 2;
@@ -186,12 +186,12 @@ void	HttpRequest::parseChunked() { // not properly tested
 		if (endOfContent == m_request.end()) { // incomplete chunk
 			if (currentPos > m_request.begin())
 				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
-			m_parsing = CHUNKED;
+			m_phase = CHUNKED;
 			return;
 		}
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
-		m_unchunked.insert(m_unchunked.end(), endOfSize, endOfContent);
+		m_unchunkedData.insert(m_unchunkedData.end(), endOfSize, endOfContent);
 		currentPos = endOfContent + 2;
 	}
 }
@@ -207,7 +207,7 @@ size_t	HttpRequest::getChunkSize(std::string& hex) {
 void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
 {
 	if (getContentLength() != m_request.size()) {
-		m_parsing = MULTIPART;
+		m_phase = MULTIPART;
 		return;
 	}
 
@@ -242,7 +242,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 		multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
-	m_parsing = COMPLETE;
+	m_phase = COMPLETE;
 }
 
 size_t	HttpRequest::getContentLength()
@@ -250,14 +250,11 @@ size_t	HttpRequest::getContentLength()
 	if (m_headers.find("content-length") != m_headers.end())
 		throw HttpException::lengthRequired();
 
-	size_t length;
-
 	try {
-		length = std::stoul(m_headers["content-length"]);
+		return std::stoul(m_headers["content-length"]);
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid content length");
 	}
-	return length; 
 }
 
 std::string	HttpRequest::getBoundary(std::string& contentType)
@@ -286,14 +283,14 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 			startPos += 6;
 			endPos = line.find("\"", startPos);
 			if (endPos == std::string::npos)
-				throw HttpException::badRequest("malformed multipart header");
+				throw HttpException::badRequest("invalid header for multipart/form-data");
 			part.name = line.substr(startPos, endPos - startPos);
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos) {
 				startPos += 10;
 				endPos = line.find("\"", startPos);
 				if (endPos == std::string::npos)
-					throw HttpException::badRequest("malformed multipart header");
+					throw HttpException::badRequest("invalid header for multipart/form-data");
 				part.filename = line.substr(startPos, endPos - startPos);
 			}
 		}
@@ -306,22 +303,4 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 		else
 			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
-}
-
-// std::ofstream	HttpRequest::getFileStream(std::string filename)
-{
-	if (filename.find("../") != std::string::npos)	
-		throw HttpException::badRequest("forbidden traversal pattern in filename");
-	
-	std::string					filePath;
-	std::vector<std::string>	folder;
-
-	getDirective("uploadFolder", folder); // should it be an error if folder is not defined?
-	filePath = folder.empty() ? filename : folder.front() + '/' + filename; // what if there are multiple files with the same name
-
-	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
-	if (!filestream)
-		throw HttpException::internalServerError("open failed for file upload");
-			
-	return filestream;
 }
