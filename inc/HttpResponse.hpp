@@ -30,6 +30,7 @@ class HttpResponse {
 		HttpResponse(int code, const std::string& msg, const std::string& path);
 
 		std::string	getResponse();
+		std::string	getHeader();
 		e_type		getSendType();
 		int			getStatusCode();
 };

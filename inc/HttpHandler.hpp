@@ -35,5 +35,7 @@ class HttpHandler {
     public:
         HttpHandler(int fd);
 
-        HttpResponse    handleRequest(Config& config);
+        HttpResponse		handleRequest(Config& config);
+		
+		const std::string&	getTarget() { return m_path; }
 };

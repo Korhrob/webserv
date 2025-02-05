@@ -3,7 +3,10 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_sendType(TYPE_SINGLE) {}
+HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_sendType(TYPE_SINGLE) {
+	// if (code == 408)
+	// 	m_headers.emplace("Connection", "close");
+}
 
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body("")
 {
@@ -43,7 +46,6 @@ std::string HttpResponse::getResponse()
 
     response = getStatusLine();
     response += getHeaders();
-    response += "\r\n";
     response += m_body;
 
     return response;
@@ -58,8 +60,10 @@ std::string HttpResponse::getHeaders()
 {
     std::string headers;
 
-    for (auto [key, value]: m_headers)
+    for (auto [key, value]: m_headers) {
         headers += key + ": " + value + "\r\n";
+	}
+	headers += "\r\n";
 
     return headers;
 }
@@ -72,4 +76,9 @@ e_type  HttpResponse::getSendType()
 int HttpResponse::getStatusCode()
 {
     return m_code;
+}
+
+std::string HttpResponse::getHeader()
+{
+	return getStatusLine() + getHeaders();
 }
