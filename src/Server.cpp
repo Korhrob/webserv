@@ -213,6 +213,7 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
+		Logger::log(httpResponse.getResponse());
 		respond(client, httpResponse.getResponse());
 	}
 	// else if (httpResponse.getSendType() == TYPE_CHUNK)
