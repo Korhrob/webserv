@@ -237,7 +237,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 
 size_t	HttpRequest::getContentLength()
 {
-	if (m_headers.find("content-length") != m_headers.end())
+	if (m_headers.find("content-length") == m_headers.end())
 		throw HttpException::lengthRequired();
 
 	try {
