@@ -4,6 +4,7 @@
 #include "Parse.hpp"
 #include "Response.hpp"
 #include "Const.hpp"
+#include "HttpHandler.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -196,11 +197,10 @@ void	Server::handleClients()
 	tryRegisterClient(time);
 }
 
-#include "HttpHandler.hpp"
 void	Server::handleRequest(std::shared_ptr<Client> client)
 {
-	HttpHandler	httpHandler(client->fd(), m_config);
-	HttpResponse httpResponse(httpHandler.handleRequest());
+	HttpHandler	httpHandler(client->fd());
+	HttpResponse httpResponse = httpHandler.handleRequest(m_config);
 
 	if (httpResponse.getStatusCode() == 408)
 	{
@@ -213,7 +213,6 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		std::cout << httpResponse.getResponse() << "\n\n";
 		respond(client, httpResponse.getResponse());
 	}
 	// else if (httpResponse.getSendType() == TYPE_CHUNK)
