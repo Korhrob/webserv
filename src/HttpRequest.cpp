@@ -1,5 +1,4 @@
 #include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
 #include "HttpException.hpp"
 
 #include <algorithm>
