@@ -1,9 +1,11 @@
 #include "HttpResponse.hpp"
 #include "HttpException.hpp"
 
+#include <filesystem>
+
 HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_sendType(TYPE_SINGLE) {}
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body("")
 {
     try {
 		size_t size = std::filesystem::file_size(path);
@@ -15,8 +17,10 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
             m_headers.emplace("Transfer-Encoding", "chunked");
             m_sendType = TYPE_CHUNKED;
         }
-	} catch (const std::exception& e) {
-		throw HttpException::notFound();
+	} catch (const std::filesystem::filesystem_error& e) {
+		m_code = 404;
+		m_msg = "Not Found: filesystem error";
+		m_sendType = TYPE_SINGLE;
 	}
 }
 
@@ -40,8 +44,7 @@ std::string HttpResponse::getResponse()
     response = getStatusLine();
     response += getHeaders();
     response += "\r\n";
-    if (!m_body.empty())
-        response += m_body;
+    response += m_body;
 
     return response;
 }
