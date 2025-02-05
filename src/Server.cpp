@@ -2,7 +2,6 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Parse.hpp"
-#include "Response.hpp"
 #include "Const.hpp"
 #include "HttpHandler.hpp"
 
@@ -185,7 +184,7 @@ void	Server::handleClients()
 		{
 			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
 			//removeClient(client);
-			//client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
+			client->respond(RESPONSE_TIMEOUT);
 			client_list.push_back(client);
 			m_sock_count--;
 		}
@@ -202,9 +201,11 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 	HttpHandler	httpHandler(client->fd());
 	HttpResponse httpResponse = httpHandler.handleRequest(m_config);
 
-	if (httpResponse.getStatusCode() == 408)
+	if (httpResponse.closeConnection())
 	{
 		//client->update(m_time);
+		Logger::log(httpResponse.getResponse());
+		respond(client, httpResponse.getResponse());
 		m_disconnect.push_back(client);
 		return ;
 	}
@@ -312,7 +313,6 @@ void	Server::removeClient(std::shared_ptr<Client> client)
 	if (!client->isAlive())
 		return;
 
-	client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
 	client->disconnect();
 
 	if (m_clients.find(client->fd()) != m_clients.end())
