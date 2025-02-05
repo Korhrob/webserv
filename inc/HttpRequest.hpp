@@ -53,7 +53,9 @@ class HttpRequest {
 	public:
 		HttpRequest(int fd);
 
-		const std::string&	getHost();
-		const std::string&	getTarget();
-		const std::string&	getMethod();
+		const std::string&				getHost();
+		const std::string&				getTarget();
+		const std::string&				getMethod();
+		const std::vector<char>&		getUnchunkedData();
+		const std::vector<multipart>&	getMultipartData();
 };

@@ -140,8 +140,7 @@ void	HttpRequest::parseBody(std::vector<char>::iterator endOfHeaders)
 		return;
 	}
 
-	if (m_headers.find("transfer-encoding") != m_headers.end()
-		&& m_headers["transfer-encoding"] == "chunked")
+	if (m_headers.find("transfer-encoding") != m_headers.end() && m_headers["transfer-encoding"] == "chunked")
 		parseChunked();
 	else if (m_headers["content-type"].find("multipart") != std::string::npos)
 		parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
@@ -309,4 +308,14 @@ const std::string&	HttpRequest::getTarget()
 const std::string&	HttpRequest::getMethod()
 {
 	return m_method;
+}
+
+const	std::vector<char>&	HttpRequest::getUnchunkedData()
+{
+	return m_unchunkedData;
+}
+
+const std::vector<multipart>&	HttpRequest::getMultipartData()
+{
+	return m_multipartData;
 }
