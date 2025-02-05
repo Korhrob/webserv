@@ -3,11 +3,12 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <map>
 #include <unordered_map>
 
 class ConfigNode;
 
-using NodeMap = std::unordered_map<std::string, std::shared_ptr<ConfigNode>>;
+using NodeMap = std::map<std::string, std::shared_ptr<ConfigNode>>;
 using DirectiveMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class ConfigNode
@@ -25,7 +26,9 @@ public:
 	void								addChild(std::string key, std::shared_ptr<ConfigNode> node);
 	const std::vector<std::string>&		findDirective(const std::string& key);
 	// findDirectiveInChildren;
-	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
+	const	std::shared_ptr<ConfigNode>	findNode(const std::string& key);
+	const	std::shared_ptr<ConfigNode>	findClosestMatch(const std::string& key);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
+	const std::string&					getName() { return m_name; };
 
 };
