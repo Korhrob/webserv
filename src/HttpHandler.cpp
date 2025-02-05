@@ -18,7 +18,7 @@ HttpResponse HttpHandler::handleRequest(Config& config)
         	case GET:
             	return handleGet();
         	case POST:
-            	return handlePost();
+            	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
 		}
@@ -79,8 +79,6 @@ void    HttpHandler::validatePath(const std::string& target)
 		}
 		if (!std::filesystem::exists(m_path))
 			throw HttpException::notFound();
-		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden();
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden();
@@ -104,20 +102,57 @@ void    HttpHandler::validateCgi(const std::string& target)
 
 HttpResponse HttpHandler::handleGet()
 {
-    return HttpResponse(200, "OK", m_path);
+	if (std::filesystem::is_directory(m_path))
+		throw HttpException::forbidden();
+
+	return HttpResponse(200, "OK", m_path);
 }
 
-HttpResponse HttpHandler::handlePost()
+HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
-	return HttpResponse(200, "OK", m_path);
+	upload(multipartData);
+
+	return HttpResponse(200, "OK");
 }
 
 HttpResponse HttpHandler::handleDelete()
 {
 	try {
+		if (std::filesystem::is_directory(m_path))
+			throw HttpException::forbidden();
 		std::filesystem::remove(m_path);
 		return HttpResponse(200, "OK");
 	} catch (std::filesystem::filesystem_error& e) {
 		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
+}
+
+void	HttpHandler::upload(const std::vector<multipart>& multipartData)
+{	
+	for (multipart part: multipartData) {
+		if (!part.filename.empty()) {
+			std::ofstream file = getFileStream(part.filename);
+			file.write(part.content.data(), part.content.size());
+		}
+		if (!part.nestedData.empty())
+			upload(part.nestedData);
+	}
+}
+
+std::ofstream	HttpHandler::getFileStream(std::string filename)
+{
+	if (filename.find("../") != std::string::npos)	
+		throw HttpException::badRequest("forbidden traversal pattern in filename");
+	
+	std::string					filePath;
+	std::vector<std::string>	uploadDir;
+
+	m_location->tryGetDirective("uploadDir", uploadDir); // what if there is no directory set in config file
+	filePath = uploadDir.empty() ? filename : uploadDir.front() + '/' + filename; // what if there are multiple files with the same name
+
+	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
+	if (!filestream)
+		throw HttpException::internalServerError("open failed for file upload");
+			
+	return filestream;
 }

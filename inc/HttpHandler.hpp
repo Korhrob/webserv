@@ -21,13 +21,15 @@ class HttpHandler {
         std::string                 m_path;
 		e_method					m_method;
 
-        void    getLocation(HttpRequest& request, Config& config);
-        void    validateCgi(const std::string& target);
-        void    validateMethod(const std::string& method);
-        void    validatePath(const std::string& target);
+        void    		getLocation(HttpRequest& request, Config& config);
+        void    		validateCgi(const std::string& target);
+        void    		validateMethod(const std::string& method);
+        void    		validatePath(const std::string& target);
+		void			upload(const std::vector<multipart>& multipartData);
+		std::ofstream	getFileStream(std::string filename);
 
         HttpResponse handleGet();
-        HttpResponse handlePost();
+        HttpResponse handlePost(const std::vector<multipart>& multipartData);
         HttpResponse handleDelete();
 
     public:
