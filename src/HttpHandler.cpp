@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <unordered_map>
 
-HttpHandler::HttpHandler(int fd) : m_fd(fd), m_isCGI(false) {}
+HttpHandler::HttpHandler(int fd) : m_fd(fd), m_cgi(false) {}
 
 HttpResponse HttpHandler::handleRequest(Config& config)
 {
@@ -97,7 +97,7 @@ void    HttpHandler::validateCgi(const std::string& target)
     m_location->tryGetDirective("cgi", cgi);
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
-		m_isCGI = true;
+		m_cgi = true;
 }
 
 HttpResponse HttpHandler::handleGet()
@@ -111,7 +111,7 @@ HttpResponse HttpHandler::handleGet()
 HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
 	upload(multipartData);
-
+	
 	return HttpResponse(200, "OK");
 }
 
@@ -155,4 +155,9 @@ std::ofstream	HttpHandler::getFileStream(std::string filename)
 		throw HttpException::internalServerError("open failed for file upload");
 			
 	return filestream;
+}
+
+const std::string&	HttpHandler::getTarget()
+{
+	return m_path;
 }

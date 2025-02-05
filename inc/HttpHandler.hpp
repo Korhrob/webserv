@@ -17,9 +17,9 @@ class HttpHandler {
     private:
         int                         m_fd;
         std::shared_ptr<ConfigNode> m_location;
-        bool                        m_isCGI;
         std::string                 m_path;
 		e_method					m_method;
+        bool                        m_cgi;
 
         void    		getLocation(HttpRequest& request, Config& config);
         void    		validateCgi(const std::string& target);
@@ -35,7 +35,7 @@ class HttpHandler {
     public:
         HttpHandler(int fd);
 
-        HttpResponse		handleRequest(Config& config);
+        HttpResponse	handleRequest(Config& config);
 		
-		const std::string&	getTarget() { return m_path; }
+		const std::string&	getTarget();
 };
