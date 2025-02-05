@@ -4,13 +4,25 @@
 
 static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 {
-	char	*arg[2] = {(char *)cgi.c_str(), nullptr};
+	std::string interpreter = "/usr/bin/php";
+	std::string cgitest = "/home/avegis/projects/wwebserver/cgi-bin/people.cgi.php";
+	// char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgi.c_str(), nullptr};
+	cgi = "yes";
+	char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgitest.c_str(), nullptr};
 	if (dup2(fdtemp, STDOUT_FILENO) < 0)
 	{
 		perror("dup2");
 		exit(EXIT_FAILURE);
 	}
-	execve((char *)cgi.c_str(), arg, envPtrs.data());
+	std::string postData = "first_name=John&last_name=Doe";
+	int pipefd[2];
+	pipe(pipefd);  // Create pipe
+	write(pipefd[1], postData.c_str(), postData.size());  // Write POST data to pipe
+
+	// Close write end since we're only using the read end for stdin
+	close(pipefd[1]);
+
+	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
 	exit(EXIT_FAILURE);
 }
@@ -20,6 +32,7 @@ static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
 	char buffer[4096];
 	std::string string;
 
+	fflush(temp);
 	rewind(temp);
 	while (!feof(temp))
 	{
@@ -29,7 +42,6 @@ static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
 	}
 	close(fdtemp);
 	fclose(temp);
-	Logger::getInstance().log("\nbody " + string + "\n\n");
 	client->setBody(string);
 }
 
@@ -40,8 +52,10 @@ int runCGI(std::string script, std::shared_ptr<Client> client)
 	int			status;
 	FILE		*temp = std::tmpfile();
 	int			fdtemp = fileno(temp);
-	int			timeoutTime = 1;
+	int			timeoutTime = 10;
 	std::string debug = "debugging";
+	std::vector<char*> envPtrs;
+	client->createEnv(envPtrs);
 
 	// env = client->mallocEnv();
 	// if (env == NULL)
@@ -53,7 +67,7 @@ int runCGI(std::string script, std::shared_ptr<Client> client)
 	{
 		pid_t cgiPid = fork();
 		if (cgiPid == 0)
-			run(script, fdtemp, client->createEnv());
+			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
 		if (timeoutPid == 0)
 		{

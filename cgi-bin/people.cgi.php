@@ -2,6 +2,25 @@
 
 $filename = 'people.txt';
 
+echo "<br><br>";
+print_r($_SERVER);
+echo "<br><br>";
+print_r(getenv());
+echo "<br><br>";
+print_r($_POST);
+echo "<br><br>";
+print_r($_POST);
+echo "<br><br>";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Access the POST data
+    $firstName = $_POST['first_name'] ?? 'Not set';
+    $lastName = $_POST['last_name'] ?? 'Not set';
+    
+    echo "First Name: $firstName<br>";
+    echo "Last Name: $lastName<br>";
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['first_name'], $_POST['last_name'])) {
     $firstName = trim($_POST['first_name']);
     $lastName = trim($_POST['last_name']);

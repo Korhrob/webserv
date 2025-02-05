@@ -89,25 +89,36 @@ char**	Client::mallocEnv()
 	return env;
 }
 
-std::vector<char*> Client::createEnv()
+void Client::createEnv(std::vector<char*> &envPtrs)
 {
+	std::string postData = "first_name=John&last_name=Doe";
+	int contentLength = postData.size();
+
 	std::vector<std::string> envVars = {
 		"SERVER_NAME=localhost",
 		"GATEWAY_INTERFACE=CGI/1.1",
 		"SERVER_PORT=8080",
 		"SERVER_PROTOCOL=HTTP/1.1",
 		"REMOTE_ADDR=127.0.0.1",
-		"SCRIPT_NAME=/cgi-bin/people.cgi.php",
-		"SCRIPT_FILENAME=/cgi-bin/people.cgi.php",
-		"REQUEST_METHOD=POST"
+		"SCRIPT_NAME=people.cgi.php",
+		"SCRIPT_FILENAME=/home/avegis/projects/wwebserver/cgi-bin/people.cgi.php",
+		"REQUEST_METHOD=POST",
+		"QUERY_STRING=",
+		"CONTENT_TYPE=application/x-www-form-urlencoded",
+		"CONTENT_LENGTH=" + std::to_string(contentLength),
+		"PHP_SELF=../cgi-bin/people.cgi.php",
+		"DOCUMENT_ROOT=/home/avegis/projects/wwebserver",
+		"HTTP_USER_AGENT=Mozilla/5.0",
+		"HTTP_REFERER=http://localhost/",
+		"REQUEST_URI=/cgi-bin/people.cgi.php"
 	};
-	std::vector<char*> envPtrs;
 	for (auto& envVar : envVars)
 	{
-		envPtrs.push_back(const_cast<char*>(envVar.c_str()));
+		char * envVarCStr = strdup(envVar.c_str());
+		envPtrs.push_back((envVarCStr));
+		Logger::getInstance().log(envVar);
 	}
 	envPtrs.push_back(nullptr);
-	return envPtrs;
 }
 
 void Client::setBody(std::string string)
