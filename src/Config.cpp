@@ -12,7 +12,7 @@
 
 #include <utility> // std::pair
 
-Config::Config() : m_valid(false), m_server_count(0)
+Config::Config() : m_valid(false), m_server_count(0), m_default_node(nullptr)
 {
 	std::ifstream	file("config.conf");
 
@@ -23,7 +23,7 @@ Config::Config() : m_valid(false), m_server_count(0)
 	file.close();
 }
 
-Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
+Config::Config(const std::string& filename) : m_valid(false), m_server_count(0), m_default_node(nullptr)
 {
 	std::ifstream	file(filename);
 
@@ -164,47 +164,36 @@ bool	Config::parse(std::ifstream& stream)
 		return false;
 	}
 
-	// std::shared_ptr<ConfigNode>	serverNode = findNode("server");
-	// if (serverNode == nullptr)
-	// {
-	// 	Logger::logError("missing server node");
-	// 	return false;
-	// }
-
 	if (m_server_count == 0)
 	{
 		Logger::logError("missing server node");
 		return false;
 	}
 
-	for (auto& nodePair : m_nodes)
+	for (auto& [key, node] : m_nodes)
 	{
-		std::shared_ptr<ConfigNode> serverNode = nodePair.second;
-		std::vector<std::string> d;
+		std::vector<std::string> temp;
 		for (auto& str : MANDATORY_DIRECTIVES)
 		{
-			if (!serverNode->tryGetDirective(str, d))
+			if (!node->tryGetDirective(str, temp))
 			{
-				Logger::logError(nodePair.first + " missing mandatory directive '" + str + "'");
+				Logger::logError(key + " missing mandatory directive '" + str + "'");
 				return false;
+			}
+			if (str == "listen" && !temp.empty() && temp.back() == "default_server")
+			{
+				// check for already set default node?
+				m_default_node = node;
+				Logger::log("assigned " + key + " as default");
 			}
 		}
 	}
 
-	//Logger::log("Config OK");
-
-	// some test functions
-	// if (findNode("/") != nullptr)
-	// {
-	// 	Logger::log("location / (root) found!");
-		
-	// }
-
-	// std::vector<std::string> t;
-
-	// if (tryGetDirective("root", t)) {
-	// 	Logger::log("found root");
-	// }
+	if (m_default_node == nullptr)
+	{
+		Logger::log("no default server assigned, set first as default");
+		m_default_node = m_nodes.at("server_0");
+	}
 
 	return true;
 }
@@ -232,11 +221,11 @@ unsigned int	Config::getPort(const std::string& server_name)
 	}
 	catch (const std::invalid_argument& e)
 	{
-		Logger::logError("Invalid port argument");
+		Logger::logError("invalid port argument");
 	}
 	catch (const std::out_of_range& e)
 	{
-		Logger::logError("Port out of range");
+		Logger::logError("port out of range");
 	}
 
 	Logger::logError("using default port 8080");
@@ -360,6 +349,8 @@ const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host
 	size_t pos = host.find(":");
 	std::string host_name = host.substr(0, pos);
 	std::string port = host.substr(pos + 1);
+
+	// should return default or first server_block for a specific port
 
 	for (auto& [key, node] : m_nodes)
 	{

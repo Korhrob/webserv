@@ -44,8 +44,6 @@ bool	Server::startServer()
 
 		if (m_listeners.find(port) == m_listeners.end())
 			createListener(port);
-
-		// host_name, ConfigNode
 		
 	}
 
