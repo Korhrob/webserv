@@ -3,61 +3,57 @@
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
 
-HttpHandler::HttpHandler(int fd, Config& config) : m_fd(fd), m_config(config) {}
+#include <algorithm>
+#include <filesystem>
+#include <unordered_map>
 
-HttpResponse HttpHandler::handleRequest()
+HttpHandler::HttpHandler(int fd) : m_fd(fd), m_isCGI(false) {}
+
+HttpResponse HttpHandler::handleRequest(Config& config)
 {
     try {
         HttpRequest request(m_fd);
-        getLocation(request);
-        validateLocation(request);
-        std::string method(request.getMethod());
-        if (method == "GET")
-            return handleGet();
-        // if (method == "POST")
-        //     return handlePost();
-        // if (method == "DELETE")
-        //     return handleDelete();
-        return handleGet();
+        getLocation(request, config);
+        switch (m_method) {
+        	case GET:
+            	return handleGet();
+        	case POST:
+            	return handlePost();
+        	case DELETE:
+            	return handleDelete();
+		}
     } catch (HttpException& e) {
         return HttpResponse(e.getStatusCode(), e.what());
     }
 }
 
-void HttpHandler::getLocation(HttpRequest& request) // temp
+void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
-    std::shared_ptr<ConfigNode> serverNode = m_config.findServerNode(request.getHost());
-    if (serverNode == nullptr)
+    std::shared_ptr<ConfigNode> serverNode = config.findServerNode(request.getHost());
+    if (serverNode == nullptr) // temp
         throw HttpException::badRequest("Server node is null");
+
     m_location = serverNode->findClosestMatch(request.getTarget());
-}
 
-void    HttpHandler::validateCgi(const std::string& target)
-{
-    if (target.find(".") == std::string::npos)
-        return;
-	
-	std::string					extension(target.substr(target.find_last_of(".")));
-	std::vector<std::string>	cgi;
-
-    m_location->tryGetDirective("cgi", cgi);
-	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
-		m_isCGI = true;
-}
-
-void    HttpHandler::validateLocation(HttpRequest& request)
-{
-    validateMethod(request.getMethod());
-    validatePath(request.getTarget());
+	validateMethod(request.getMethod());
+	validatePath(request.getTarget());
 }
 
 void    HttpHandler::validateMethod(const std::string& method)
 {
+	{
     std::vector<std::string>    methods;
 
     m_location->tryGetDirective("methods", methods);
     if (std::find(methods.begin(), methods.end(), method) == methods.end())
         throw HttpException::notImplemented();
+	}
+
+	std::unordered_map<std::string, e_method>	methods = {{"GET", GET}, {"POST", POST}, {"DELETE", DELETE}};
+	for (auto [key, value]: methods) {
+		if (key == method)
+			m_method = methods[key];
+	}
 }
 
 void    HttpHandler::validatePath(const std::string& target)
@@ -67,7 +63,7 @@ void    HttpHandler::validatePath(const std::string& target)
     std::vector<std::string>    root;
 
     m_location->tryGetDirective("root", root);
-    m_path = root.empty() ? target : root.front() + target;
+    m_path = root.empty() ? target : root.front() + target; // error ?
 
     try { // fix this - Set a default file to answer if the request is a directory
 		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
@@ -83,6 +79,8 @@ void    HttpHandler::validatePath(const std::string& target)
 		}
 		if (!std::filesystem::exists(m_path))
 			throw HttpException::notFound();
+		if (std::filesystem::is_directory(m_path))
+			throw HttpException::forbidden();
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden();
@@ -91,17 +89,35 @@ void    HttpHandler::validatePath(const std::string& target)
 	}
 }
 
+void    HttpHandler::validateCgi(const std::string& target)
+{
+    if (target.find(".") == std::string::npos) return;
+
+	std::string					extension(target.substr(target.find_last_of(".")));
+	std::vector<std::string>	cgi;
+
+    m_location->tryGetDirective("cgi", cgi);
+
+	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
+		m_isCGI = true;
+}
+
 HttpResponse HttpHandler::handleGet()
 {
     return HttpResponse(200, "OK", m_path);
 }
 
-// const HttpResponse& HttpHandler::handlePost()
-// {
+HttpResponse HttpHandler::handlePost()
+{
+	return HttpResponse(200, "OK", m_path);
+}
 
-// }
-
-// const HttpResponse& HttpHandler::handleDelete()
-// {
-
-// }
+HttpResponse HttpHandler::handleDelete()
+{
+	try {
+		std::filesystem::remove(m_path);
+		return HttpResponse(200, "OK");
+	} catch (std::filesystem::filesystem_error& e) {
+		throw HttpException::internalServerError("unable to delete target " + m_path);
+	}
+}
