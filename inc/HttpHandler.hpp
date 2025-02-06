@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config.hpp"
+#include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
 
 #include <memory>
@@ -30,7 +31,7 @@ class HttpHandler {
 		std::ofstream	getFileStream(std::string filename);
 
         HttpResponse handleGet();
-        HttpResponse handlePost(const std::vector<multipart>& multipartData);
+		HttpResponse handlePost(const std::vector<multipart>& multipartData);
         HttpResponse handleDelete();
 
     public:

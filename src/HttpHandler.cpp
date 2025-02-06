@@ -1,5 +1,4 @@
 #include "HttpHandler.hpp"
-#include "HttpRequest.hpp"
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
 
@@ -11,8 +10,10 @@ HttpHandler::HttpHandler(int fd) : m_fd(fd), m_cgi(false) {}
 
 HttpResponse HttpHandler::handleRequest(Config& config)
 {
+	HttpRequest request;
+
     try {
-        HttpRequest request(m_fd);
+		request.getRequest(m_fd);
         getLocation(request, config);
         switch (m_method) {
         	case GET:
@@ -23,6 +24,7 @@ HttpResponse HttpHandler::handleRequest(Config& config)
             	return handleDelete();
 		}
     } catch (HttpException& e) {
+		removeTmpFiles(request.getMultipartData());
         return HttpResponse(e.getStatusCode(), e.what());
     }
 }
@@ -133,8 +135,7 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	m_location->tryGetDirective("uploadDir", uploadDir);
 
 	if (uploadDir.empty()) {
-		removeTmpFiles(multipartData);
-		throw HttpException::forbidden(); // what's the correct error when upload directory is not defined? is this already a config error?
+		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this already a config error?
 	}
 
 	for (multipart part: multipartData) {
@@ -144,7 +145,6 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 			try {
 				std::filesystem::copy_file(tmpFile, destination);
 			} catch (std::filesystem::filesystem_error& e) {
-				removeTmpFiles(multipartData);
 				throw HttpException::internalServerError("error uploading file");
 			}
 		}
@@ -162,7 +162,7 @@ void	HttpHandler::removeTmpFiles(const std::vector<multipart>& multipartData)
 			try {
 				std::filesystem::remove(tmpFile);
 			} catch (std::filesystem::filesystem_error& e) {
-				throw HttpException::internalServerError("error removing temporary file");
+				std::cerr << "error removing temporary file\n"; // ??
 			}
 		}
 	}
