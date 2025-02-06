@@ -1,6 +1,7 @@
 #include "HttpRequest.hpp"
 #include "HttpException.hpp"
 
+#include <filesystem>
 #include <algorithm>
 #include <regex>
 
@@ -222,12 +223,17 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end()) // content should end with boundary
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		// if (part.filename.empty()) {
-		part.content.insert(part.content.end(), currentPos, endOfContent - 2);
-		// } else {
-		// 	std::ofstream file = getFileStream(part.filename);
-		// 	file.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
-		// }
+		if (currentPos != endOfContent) {
+			if (part.filename.empty()) {
+				part.content.insert(part.content.end(), currentPos, endOfContent - 2);
+			} else {
+				std::filesystem::path tmpDir = std::filesystem::temp_directory_path();
+				std::filesystem::path tmpFile = tmpDir / part.filename;
+				std::ofstream ofs(tmpFile, std::ios::binary);
+				ofs.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
+				ofs.close();
+			}
+		}
 		multipartData.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
