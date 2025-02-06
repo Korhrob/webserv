@@ -27,8 +27,6 @@ class HttpHandler {
         void    		validateMethod(const std::string& method);
         void    		validatePath(const std::string& target);
 		void			upload(const std::vector<multipart>& multipartData);
-		void			removeTmpFiles(const std::vector<multipart>& multipartData);
-		std::ofstream	getFileStream(std::string filename);
 
         HttpResponse handleGet();
 		HttpResponse handlePost(const std::vector<multipart>& multipartData);

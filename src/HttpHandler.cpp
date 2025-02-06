@@ -24,7 +24,6 @@ HttpResponse HttpHandler::handleRequest(Config& config)
             	return handleDelete();
 		}
     } catch (HttpException& e) {
-		removeTmpFiles(request.getMultipartData());
         return HttpResponse(e.getStatusCode(), e.what());
     }
 }
@@ -117,18 +116,6 @@ HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData
 	return HttpResponse(200, "OK");
 }
 
-HttpResponse HttpHandler::handleDelete()
-{
-	try {
-		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden();
-		std::filesystem::remove(m_path);
-		return HttpResponse(200, "OK");
-	} catch (std::filesystem::filesystem_error& e) {
-		throw HttpException::internalServerError("unable to delete target " + m_path);
-	}
-}
-
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
@@ -151,39 +138,18 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 		if (!part.nestedData.empty())
 			upload(part.nestedData);
 	}
-	removeTmpFiles(multipartData);
 }
 
-void	HttpHandler::removeTmpFiles(const std::vector<multipart>& multipartData)
+HttpResponse HttpHandler::handleDelete()
 {
-	for (multipart part: multipartData) {
-		if (!part.filename.empty()) {
-			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-			try {
-				std::filesystem::remove(tmpFile);
-			} catch (std::filesystem::filesystem_error& e) {
-				std::cerr << "error removing temporary file\n"; // ??
-			}
-		}
+	try {
+		if (std::filesystem::is_directory(m_path))
+			throw HttpException::forbidden();
+		std::filesystem::remove(m_path);
+		return HttpResponse(200, "OK");
+	} catch (std::filesystem::filesystem_error& e) {
+		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
-}
-
-std::ofstream	HttpHandler::getFileStream(std::string filename)
-{
-	if (filename.find("../") != std::string::npos)	
-		throw HttpException::badRequest("forbidden traversal pattern in filename");
-	
-	std::string					filePath;
-	std::vector<std::string>	uploadDir;
-
-	m_location->tryGetDirective("uploadDir", uploadDir); // what if there is no directory set in config file
-	filePath = uploadDir.empty() ? filename : uploadDir.front() + '/' + filename; // what if there are multiple files with the same name
-
-	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
-	if (!filestream)
-		throw HttpException::internalServerError("open failed for file upload");
-			
-	return filestream;
 }
 
 const std::string&	HttpHandler::getTarget()
