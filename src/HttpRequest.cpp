@@ -27,6 +27,20 @@ void	HttpRequest::getRequest(int fd)
 	} 
 }
 
+HttpRequest::~HttpRequest()
+{
+	for (multipart part: m_multipartData) {
+		if (!part.filename.empty()) {
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+			try {
+				std::filesystem::remove(tmpFile);
+			} catch (std::filesystem::filesystem_error& e) {
+				std::cerr << "error removing temporary file\n"; // ??
+			}
+		}
+	}
+}
+
 void	HttpRequest::readRequest(int fd)
 {
 	char	buffer[PACKET_SIZE];

@@ -52,6 +52,7 @@ class HttpRequest {
 
 	public:
 		HttpRequest();
+		~HttpRequest();
 
 		void	getRequest(int fd);
 
