@@ -51,7 +51,9 @@ class HttpRequest {
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
 
 	public:
-		HttpRequest(int fd);
+		HttpRequest();
+
+		void	getRequest(int fd);
 
 		const std::string&				getHost();
 		const std::string&				getTarget();

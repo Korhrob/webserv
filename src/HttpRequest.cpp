@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <regex>
 
-HttpRequest::HttpRequest(int fd) : m_phase(REQUEST)
+HttpRequest::HttpRequest() : m_phase(REQUEST) {}
+
+void	HttpRequest::getRequest(int fd)
 {
 	while (m_phase != COMPLETE) {
 		readRequest(fd);
@@ -229,9 +231,11 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 			} else {
 				std::filesystem::path tmpDir = std::filesystem::temp_directory_path();
 				std::filesystem::path tmpFile = tmpDir / part.filename;
-				std::ofstream ofs(tmpFile, std::ios::binary);
-				ofs.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
-				ofs.close();
+				std::ofstream fileStream(tmpFile, std::ios::binary);
+				if (!fileStream)
+					throw HttpException::internalServerError("error opening file");
+				fileStream.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
+				fileStream.close();
 			}
 		}
 		multipartData.push_back(part);
@@ -287,6 +291,8 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 				if (endPos == std::string::npos)
 					throw HttpException::badRequest("invalid header for multipart/form-data");
 				part.filename = line.substr(startPos, endPos - startPos);
+				if (part.filename.find("../") != std::string::npos)	
+					throw HttpException::badRequest("forbidden traversal pattern in filename");
 			}
 		}
 		else if (line.find("content-type: ") != std::string::npos) {
