@@ -128,14 +128,43 @@ HttpResponse HttpHandler::handleDelete()
 }
 
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
-{	
+{
+	std::vector<std::string>	uploadDir;
+	m_location->tryGetDirective("uploadDir", uploadDir);
+
+	if (uploadDir.empty()) {
+		removeTmpFiles(multipartData);
+		throw HttpException::forbidden(); // what's the correct error when upload directory is not defined? is this already a config error?
+	}
+
 	for (multipart part: multipartData) {
 		if (!part.filename.empty()) {
-			std::ofstream file = getFileStream(part.filename);
-			file.write(part.content.data(), part.content.size());
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
+			try {
+				std::filesystem::copy_file(tmpFile, destination);
+			} catch (std::filesystem::filesystem_error& e) {
+				removeTmpFiles(multipartData);
+				throw HttpException::internalServerError("error uploading file");
+			}
 		}
 		if (!part.nestedData.empty())
 			upload(part.nestedData);
+	}
+	removeTmpFiles(multipartData);
+}
+
+void	HttpHandler::removeTmpFiles(const std::vector<multipart>& multipartData)
+{
+	for (multipart part: multipartData) {
+		if (!part.filename.empty()) {
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+			try {
+				std::filesystem::remove(tmpFile);
+			} catch (std::filesystem::filesystem_error& e) {
+				throw HttpException::internalServerError("error removing temporary file");
+			}
+		}
 	}
 }
 
