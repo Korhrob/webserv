@@ -71,7 +71,8 @@ std::string HttpResponse::getHeaders()
 {
     std::string headers;
 
-    for (auto [key, value]: m_headers) {
+    for (auto [key, value]: m_headers)
+	{
         headers += key + ": " + value + "\r\n";
 	}
 

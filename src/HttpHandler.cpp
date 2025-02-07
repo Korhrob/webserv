@@ -16,7 +16,8 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		request.parseRequest();
         getLocation(request, config);
 		validateRequest(request);
-        switch (m_method) {
+        switch (m_method)
+		{
         	case GET:
             	return handleGet();
         	case POST:
@@ -57,7 +58,8 @@ void    HttpHandler::validateMethod(const std::string& method)
 	}
 
 	std::unordered_map<std::string, e_method>	methods = {{"GET", GET}, {"POST", POST}, {"DELETE", DELETE}};
-	for (auto [key, value]: methods) {
+	for (auto [key, value]: methods)
+	{
 		if (key == method)
 			m_method = methods[key];
 	}
@@ -73,12 +75,14 @@ void    HttpHandler::validatePath(const std::string& target)
     m_path = root.empty() ? target : root.front() + target; // error ?
 
     try { // fix this - Set a default file to answer if the request is a directory
-		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
+		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path))
+		{
 			std::vector<std::string> indices;
 			m_location->tryGetDirective("index", indices);
 			for (std::string index: indices) {
 				std::string newPath = m_path + index;
-				if (std::filesystem::exists(newPath)) {
+				if (std::filesystem::exists(newPath))
+				{
 					m_path = newPath;
 					break;
 				}
@@ -112,7 +116,8 @@ void	HttpHandler::getMaxSize()
 	std::vector<std::string> maxSize;
 	m_server->tryGetDirective("client_max_body_size", maxSize);
 
-	if (maxSize.empty()) {
+	if (maxSize.empty())
+	{
 		m_maxSize = -1;
 		return;
 	}
@@ -144,12 +149,13 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	std::vector<std::string>	uploadDir;
 	m_location->tryGetDirective("uploadDir", uploadDir);
 
-	if (uploadDir.empty()) {
-		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this already a config error?
-	}
+	if (uploadDir.empty())
+		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this a config error?
 
-	for (multipart part: multipartData) {
-		if (!part.filename.empty()) {
+	for (multipart part: multipartData)
+	{
+		if (!part.filename.empty())
+		{
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
 			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
 			try {
