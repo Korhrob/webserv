@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <regex>
 
-HttpRequest::HttpRequest() : m_phase(REQUEST) {}
+HttpRequest::HttpRequest() : m_phase(CHUNKED) {}
 
 void	HttpRequest::getRequest(int fd)
 {
@@ -35,9 +35,14 @@ HttpRequest::~HttpRequest()
 			try {
 				std::filesystem::remove(tmpFile);
 			} catch (std::filesystem::filesystem_error& e) {
-				std::cerr << "error removing temporary file\n"; // ??
+				Logger::log("error removing temporary file");
 			}
 		}
+	}
+	try {
+		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
+	} catch (std::filesystem::filesystem_error& e) {
+		Logger::log("error removing temporary file");
 	}
 }
 
@@ -166,9 +171,14 @@ void	HttpRequest::parseBody(std::vector<char>::iterator endOfHeaders)
 
 void	HttpRequest::parseChunked() { // not properly tested
 	Logger::getInstance().log("IN CHUNKED PARSING");
+	m_phase = CHUNKED;
+	if (!m_unchunked.is_open()) {
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / "unchunked";
+		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
+	}
+
 	if (m_request.empty()) {
 		Logger::getInstance().log("EMPTY CHUNK");
-		m_phase = CHUNKED;
 		return;
 	}
 	std::string					delim = "\r\n";
@@ -185,6 +195,7 @@ void	HttpRequest::parseChunked() { // not properly tested
 		if (chunkSize == 0) {
 			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
 			m_phase = COMPLETE;
+			m_unchunked.close();
 			return;
 		}
 		endOfSize += 2;
@@ -192,12 +203,11 @@ void	HttpRequest::parseChunked() { // not properly tested
 		if (endOfContent == m_request.end()) { // incomplete chunk
 			if (currentPos > m_request.begin())
 				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
-			m_phase = CHUNKED;
 			return;
 		}
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
-		m_unchunkedData.insert(m_unchunkedData.end(), endOfSize, endOfContent);
+		m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
 		currentPos = endOfContent + 2;
 	}
 }
@@ -243,8 +253,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 			if (part.filename.empty()) {
 				part.content.insert(part.content.end(), currentPos, endOfContent - 2);
 			} else {
-				std::filesystem::path tmpDir = std::filesystem::temp_directory_path();
-				std::filesystem::path tmpFile = tmpDir / part.filename;
+				std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
 				std::ofstream fileStream(tmpFile, std::ios::binary);
 				if (!fileStream)
 					throw HttpException::internalServerError("error opening file");
@@ -333,11 +342,6 @@ const std::string&	HttpRequest::getTarget()
 const std::string&	HttpRequest::getMethod()
 {
 	return m_method;
-}
-
-const	std::vector<char>&	HttpRequest::getUnchunkedData()
-{
-	return m_unchunkedData;
 }
 
 const std::vector<multipart>&	HttpRequest::getMultipartData()

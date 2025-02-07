@@ -32,7 +32,7 @@ class HttpRequest {
 		std::string										m_target;
 		queryMap										m_queryData;
 		std::unordered_map<std::string, std::string>	m_headers;
-		std::vector<char>								m_unchunkedData;
+		std::ofstream									m_unchunked;
 		std::vector<multipart>							m_multipartData;
 
 		void			readRequest(int fd);
@@ -59,6 +59,5 @@ class HttpRequest {
 		const std::string&				getHost();
 		const std::string&				getTarget();
 		const std::string&				getMethod();
-		const std::vector<char>&		getUnchunkedData();
 		const std::vector<multipart>&	getMultipartData();
 };
