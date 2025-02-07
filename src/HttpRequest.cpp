@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <regex>
 
-HttpRequest::HttpRequest() : m_phase(CHUNKED) {}
+HttpRequest::HttpRequest() : m_phase(REQUEST) {}
 
 void	HttpRequest::getRequest(int fd)
 {
@@ -170,7 +170,7 @@ void	HttpRequest::parseBody(std::vector<char>::iterator endOfHeaders)
 }
 
 void	HttpRequest::parseChunked() { // not properly tested
-	Logger::getInstance().log("IN CHUNKED PARSING");
+	Logger::log("IN CHUNKED PARSING");
 	m_phase = CHUNKED;
 	if (!m_unchunked.is_open()) {
 		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / "unchunked";
@@ -178,7 +178,7 @@ void	HttpRequest::parseChunked() { // not properly tested
 	}
 
 	if (m_request.empty()) {
-		Logger::getInstance().log("EMPTY CHUNK");
+		Logger::log("EMPTY CHUNK");
 		return;
 	}
 	std::string					delim = "\r\n";
@@ -193,7 +193,7 @@ void	HttpRequest::parseChunked() { // not properly tested
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0) {
-			Logger::getInstance().log("CHUNKED PARSING COMPLETE");
+			Logger::log("CHUNKED PARSING COMPLETE");
 			m_phase = COMPLETE;
 			m_unchunked.close();
 			return;
