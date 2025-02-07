@@ -6,9 +6,8 @@
 #include <string>
 #include <unordered_map>
 
-enum	e_phase
+enum	e_body
 {
-	REQUEST,
 	CHUNKED,
 	MULTIPART,
 	COMPLETE
@@ -26,7 +25,8 @@ using queryMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class HttpRequest {
 	private:
-		e_phase											m_phase;
+		int												m_fd;
+		e_body											m_body;
 		std::vector<char>								m_request;
 		std::string										m_method;
 		std::string										m_target;
@@ -34,16 +34,16 @@ class HttpRequest {
 		std::unordered_map<std::string, std::string>	m_headers;
 		std::ofstream									m_unchunked;
 		std::vector<multipart>							m_multipartData;
+		size_t											m_contentLength;
 
-		void			readRequest(int fd);
-		void			parseRequest();
+		void			getBodyType(size_t maxSize);
+		void			readRequest();
 		void			parseRequestLine(std::istringstream& request);
 		void			parseURI();
 		void			decodeURI();
 		void			parseQueryString();
 		void			parseHeaders(std::istringstream& request);
-		void			parseBody(std::vector<char>::iterator endOfHeaders);
-		void			parseChunked();
+		void			parseChunked(size_t maxSize);
 		size_t			getChunkSize(std::string& hex);
 		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);
 		size_t			getContentLength();
@@ -51,13 +51,15 @@ class HttpRequest {
 		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
 
 	public:
-		HttpRequest();
+		HttpRequest(int fd);
 		~HttpRequest();
 
+		HttpRequest() = delete;
 		HttpRequest(const HttpRequest&) = delete;
 		HttpRequest&	operator=(const HttpRequest&) = delete;
 
-		void	getRequest(int fd);
+		void	parseRequest();
+		void	parseBody(size_t maxSize);
 
 		const std::string&				getHost();
 		const std::string&				getTarget();

@@ -16,16 +16,20 @@ enum	e_method
 
 class HttpHandler {
     private:
+		std::shared_ptr<ConfigNode> m_server;
         std::shared_ptr<ConfigNode> m_location;
         std::string                 m_path;
 		e_method					m_method;
         bool                        m_cgi;
+		size_t						m_maxSize;
 
-        void    		getLocation(HttpRequest& request, Config& config);
-        void    		validateCgi(const std::string& target);
-        void    		validateMethod(const std::string& method);
-        void    		validatePath(const std::string& target);
-		void			upload(const std::vector<multipart>& multipartData);
+        void	getLocation(HttpRequest& request, Config& config);
+		void	validateRequest(HttpRequest& request);
+        void	validateMethod(const std::string& method);
+        void	validatePath(const std::string& target);
+        void	validateCgi(const std::string& target);
+		void	getMaxSize();
+		void	upload(const std::vector<multipart>& multipartData);
 
         HttpResponse handleGet();
 		HttpResponse handlePost(const std::vector<multipart>& multipartData);

@@ -10,15 +10,17 @@ HttpHandler::HttpHandler() : m_cgi(false) {}
 
 HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 {
-	HttpRequest request;
+	HttpRequest request(fd);
 
     try {
-		request.getRequest(fd);
+		request.parseRequest();
         getLocation(request, config);
+		validateRequest(request);
         switch (m_method) {
         	case GET:
             	return handleGet();
         	case POST:
+				request.parseBody(m_maxSize);
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
@@ -30,14 +32,18 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
-    std::shared_ptr<ConfigNode> serverNode = config.findServerNode(request.getHost());
-    if (serverNode == nullptr) // temp
+    m_server = config.findServerNode(request.getHost());
+    if (m_server == nullptr) // temp
         throw HttpException::badRequest("Server node is null");
+	
+    m_location = m_server->findClosestMatch(request.getTarget());
+}
 
-    m_location = serverNode->findClosestMatch(request.getTarget());
-
+void	HttpHandler::validateRequest(HttpRequest& request)
+{
 	validateMethod(request.getMethod());
 	validatePath(request.getTarget());
+	getMaxSize();
 }
 
 void    HttpHandler::validateMethod(const std::string& method)
@@ -99,6 +105,23 @@ void    HttpHandler::validateCgi(const std::string& target)
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_cgi = true;
+}
+
+void	HttpHandler::getMaxSize()
+{
+	std::vector<std::string> maxSize;
+	m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	if (maxSize.empty()) {
+		m_maxSize = -1;
+		return;
+	}
+
+	try {
+		m_maxSize = std::stoul(maxSize.front());
+	} catch (std::exception& e) {
+		throw HttpException::internalServerError("failed to get max body size");
+	}
 }
 
 HttpResponse HttpHandler::handleGet()
