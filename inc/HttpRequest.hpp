@@ -54,6 +54,9 @@ class HttpRequest {
 		HttpRequest();
 		~HttpRequest();
 
+		HttpRequest(const HttpRequest&) = delete;
+		HttpRequest&	operator=(const HttpRequest&) = delete;
+
 		void	getRequest(int fd);
 
 		const std::string&				getHost();

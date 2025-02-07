@@ -198,8 +198,8 @@ void	Server::handleClients()
 
 void	Server::handleRequest(std::shared_ptr<Client> client)
 {
-	HttpHandler	httpHandler(client->fd());
-	HttpResponse httpResponse = httpHandler.handleRequest(m_config);
+	HttpHandler	httpHandler;
+	HttpResponse httpResponse = httpHandler.handleRequest(client->fd(), m_config);
 
 	if (httpResponse.closeConnection())
 	{

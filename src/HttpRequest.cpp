@@ -331,7 +331,9 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 
 const std::string&	HttpRequest::getHost()
 {
-	return m_headers["host"];
+	if (m_headers.find("host") != m_headers.end())
+		return m_headers["host"];
+	return EMPTY_STRING;
 }
 
 const std::string&	HttpRequest::getTarget()

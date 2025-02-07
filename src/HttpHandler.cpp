@@ -6,14 +6,14 @@
 #include <filesystem>
 #include <unordered_map>
 
-HttpHandler::HttpHandler(int fd) : m_fd(fd), m_cgi(false) {}
+HttpHandler::HttpHandler() : m_cgi(false) {}
 
-HttpResponse HttpHandler::handleRequest(Config& config)
+HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 {
 	HttpRequest request;
 
     try {
-		request.getRequest(m_fd);
+		request.getRequest(fd);
         getLocation(request, config);
         switch (m_method) {
         	case GET:

@@ -16,7 +16,6 @@ enum	e_method
 
 class HttpHandler {
     private:
-        int                         m_fd;
         std::shared_ptr<ConfigNode> m_location;
         std::string                 m_path;
 		e_method					m_method;
@@ -33,9 +32,13 @@ class HttpHandler {
         HttpResponse handleDelete();
 
     public:
-        HttpHandler(int fd);
+        HttpHandler();
+		~HttpHandler() = default;
 
-        HttpResponse	handleRequest(Config& config);
+		HttpHandler(const HttpHandler&) = delete;
+		HttpHandler& operator=(const HttpHandler&) = delete;
+
+        HttpResponse	handleRequest(int fd, Config& config);
 		
 		const std::string&	getTarget();
 };

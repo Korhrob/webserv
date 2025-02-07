@@ -30,6 +30,12 @@ class HttpResponse {
 		HttpResponse(int code, const std::string& msg);
 		HttpResponse(int code, const std::string& msg, const std::string& path);
 
+		~HttpResponse() = default;
+		HttpResponse&	operator=(const HttpResponse&) = default;
+
+		HttpResponse() = delete;
+		HttpResponse(const HttpResponse&) = delete;
+
 
 		std::string	getResponse();
 		std::string	getHeader();

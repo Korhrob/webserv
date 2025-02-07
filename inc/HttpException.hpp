@@ -12,6 +12,12 @@ class HttpException : public std::exception {
         HttpException(int code, std::string msg)
             : m_statusCode(code), m_msg(msg) {}
 
+		~HttpException() = default;
+
+		HttpException() = delete;
+		HttpException(const HttpException&) = delete;
+		HttpException&	operator=(const HttpException&) = delete;
+
         const char* what() const noexcept override {
             return m_msg.c_str();
         }
