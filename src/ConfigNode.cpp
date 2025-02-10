@@ -1,15 +1,51 @@
 #include "ConfigNode.hpp"
 #include "Const.hpp"
+#include "Logger.hpp"
 
 #include <memory>
+#include <exception>
+#include <string>
+#include <algorithm>
 
 ConfigNode::ConfigNode() {};
 ConfigNode::ConfigNode(const std::string& name) : m_name(name) {}
 ConfigNode::~ConfigNode() {};
 
-void	ConfigNode::addDirective(std::string key, std::vector<std::string> value)
+void	ConfigNode::addDirective(std::string key, std::vector<std::string>& value)
 {
 	m_directives[key] = value;
+}
+
+void	ConfigNode::addErrorPage(std::vector<std::string>& value)
+{
+	if (value.size() < 2)
+		return;
+
+	ErrorPage error_page;
+
+	for (auto it = value.begin(); it != value.end() - 1; it++)
+	{
+		try
+		{
+			int error_code = std::stoul(*it);
+
+			error_page.m_codes.emplace(error_code);
+			// could check if empalce succeeded or we have a duplicate
+		}
+		catch (const std::invalid_argument& e)
+		{
+			Logger::logError("invalid error code");
+			return;
+		}
+		catch (const std::out_of_range& e)
+		{
+			Logger::logError("error code out of range");
+			return;
+		}
+	}
+
+	error_page.m_page = value.back();
+	m_error_pages.push_back(error_page);
 }
 
 void	ConfigNode::addChild(std::string key, std::shared_ptr<ConfigNode> node)
@@ -87,4 +123,14 @@ bool	ConfigNode::tryGetDirective(const std::string&key, std::vector<std::string>
 {
 	out = findDirective(key);
 	return !out.empty();
+}
+
+const std::string&	ConfigNode::getErrorPage(int error_code)
+{
+	for (auto& page : m_error_pages)
+	{
+		if (page.m_codes.find(error_code) != page.m_codes.end())
+			return page.m_page;
+	}
+	return EMPTY_STRING;
 }

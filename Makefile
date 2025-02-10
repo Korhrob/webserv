@@ -21,8 +21,8 @@ obj/:
 
 clean:
 	rm -f $(SOBJ)
-	rm logs/log
-	rm logs/error
+	if [ -f logs/log ]; then rm logs/log; fi
+	if [ -f logs/error ]; then rm logs/error; fi
 
 fclean: clean
 	rm -f $(SNAME)

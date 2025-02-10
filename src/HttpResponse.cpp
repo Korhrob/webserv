@@ -3,7 +3,7 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_sendType(TYPE_SINGLE) {
+HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body("") {
 	if (code == 408)
 		m_headers.emplace("Connection", "close");
 }

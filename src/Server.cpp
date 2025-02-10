@@ -39,11 +39,46 @@ bool	Server::startServer()
 
 	for (auto& [server, node] : m_config.getNodeMap())
 	{
-		int port = m_config.getPort(server);
-		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
+		std::vector<std::string> listen;
 
-		if (m_listeners.find(port) == m_listeners.end())
-			createListener(port);
+		// should validatate, but we are pretty sure it exists
+		if (!node->tryGetDirective("listen", listen))
+		{
+			Logger::logError("missing listen directive, skipping server block");
+			continue;
+		}
+
+		if (listen.empty())
+		{
+			Logger::logError("listen directive is empty, skipping server block");
+			continue;
+		}
+
+		try
+		{
+			unsigned int port = std::stoul(listen.front());
+			Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
+
+			if (m_listeners.find(port) == m_listeners.end())
+			{
+				createListener(port);
+				m_config.setDefault(port, node);
+			} 
+			else if (listen.back() == "default_server")
+			{
+				m_config.setDefault(port, node);
+			}
+		}
+		catch (const std::invalid_argument& e)
+		{
+			Logger::logError("invalid port argument");
+			// use default?
+		}
+		catch (const std::out_of_range& e)
+		{
+			Logger::logError("port out of range");
+			// use default?
+		}
 		
 	}
 

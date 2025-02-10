@@ -2,6 +2,7 @@
 #include "ConfigNode.hpp"
 #include "Const.hpp"
 #include "Logger.hpp"
+#include "ErrorPage.hpp"
 
 #include <string>
 #include <fstream>
@@ -12,7 +13,7 @@
 
 #include <utility> // std::pair
 
-Config::Config() : m_valid(false), m_server_count(0), m_default_node(nullptr)
+Config::Config() : m_valid(false), m_server_count(0)
 {
 	std::ifstream	file("config.conf");
 
@@ -23,7 +24,7 @@ Config::Config() : m_valid(false), m_server_count(0), m_default_node(nullptr)
 	file.close();
 }
 
-Config::Config(const std::string& filename) : m_valid(false), m_server_count(0), m_default_node(nullptr)
+Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
 {
 	std::ifstream	file(filename);
 
@@ -154,7 +155,11 @@ bool	Config::parse(std::ifstream& stream)
 		}
 
 		directives.erase(directives.begin());
-		tree.back()->addDirective(name, directives);
+
+		if (name == "error_page")
+			tree.back()->addErrorPage(directives);
+		else
+			tree.back()->addDirective(name, directives);
 
 	}
 
@@ -180,56 +185,24 @@ bool	Config::parse(std::ifstream& stream)
 				Logger::logError(key + " missing mandatory directive '" + str + "'");
 				return false;
 			}
-			if (str == "listen" && !temp.empty() && temp.back() == "default_server")
-			{
-				// check for already set default node?
-				m_default_node = node;
-				Logger::log("assigned " + key + " as default");
-			}
+			// if (str == "listen" && !temp.empty() && temp.back() == "default_server")
+			// {
+			// 	// check for already set default node?
+			// 	//m_default_node = node;
+			// 	Logger::log("assigned " + key + " as default");
+			// }
 		}
 	}
 
-	if (m_default_node == nullptr)
-	{
-		Logger::log("no default server assigned, set first as default");
-		m_default_node = m_nodes.at("server_0");
-	}
+	// HANDLED ON SERVER STARTUP
+	// must add default server for each port
+	// if (m_default_node == nullptr)
+	// {
+	// 	Logger::log("no default server assigned, set first as default");
+	// 	m_default_node = m_nodes.at("server_0");
+	// }
 
 	return true;
-}
-
-unsigned int	Config::getPort(const std::string& server_name)
-{
-	if (m_nodes.find(server_name) == m_nodes.end())
-	{
-		Logger::logError("no such server block as " + server_name);
-		return 8080; // default
-	}
-
-	std::vector<std::string> directive = m_nodes[server_name]->findDirective("listen");
-
-	if (directive.empty())
-	{
-		Logger::logError("server block does not contain listen directive");
-		return 8080; // default
-	}
-
-	try
-	{
-		unsigned int	value = std::stoul(directive.front());
-		return value;
-	}
-	catch (const std::invalid_argument& e)
-	{
-		Logger::logError("invalid port argument");
-	}
-	catch (const std::out_of_range& e)
-	{
-		Logger::logError("port out of range");
-	}
-
-	Logger::logError("using default port 8080");
-	return 8080; // default
 }
 
 std::vector<std::string> 	Config::parseDirective(std::string& line, const int &line_nbr)

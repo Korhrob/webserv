@@ -29,6 +29,9 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
     } catch (HttpException& e) {
         return HttpResponse(e.getStatusCode(), e.what());
     }
+
+	// function has to always return something
+	return HttpResponse(0, "");
 }
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
