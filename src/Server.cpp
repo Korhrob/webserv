@@ -1,9 +1,9 @@
 
 #include "Client.hpp"
 #include "Server.hpp"
-#include "Parse.hpp"
-#include "Response.hpp"
+// #include "Parse.hpp"
 #include "Const.hpp"
+#include "HttpHandler.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -182,7 +182,7 @@ void	Server::handleClients()
 		{
 			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
 			//removeClient(client);
-			//client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
+			client->respond(RESPONSE_TIMEOUT);
 			client_list.push_back(client);
 			m_sock_count--;
 		}
@@ -194,32 +194,35 @@ void	Server::handleClients()
 	tryRegisterClient(time);
 }
 
-
 void	Server::handleRequest(std::shared_ptr<Client> client)
 {
-	Response	http_response(client, m_config);
+	HttpHandler	httpHandler;
+	HttpResponse httpResponse = httpHandler.handleRequest(client->fd(), m_config);
 
-	if (http_response.getStatus() == STATUS_BLANK)
+	if (httpResponse.closeConnection())
 	{
 		//client->update(m_time);
+		Logger::log(httpResponse.getResponse());
+		respond(client, httpResponse.getResponse());
 		m_disconnect.push_back(client);
 		return ;
 	}
 
 	// CGI
 
-	if (http_response.getSendType() == TYPE_SINGLE)
+	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		respond(client, http_response.str());
+		Logger::log(httpResponse.getResponse());
+		respond(client, httpResponse.getResponse());
 	}
-	else if (http_response.getSendType() == TYPE_CHUNK)
+	else if (httpResponse.getSendType() == TYPE_CHUNKED)
 	{
-		respond(client, http_response.header());
+		respond(client, httpResponse.getHeader());
 
 		std::ifstream file;
 		try
 		{
-			file = std::ifstream(http_response.path(), std::ios::binary);
+			file = std::ifstream(httpHandler.getTarget(), std::ios::binary);
 		}
 		catch(const std::exception& e)
 		{
@@ -308,7 +311,6 @@ void	Server::removeClient(std::shared_ptr<Client> client)
 	if (!client->isAlive())
 		return;
 
-	client->respond("HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n");
 	client->disconnect();
 
 	if (m_clients.find(client->fd()) != m_clients.end())

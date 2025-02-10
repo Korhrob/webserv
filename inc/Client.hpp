@@ -26,11 +26,8 @@ typedef std::chrono::steady_clock::time_point t_time;
 
 // TODO: move inline function to their own .cpp file
 
-using formMap = std::unordered_map<std::string, std::vector<std::string>>;
-
 class Client
 {
-
 	private:
 		bool											m_alive;
 		int												m_fd;
@@ -81,7 +78,6 @@ class Client
 			return true;
 		}
 
-
 		void	disconnect()
 		{
 			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " disconnected!");
@@ -90,6 +86,7 @@ class Client
 			// m_pollfd.revents = 0;
 			m_alive = false;
 
+			Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)
