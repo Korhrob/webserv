@@ -19,7 +19,10 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& value)
 void	ConfigNode::addErrorPage(std::vector<std::string>& value)
 {
 	if (value.size() < 2)
+	{
+		Logger::logError("error_page missing code(s) or path");
 		return;
+	}
 
 	ErrorPage error_page;
 
