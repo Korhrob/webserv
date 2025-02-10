@@ -253,6 +253,7 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 		respond(client, "0\r\n\r\n");
 		Logger::log("end chunk encoding");
 	}
+	// disconnect
 }
 
 void	Server::handleEvents()
