@@ -2,7 +2,6 @@
 #include "ConfigNode.hpp"
 #include "Const.hpp"
 #include "Logger.hpp"
-#include "ErrorPage.hpp"
 
 #include <string>
 #include <fstream>

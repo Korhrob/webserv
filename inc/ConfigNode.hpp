@@ -5,8 +5,13 @@
 #include <memory>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
-#include "ErrorPage.hpp"
+struct ErrorPage
+{
+	std::unordered_set<int>	m_codes;
+	std::string				m_page;
+};
 
 class ConfigNode;
 
