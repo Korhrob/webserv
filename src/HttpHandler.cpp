@@ -1,5 +1,4 @@
 #include "HttpHandler.hpp"
-#include "HttpRequest.hpp"
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
 
@@ -7,17 +6,22 @@
 #include <filesystem>
 #include <unordered_map>
 
-HttpHandler::HttpHandler(int fd) : m_fd(fd), m_isCGI(false) {}
+HttpHandler::HttpHandler() : m_cgi(false) {}
 
-HttpResponse HttpHandler::handleRequest(Config& config)
+HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 {
+	HttpRequest request(fd);
+
     try {
-        HttpRequest request(m_fd);
+		request.parseRequest();
         getLocation(request, config);
-        switch (m_method) {
+		validateRequest(request);
+        switch (m_method)
+		{
         	case GET:
             	return handleGet();
         	case POST:
+				request.parseBody(m_maxSize);
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
@@ -29,14 +33,18 @@ HttpResponse HttpHandler::handleRequest(Config& config)
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
-    std::shared_ptr<ConfigNode> serverNode = config.findServerNode(request.getHost());
-    if (serverNode == nullptr) // temp
+    m_server = config.findServerNode(request.getHost());
+    if (m_server == nullptr) // temp
         throw HttpException::badRequest("Server node is null");
+	
+    m_location = m_server->findClosestMatch(request.getTarget());
+}
 
-    m_location = serverNode->findClosestMatch(request.getTarget());
-
+void	HttpHandler::validateRequest(HttpRequest& request)
+{
 	validateMethod(request.getMethod());
 	validatePath(request.getTarget());
+	getMaxSize();
 }
 
 void    HttpHandler::validateMethod(const std::string& method)
@@ -50,7 +58,8 @@ void    HttpHandler::validateMethod(const std::string& method)
 	}
 
 	std::unordered_map<std::string, e_method>	methods = {{"GET", GET}, {"POST", POST}, {"DELETE", DELETE}};
-	for (auto [key, value]: methods) {
+	for (auto [key, value]: methods)
+	{
 		if (key == method)
 			m_method = methods[key];
 	}
@@ -66,12 +75,14 @@ void    HttpHandler::validatePath(const std::string& target)
     m_path = root.empty() ? target : root.front() + target; // error ?
 
     try { // fix this - Set a default file to answer if the request is a directory
-		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path)) {
+		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path))
+		{
 			std::vector<std::string> indices;
 			m_location->tryGetDirective("index", indices);
 			for (std::string index: indices) {
 				std::string newPath = m_path + index;
-				if (std::filesystem::exists(newPath)) {
+				if (std::filesystem::exists(newPath))
+				{
 					m_path = newPath;
 					break;
 				}
@@ -97,7 +108,25 @@ void    HttpHandler::validateCgi(const std::string& target)
     m_location->tryGetDirective("cgi", cgi);
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
-		m_isCGI = true;
+		m_cgi = true;
+}
+
+void	HttpHandler::getMaxSize()
+{
+	std::vector<std::string> maxSize;
+	m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	if (maxSize.empty())
+	{
+		m_maxSize = -1;
+		return;
+	}
+
+	try {
+		m_maxSize = std::stoul(maxSize.front());
+	} catch (std::exception& e) {
+		throw HttpException::internalServerError("failed to get max body size");
+	}
 }
 
 HttpResponse HttpHandler::handleGet()
@@ -111,8 +140,33 @@ HttpResponse HttpHandler::handleGet()
 HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
 	upload(multipartData);
-
+	
 	return HttpResponse(200, "OK");
+}
+
+void	HttpHandler::upload(const std::vector<multipart>& multipartData)
+{
+	std::vector<std::string>	uploadDir;
+	m_location->tryGetDirective("uploadDir", uploadDir);
+
+	if (uploadDir.empty())
+		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this a config error?
+
+	for (multipart part: multipartData)
+	{
+		if (!part.filename.empty())
+		{
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
+			try {
+				std::filesystem::copy_file(tmpFile, destination);
+			} catch (std::filesystem::filesystem_error& e) {
+				throw HttpException::internalServerError("error uploading file");
+			}
+		}
+		if (!part.nestedData.empty())
+			upload(part.nestedData);
+	}
 }
 
 HttpResponse HttpHandler::handleDelete()
@@ -127,32 +181,7 @@ HttpResponse HttpHandler::handleDelete()
 	}
 }
 
-void	HttpHandler::upload(const std::vector<multipart>& multipartData)
-{	
-	for (multipart part: multipartData) {
-		if (!part.filename.empty()) {
-			std::ofstream file = getFileStream(part.filename);
-			file.write(part.content.data(), part.content.size());
-		}
-		if (!part.nestedData.empty())
-			upload(part.nestedData);
-	}
-}
-
-std::ofstream	HttpHandler::getFileStream(std::string filename)
+const std::string&	HttpHandler::getTarget()
 {
-	if (filename.find("../") != std::string::npos)	
-		throw HttpException::badRequest("forbidden traversal pattern in filename");
-	
-	std::string					filePath;
-	std::vector<std::string>	uploadDir;
-
-	m_location->tryGetDirective("uploadDir", uploadDir); // what if there is no directory set in config file
-	filePath = uploadDir.empty() ? filename : uploadDir.front() + '/' + filename; // what if there are multiple files with the same name
-
-	std::ofstream filestream(filePath, std::ios::out | std::ios::binary);
-	if (!filestream)
-		throw HttpException::internalServerError("open failed for file upload");
-			
-	return filestream;
+	return m_path;
 }

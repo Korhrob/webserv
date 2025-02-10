@@ -3,28 +3,29 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_sendType(TYPE_SINGLE) {
-	// if (code == 408)
-	// 	m_headers.emplace("Connection", "close");
+HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE)
+{
+	m_close = m_code == 408 ? true : false;
+
+	setHeaders();
 }
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body("")
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body(""), m_close(false)
 {
     try {
 		size_t size = std::filesystem::file_size(path);
         if (size <= PACKET_SIZE) {
             m_body = getBody(path);
-            m_headers.emplace("Content-Length", std::to_string(m_body.size()));
-            m_sendType = TYPE_SINGLE;
-        } else {
-            m_headers.emplace("Transfer-Encoding", "chunked");
-            m_sendType = TYPE_CHUNKED;
-        }
+            m_type = TYPE_SINGLE;
+		} else
+            m_type = TYPE_CHUNKED;
 	} catch (const std::filesystem::filesystem_error& e) {
 		m_code = 404;
 		m_msg = "Not Found: filesystem error";
-		m_sendType = TYPE_SINGLE;
+		m_type = TYPE_SINGLE;
 	}
+	
+	setHeaders();
 }
 
 std::string	HttpResponse::getBody(const std::string& path)
@@ -38,6 +39,16 @@ std::string	HttpResponse::getBody(const std::string& path)
 	buffer << file.rdbuf();
 
 	return buffer.str();
+}
+
+void	HttpResponse::setHeaders()
+{
+	m_close ? m_headers.emplace("Connection", "close") : m_headers.emplace("Connection", "keep-alive");
+
+	if (m_type == TYPE_SINGLE)
+		m_headers.emplace("Content-Length", std::to_string(m_body.size()));
+	else
+		m_headers.emplace("Transfer-Encoding", "chunked");
 }
 
 std::string HttpResponse::getResponse()
@@ -60,9 +71,11 @@ std::string HttpResponse::getHeaders()
 {
     std::string headers;
 
-    for (auto [key, value]: m_headers) {
+    for (auto [key, value]: m_headers)
+	{
         headers += key + ": " + value + "\r\n";
 	}
+
 	headers += "\r\n";
 
     return headers;
@@ -70,15 +83,15 @@ std::string HttpResponse::getHeaders()
 
 e_type  HttpResponse::getSendType()
 {
-    return m_sendType;
-}
-
-int HttpResponse::getStatusCode()
-{
-    return m_code;
+    return m_type;
 }
 
 std::string HttpResponse::getHeader()
 {
 	return getStatusLine() + getHeaders();
+}
+
+bool HttpResponse::closeConnection()
+{
+	return m_close;
 }
