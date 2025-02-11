@@ -82,12 +82,17 @@ bool	Config::parse(std::ifstream& stream)
 			}
 
 			// if node name starts with "location", we treat node as the path
-			// ex. "location /" becomes "/"
+			// ex. "location /" becomes just "/"
+
+			// TODO:
+			// should only allow certain name(s) like location or route
+			// also improve search for cases like 'qwertyu /location/location'
+
 			if (node_name.find("location") != std::string::npos)
 			{
 				node_name = node_name.substr(9);
 				node_name = trim(node_name);
-				Logger::log("location node = [" + node_name + "]");
+				//Logger::log("location node = [" + node_name + "]");
 			}
 
 			if (findNode(node_name) != nullptr)
@@ -118,6 +123,7 @@ bool	Config::parse(std::ifstream& stream)
 			tree.pop_back();
 			continue;
 		}
+
 		// if not back != '{' and tree.empty, error
 		// if back == '}' and tree.empty, error
 
@@ -137,28 +143,19 @@ bool	Config::parse(std::ifstream& stream)
 
 		std::string	name = directives[0];
 
-		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), name);
-
-		if (it == VALID_DIRECTIVES.end())
-		{
-			Logger::logError(name + " is not a valid directive, line " + std::to_string(line_nbr) + ":");
-			Logger::logError(line);
-			return false;
-		}
-
-		if (!tree.back()->findDirective(name).empty())
-		{
-			Logger::logError("duplicate directive " + name + " on line " + std::to_string(line_nbr) + ":");
-			Logger::logError(line);
-			return false;
-		}
-
 		directives.erase(directives.begin());
 
-		if (name == "error_page")
-			tree.back()->addErrorPage(directives);
-		else
-			tree.back()->addDirective(name, directives);
+		try {
+			if (name == "error_page")
+				tree.back()->addErrorPage(directives);
+			else
+				tree.back()->addDirective(name, directives);
+		}
+		catch (std::exception& e)
+		{
+			Logger::logError(std::string(e.what()) + " on line " + std::to_string(line_nbr));
+			return false;
+		}
 
 	}
 

@@ -54,30 +54,19 @@ bool	Server::startServer()
 			continue;
 		}
 
-		try
-		{
-			unsigned int port = std::stoul(listen.front());
-			Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
+		// port is already validated during config parsing
+		unsigned int port = std::stoul(listen.front());
+		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
 
-			if (m_listeners.find(port) == m_listeners.end())
-			{
-				createListener(port);
-				m_config.setDefault(port, node);
-			} 
-			else if (listen.back() == "default_server")
-			{
-				m_config.setDefault(port, node);
-			}
-		}
-		catch (const std::invalid_argument& e)
+		if (m_listeners.find(port) == m_listeners.end())
 		{
-			Logger::logError("invalid port argument");
-			// use default?
-		}
-		catch (const std::out_of_range& e)
+			createListener(port);
+			m_config.setDefault(port, node);
+		} 
+		else if (listen.back() == "default_server")
 		{
-			Logger::logError("port out of range");
-			// use default?
+			// override current default
+			m_config.setDefault(port, node);
 		}
 		
 	}

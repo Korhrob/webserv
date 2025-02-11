@@ -1,6 +1,7 @@
 #include "ConfigNode.hpp"
 #include "Const.hpp"
 #include "Logger.hpp"
+#include "Exception.hpp"
 
 #include <memory>
 #include <exception>
@@ -13,6 +14,27 @@ ConfigNode::~ConfigNode() {};
 
 void	ConfigNode::addDirective(std::string key, std::vector<std::string>& value)
 {
+	auto k = m_directives.find(key);
+
+	if (k != m_directives.end())
+		throw ConfigException::duplicateKey(key);
+
+	auto it = m_handler.find(key);
+
+	if (it != m_handler.end())
+	{
+		(this->*it->second)(value);
+	}
+	else
+	{
+		// legacy code, in the future remove find
+		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), key);
+
+		if (it == VALID_DIRECTIVES.end())
+			throw ConfigException::unknownDirective(key);
+	}
+
+	// only happens if no throw occurs
 	m_directives[key] = value;
 }
 
@@ -59,11 +81,9 @@ void	ConfigNode::addChild(std::string key, std::shared_ptr<ConfigNode> node)
 const std::vector<std::string>&	ConfigNode::findDirective(const std::string& key)
 {
 	auto it = m_directives.find(key);
+
 	if (it != m_directives.end())
 		return it->second;
-
-	// if (m_directives.find(key) != m_directives.end())
-	// 	return m_directives.at(key);
 
 	for (const auto& child : m_children)
 	{
@@ -77,6 +97,7 @@ const std::vector<std::string>&	ConfigNode::findDirective(const std::string& key
 const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
 {
 	auto it = m_children.find(key);
+
 	if (it != m_children.end())
 		return it->second;
 
@@ -92,6 +113,7 @@ const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
 const	std::shared_ptr<ConfigNode>	ConfigNode::findClosestMatch(const std::string& key)
 {
 	auto it = m_children.find(key);
+
 	if (it != m_children.end())
 		return it->second;
 
@@ -136,4 +158,28 @@ const std::string&	ConfigNode::getErrorPage(int error_code)
 			return page.m_page;
 	}
 	return EMPTY_STRING;
+}
+
+void	ConfigNode::handleListen(std::vector<std::string>& directives)
+{
+	try {
+		int	port = std::stoul(directives.front());
+
+		if (port < 0 || port > 65535)
+			throw ConfigException::portRange(directives.front());
+	}
+	catch (std::exception& e)
+	{
+		throw ConfigException::invalidPort(directives.front());
+	}
+}
+
+void	ConfigNode::handleMethod(std::vector<std::string>& directives)
+{
+	for (auto& directive : directives)
+	{
+		auto it = std::find(VALID_METHODS.begin(), VALID_METHODS.end(), directive);
+		if (it == VALID_METHODS.end())
+			throw ConfigException::invalidMethod(directive);
+	}
 }
