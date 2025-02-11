@@ -181,22 +181,8 @@ bool	Config::parse(std::ifstream& stream)
 				Logger::logError(key + " missing mandatory directive '" + str + "'");
 				return false;
 			}
-			// if (str == "listen" && !temp.empty() && temp.back() == "default_server")
-			// {
-			// 	// check for already set default node?
-			// 	//m_default_node = node;
-			// 	Logger::log("assigned " + key + " as default");
-			// }
 		}
 	}
-
-	// HANDLED ON SERVER STARTUP
-	// must add default server for each port
-	// if (m_default_node == nullptr)
-	// {
-	// 	Logger::log("no default server assigned, set first as default");
-	// 	m_default_node = m_nodes.at("server_0");
-	// }
 
 	return true;
 }

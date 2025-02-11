@@ -12,18 +12,21 @@ ConfigNode::ConfigNode() {};
 ConfigNode::ConfigNode(const std::string& name) : m_name(name) {}
 ConfigNode::~ConfigNode() {};
 
-void	ConfigNode::addDirective(std::string key, std::vector<std::string>& value)
+void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directives)
 {
 	auto k = m_directives.find(key);
 
 	if (k != m_directives.end())
 		throw ConfigException::duplicateKey(key);
 
+	if (directives.empty())
+		throw ConfigException::emptyDirective(key);
+
 	auto it = m_handler.find(key);
 
 	if (it != m_handler.end())
 	{
-		(this->*it->second)(value);
+		(this->*it->second)(directives);
 	}
 	else
 	{
@@ -35,7 +38,7 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& value)
 	}
 
 	// only happens if no throw occurs
-	m_directives[key] = value;
+	m_directives[key] = directives;
 }
 
 void	ConfigNode::addErrorPage(std::vector<std::string>& value)

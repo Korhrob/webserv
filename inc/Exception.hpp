@@ -28,7 +28,7 @@ class ConfigException : public std::exception
 
 		static ConfigException	portRange(const std::string& port)
 		{
-			return ConfigException(port + " out of range, use value between 0-65535");
+			return ConfigException(port + " out of range, use a value between 0-65535");
 		}
 
 		static ConfigException	invalidMethod(const std::string& method)
@@ -39,6 +39,11 @@ class ConfigException : public std::exception
 		static ConfigException	unknownDirective(const std::string& key)
 		{
 			return ConfigException("uknown directive " + key);
+		}
+
+		static ConfigException	emptyDirective(const std::string& key)
+		{
+			return ConfigException("empty directive for key " + key);
 		}
 
 };
