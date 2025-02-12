@@ -31,7 +31,7 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
     }
 
 	// function has to always return something
-	return HttpResponse(0, "");
+	return HttpResponse(0, ""); // Robert
 }
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)

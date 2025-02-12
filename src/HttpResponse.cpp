@@ -5,7 +5,10 @@
 
 HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body("") {
 	if (code == 408)
+	{
+		m_close = true; // Robert
 		m_headers.emplace("Connection", "close");
+	}
 }
 
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body(""), m_close(false)
