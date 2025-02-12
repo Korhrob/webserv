@@ -42,6 +42,8 @@ class Server
 		std::map<int, size_t>						m_listeners; // port, index
 		std::vector<std::shared_ptr<Client>>		m_disconnect;
 
+		std::vector<std::shared_ptr<Client>>		m_timeout_list;
+
 
 	public:
 		// Server(const std::string& ip, int port); // depracated
@@ -52,9 +54,9 @@ class Server
 		void	closeServer();
 		int		createListener(int port);
 		bool	tryRegisterClient(t_time time);
-		void	handleRequest(std::shared_ptr<Client> client);
 		void	handleClients();
 		void	handleEvents();
+		void	handleRequest(std::shared_ptr<Client> client);
 		void	update();
 		bool	clientEvent(std::shared_ptr<Client> client, int event);
 		int		respond(std::shared_ptr<Client> client, const std::string& response);

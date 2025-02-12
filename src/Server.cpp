@@ -196,26 +196,64 @@ bool	Server::tryRegisterClient(t_time time)
 
 void	Server::handleClients()
 {
-	auto time = std::chrono::steady_clock::now();
-
-	std::vector<std::shared_ptr<Client>> client_list;
+	auto t = m_time + std::chrono::seconds(2);
 
 	for (auto& [index, client] : m_clients)
 	{
-		if (client->isAlive() && client->timeout(time))
+		if (!client->isAlive())
+			continue;
+
+		if (!client->timeout(m_time))
+			continue;
+			
+		Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
+		client->setAlive(false);
+		client->respond(RESPONSE_TIMEOUT);
+		client->respond(EMPTY_STRING);
+		client->setDisconnectTime(t);
+		m_timeout_list.push_back(client);
+		m_sock_count--;
+	}
+
+	for (auto it = m_timeout_list.begin(); it != m_timeout_list.end();)
+	{
+		auto client = *it;
+		if (m_time >= client->getDisconnectTime())
 		{
-			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
-			//removeClient(client);
-			client->respond(RESPONSE_TIMEOUT);
-			client_list.push_back(client);
-			m_sock_count--;
+			removeClient(client);
+			it = m_timeout_list.erase(it);
+		}
+		else
+		{
+			++it;
 		}
 	}
 
-	for (auto& client : client_list)
+	tryRegisterClient(m_time);
+}
+
+void	Server::handleEvents()
+{
+	for (auto& [index, client] : m_clients)
+	{
+		if (!client->isAlive())
+			continue;
+
+		if (clientEvent(client, POLLIN))
+		{
+			handleRequest(client);
+			client->update(m_time);
+		}
+	}
+
+	if (m_disconnect.empty())
+		return;
+
+	for (auto& client : m_disconnect)
 		removeClient(client);
 
-	tryRegisterClient(time);
+	m_disconnect.clear();
+
 }
 
 void	Server::handleRequest(std::shared_ptr<Client> client)
@@ -225,10 +263,15 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 
 	if (httpResponse.closeConnection())
 	{
-		//client->update(m_time);
-		Logger::log("== CLOSE CONNECTION ==\n" + httpResponse.getResponse());
+		Logger::log("== CLOSE CONNECTION ==");
+		// duplicate code and inefficient use of now(), save time on server class
+		auto t = m_time + std::chrono::seconds(2);
+		client->setAlive(false);
+		client->respond(EMPTY_STRING);
+		client->setDisconnectTime(t);
+		m_timeout_list.push_back(client);
 		//respond(client, httpResponse.getResponse());
-		m_disconnect.push_back(client);
+		//m_disconnect.push_back(client);
 		return ;
 	}
 
@@ -237,7 +280,7 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		Logger::log(httpResponse.getResponse());
+		//Logger::log(httpResponse.getResponse());
 		respond(client, httpResponse.getResponse());
 	}
 	else if (httpResponse.getSendType() == TYPE_CHUNKED)
@@ -272,37 +315,13 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 			oss.write(buffer, count);
 			oss << "\r\n";
 			respond(client, oss.str());
-			Logger::log("chunk encoding");
+			Logger::log("CHUNK");
 		}
 
 		respond(client, "0\r\n\r\n");
-		Logger::log("end chunk encoding");
+		Logger::log("END CHUNK");
 	}
 	// disconnect
-}
-
-void	Server::handleEvents()
-{
-	for (auto& [index, client] : m_clients)
-	{
-		if (!client->isAlive())
-			continue;
-
-		if (clientEvent(client, POLLIN))
-		{
-			handleRequest(client);
-			client->update(m_time);
-		}
-	}
-
-	if (m_disconnect.empty())
-		return;
-
-	for (auto& client : m_disconnect)
-		removeClient(client);
-
-	m_disconnect.clear();
-
 }
 
 void	Server::update()
@@ -334,9 +353,6 @@ int		Server::respond(std::shared_ptr<Client> client, const std::string& msg)
 
 void	Server::removeClient(std::shared_ptr<Client> client)
 {
-	if (!client->isAlive())
-		return;
-
 	client->disconnect();
 
 	if (m_clients.find(client->fd()) != m_clients.end())

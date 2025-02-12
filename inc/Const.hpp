@@ -10,8 +10,8 @@ static const unsigned int CLIENT_TIMEOUT = 5000; // 5 seconds
 #ifndef LOG_ENABLE
 # define LOG_ENABLE true
 #endif
-#ifndef LOG_STROUT
-# define LOG_STDOUT true
+#ifndef LOG_STDOUT
+# define LOG_STDOUT
 #endif
 
 const std::string				WHITESPACE = " \t";

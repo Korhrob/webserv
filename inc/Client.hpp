@@ -36,6 +36,7 @@ class Client
 		unsigned int									m_files_sent;
 		t_time											m_last_activity;
 		bool											m_close_connection = false;
+		t_time											m_disconnect_time;
 
 	public:
 
@@ -60,10 +61,9 @@ class Client
 
 		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
 		{
-			// set up non blocking fd
-			int flags = fcntl(fd, F_GETFL, 0);
-    		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
+			// set up non blocking fd (MACOS)
+			// int flags = fcntl(fd, F_GETFL, 0);
+    		// fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 			// check fcntl errors
 
 			m_fd = fd;
@@ -81,7 +81,8 @@ class Client
 		void	disconnect()
 		{
 			Logger::log("Client id " + std::to_string(m_pollfd_index) + ", fd " + std::to_string(m_fd) + " disconnected!");
-			close(m_fd);
+			if (m_fd >= 0)
+				close(m_fd);
 			// m_pollfd.fd = -1;
 			// m_pollfd.revents = 0;
 			m_alive = false;
@@ -120,9 +121,19 @@ class Client
 			return (diff > CLIENT_TIMEOUT);
 		}
 
-		void	setCloseConnection()
+		void	setAlive(bool b)
 		{
-			m_close_connection = true;
+			m_alive = b;
+		}
+
+		void	setDisconnectTime(t_time& time)
+		{
+			m_disconnect_time = time;
+		}
+
+		t_time	getDisconnectTime()
+		{
+			return m_disconnect_time;
 		}
 
 };
