@@ -106,7 +106,7 @@ class Client
 			#else
 				int bytes_sent = send(m_fd, response.c_str(), response.size(), 0);
 			#endif
-			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
+			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + " --\n\n");
 			m_files_sent++;
 			// m_pollfd.revents = POLLOUT; 
 

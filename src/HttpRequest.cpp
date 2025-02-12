@@ -59,7 +59,7 @@ void	HttpRequest::readRequest()
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(m_fd, buffer, PACKET_SIZE, 0);
 
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to receive request");
