@@ -1,7 +1,7 @@
 #include "ConfigNode.hpp"
 #include "Const.hpp"
 #include "Logger.hpp"
-#include "Exception.hpp"
+#include "ConfigException.hpp"
 
 #include <memory>
 #include <exception>
@@ -30,7 +30,7 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directi
 	}
 	else
 	{
-		// legacy code, in the future remove find
+		// legacy code, in the future throw exception without find
 		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), key);
 
 		if (it == VALID_DIRECTIVES.end())
@@ -41,38 +41,27 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directi
 	m_directives[key] = directives;
 }
 
-void	ConfigNode::addErrorPage(std::vector<std::string>& value)
+void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 {
-	if (value.size() < 2)
+	if (directives.size() < 2)
 	{
 		Logger::logError("error_page missing code(s) or path");
 		return;
 	}
 
-	ErrorPage error_page;
-
-	for (auto it = value.begin(); it != value.end() - 1; it++)
+	for (auto page : m_error_pages)
 	{
-		try
+		if (page.m_page == directives.back())
 		{
-			int error_code = std::stoul(*it);
-
-			error_page.m_codes.emplace(error_code);
-			// could check if empalce succeeded or we have a duplicate
-		}
-		catch (const std::invalid_argument& e)
-		{
-			Logger::logError("invalid error code");
-			return;
-		}
-		catch (const std::out_of_range& e)
-		{
-			Logger::logError("error code out of range");
+			emplaceCodes(page, directives);
 			return;
 		}
 	}
 
-	error_page.m_page = value.back();
+	ErrorPage error_page;
+
+	emplaceCodes(error_page, directives);
+	error_page.m_page = directives.back();
 	m_error_pages.push_back(error_page);
 }
 
@@ -184,5 +173,33 @@ void	ConfigNode::handleMethod(std::vector<std::string>& directives)
 		auto it = std::find(VALID_METHODS.begin(), VALID_METHODS.end(), directive);
 		if (it == VALID_METHODS.end())
 			throw ConfigException::invalidMethod(directive);
+	}
+}
+
+void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives)
+{
+	for (auto it = directives.begin(); it != directives.end() - 1; it++)
+	{
+		try
+		{
+			int error_code = std::stoul(*it);
+
+			auto result = error_page.m_codes.emplace(error_code);
+			if (!(result.second))
+			{
+				Logger::logError("duplicate error code " + std::to_string(error_code));
+				return;
+			}
+		}
+		catch (const std::invalid_argument& e)
+		{
+			Logger::logError("invalid error code");
+			return;
+		}
+		catch (const std::out_of_range& e)
+		{
+			Logger::logError("error code out of range");
+			return;
+		}
 	}
 }

@@ -95,7 +95,8 @@ bool	Config::parse(std::ifstream& stream)
 				//Logger::log("location node = [" + node_name + "]");
 			}
 
-			if (findNode(node_name) != nullptr)
+			// Test this
+			if (!tree.empty() && tree.back()->findNode(node_name) != nullptr)
 			{
 				Logger::logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
 				Logger::logError(line);
@@ -184,6 +185,8 @@ bool	Config::parse(std::ifstream& stream)
 		}
 	}
 
+	// create default error rules for each server
+
 	return true;
 }
 
@@ -239,51 +242,6 @@ std::string	Config::trim(const std::string& str)
 	size_t	last = str.find_last_not_of(WHITESPACE);
 
 	return str.substr(first, last - first + 1);
-}
-
-/// @brief recursively find directive with key
-/// @param key 
-/// @return vector for directive or constant empty vector
-const std::vector<std::string>&	Config::findDirective(const std::string& key)
-{
-	for (const auto& node : m_nodes)
-	{
-		const std::vector<std::string>& temp = node.second->findDirective(key);
-		if (!temp.empty())
-			return temp;
-	}
-	return EMPTY_VECTOR;
-}
-
-/// @brief recursively find node with key
-/// @param key node name
-/// @return pointer to found node or nullptr
-const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
-{
-	auto it = m_nodes.find(key);
-	if (it != m_nodes.end())
-		return it->second;
-
-	// if (m_nodes.find(key) != m_nodes.end())
-	// 	return m_nodes[key];
-
-	for (const auto& node : m_nodes)
-	{
-		const std::shared_ptr<ConfigNode> temp = node.second->findNode(key);
-		if (temp != nullptr)
-			return temp;
-	}
-	return nullptr;
-}
-
-/// @brief assign directive[key] to out and return true if it isn't empty
-/// @param key directive key
-/// @param out output directive
-/// @return true or false
-bool	Config::tryGetDirective(const std::string&key, std::vector<std::string>& out)
-{
-	out = findDirective(key);
-	return !out.empty();
 }
 
 int	Config::getServerCount()

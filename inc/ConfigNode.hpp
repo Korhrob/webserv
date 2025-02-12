@@ -52,5 +52,6 @@ public:
 	const std::string&					getErrorPage(int error_code);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 	const std::string&					getName() { return m_name; };
+	void								emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives);
 
 };

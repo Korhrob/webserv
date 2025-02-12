@@ -29,10 +29,7 @@ public:
 	std::vector<std::string> 			parseDirective(std::string& line, const int &line_nbr);
 
 	// a lot of these probably not required directly in config anymore
-	const std::vector<std::string>&		findDirective(const std::string& key);
-	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
 	const std::shared_ptr<ConfigNode>	findServerNode(const std::string& host);
-	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 	void								setDefault(int port, std::shared_ptr<ConfigNode> node) { m_default_node[port] = node; };
 
 	int									getServerCount();
