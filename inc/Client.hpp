@@ -97,6 +97,10 @@ class Client
 		// rename send
 		int	respond(const std::string& response)
 		{
+			// if connection is already closed
+			if (m_fd < 0)
+				return 0;
+
 			#ifdef MSG_NOSIGNAL
 				int bytes_sent = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
 			#else

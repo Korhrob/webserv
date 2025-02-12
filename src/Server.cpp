@@ -226,13 +226,14 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 	if (httpResponse.closeConnection())
 	{
 		//client->update(m_time);
-		Logger::log(httpResponse.getResponse());
-		respond(client, httpResponse.getResponse());
+		Logger::log("== CLOSE CONNECTION ==\n" + httpResponse.getResponse());
+		//respond(client, httpResponse.getResponse());
 		m_disconnect.push_back(client);
 		return ;
 	}
 
 	// CGI
+	Logger::log("== SEND RESPONSE ==");
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
