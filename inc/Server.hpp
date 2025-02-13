@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <sys/epoll.h> // epoll
 #include <queue> // priority_queue
+#include <unordered_set>
 
 #include "Logger.hpp"
 #include "Client.hpp"
@@ -23,18 +24,19 @@
 using t_sockaddr_in = struct sockaddr_in;
 using t_time = std::chrono::steady_clock::time_point;
 
-		struct TimeoutClient
-		{
-			t_time					time;
-			std::shared_ptr<Client>	client;
+struct TimeoutClient
+{
+	t_time					time;
+	std::shared_ptr<Client>	client;
 
-			bool operator>(const TimeoutClient& other) const
-			{
-				return time > other.time;
-			}
-		};
+	bool operator>(const TimeoutClient& other) const
+	{
+		return time > other.time;
+	}
+};
 
 using Queue = std::priority_queue<TimeoutClient, std::vector<TimeoutClient>, std::greater<>>;
+using Set = std::unordered_set<std::shared_ptr<Client>>;
 using ClientMap = std::unordered_map<int, std::shared_ptr<Client>>;
 
 class Server
@@ -54,6 +56,7 @@ class Server
 		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
+		Set								m_timeout_set;
 
 
 	public:
@@ -66,6 +69,7 @@ class Server
 		int		createListener(int port);
 		void	addClient(int fd);
 		void	removeClient(std::shared_ptr<Client> client);
+		void	updateClient(std::shared_ptr<Client> client);
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
 		void	handleRequest(int fd);

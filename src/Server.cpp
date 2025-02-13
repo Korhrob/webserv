@@ -206,6 +206,7 @@ void	Server::handleTimeouts()
 			client->respond(EMPTY_STRING);
 			client->setDisconnectTime(grace);
 			m_timeout_queue.push({grace, client});
+			m_timeout_set.insert(client);
 		}
 	}
 
@@ -214,6 +215,7 @@ void	Server::handleTimeouts()
 	{
 		auto c = m_timeout_queue.top();
 		m_timeout_queue.pop();
+		m_timeout_set.erase(c.client);
 		removeClient(c.client);
 		--max;
 	}
@@ -244,11 +246,8 @@ void	Server::handleRequest(int fd)
 		return ;
 	}
 
-	// check if client is in timeout pool
-	// if it is, we should remove it from there
-	client->update(m_time);
+	updateClient(client);
 
-	// CGI
 	Logger::log("== SEND RESPONSE ==");
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
@@ -321,4 +320,26 @@ void	Server::removeClient(std::shared_ptr<Client> client)
 {
 	m_clients.erase(client->fd());
 	client->disconnect();
+}
+
+void	Server::updateClient(std::shared_ptr<Client> client)
+{
+	client->update(m_time);
+
+	// remove client from timeout pool
+	if (m_timeout_set.find(client) != m_timeout_set.end())
+	{
+		Queue new_queue;
+
+		while (!m_timeout_queue.empty())
+		{
+			auto top = m_timeout_queue.top();
+			m_timeout_queue.pop();
+			if (top.client != client)
+				new_queue.push(top);
+		}
+
+		m_timeout_queue = new_queue;
+		m_timeout_set.erase(client);
+	}	
 }

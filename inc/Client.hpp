@@ -83,8 +83,7 @@ class Client
 		void	update(t_time& time)
 		{
 			m_last_activity = time;
-			//m_state = ClientState::CONNECTED;
-			m_disconnect_time = time + std::chrono::seconds(3);
+			m_state = ClientState::CONNECTED;
 		}
 
 		// rename send
