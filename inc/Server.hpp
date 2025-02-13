@@ -52,7 +52,6 @@ class Server
 		// new stuff
 		int								m_epoll_fd;
 		std::vector<epoll_event>		m_events;
-		std::vector<int>				m_listeners; // TODO: remove
 		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;

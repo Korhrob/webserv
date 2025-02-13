@@ -127,7 +127,6 @@ int	Server::createListener(int port)
 		return false;
 	}
 
-	m_listeners.push_back(fd);
 	m_port_map[fd] = port;
 
 	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(fd));
