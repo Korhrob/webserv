@@ -13,6 +13,7 @@
 #include <memory> // shared_ptr
 #include <unordered_map>
 #include <sys/epoll.h> // epoll
+#include <queue> // priority_queue
 
 #include "Logger.hpp"
 #include "Client.hpp"
@@ -22,19 +23,32 @@
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
 
+struct TimeoutClient
+{
+	t_time					time;
+	std::shared_ptr<Client>	client;
+
+	bool operator>(const TimeoutClient& other) const
+	{
+		return time > other.time;
+	}
+};
+
+using Queue = std::priority_queue<TimeoutClient, std::vector<TimeoutClient>, std::greater<>>;
+
 class Server
 {
 
 	private:
-		Config				m_config;
-		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
+		Config												m_config;
+		unsigned int										m_addr_len = sizeof(t_sockaddr_in);
 
-		int											m_max_backlog = 128;
-		int											m_sock_count;
+		int													m_max_backlog = 128;
+		int													m_sock_count;
 
-		t_time										m_time;
-		std::vector<t_sockaddr_in>					m_socket_addr;
-		std::vector<std::shared_ptr<Client>>		m_timeout_list;
+		t_time												m_time;
+		std::vector<t_sockaddr_in>							m_socket_addr;
+		Queue												m_timeout_queue;
 
 		// new stuff
 		int													m_epoll_fd;

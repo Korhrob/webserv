@@ -1,7 +1,6 @@
 
 #include "Client.hpp"
 #include "Server.hpp"
-// #include "Parse.hpp"
 #include "Const.hpp"
 #include "HttpHandler.hpp"
 
@@ -9,7 +8,6 @@
 #include <algorithm> // min
 #include <sstream>
 #include <fstream>
-#include <poll.h>
 #include <fcntl.h>
 
 Server::Server() : m_events(16)
@@ -209,25 +207,16 @@ void	Server::handleTimeouts()
 			client->respond(RESPONSE_TIMEOUT);
 			client->respond(EMPTY_STRING);
 			client->setDisconnectTime(grace);
-			m_timeout_list.push_back(client);
+			m_timeout_queue.push({grace, client});
 		}
 	}
 
-	// there has to be a cleaner way
-	for (auto it = m_timeout_list.begin(); it != m_timeout_list.end();)
+	if (!m_timeout_queue.empty() && m_time >= m_timeout_queue.top().time)
 	{
-		auto client = *it;
-		if (m_time >= client->getDisconnectTime())
-		{
-			//Logger::log("remove client " + std::to_string(client->fd()));
-			m_clients.erase(client->fd());
-			client->disconnect();
-			it = m_timeout_list.erase(it);
-		}
-		else
-		{
-			++it;
-		}
+		auto c = m_timeout_queue.top();
+		m_timeout_queue.pop();
+		m_clients.erase(c.client->fd());
+		c.client->disconnect();
 	}
 
 }
