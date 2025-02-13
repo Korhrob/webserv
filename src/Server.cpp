@@ -218,13 +218,15 @@ void	Server::handleTimeouts()
 		--max;
 	}
 
+	// could adjust epoll timeout rate
+
 }
 
 /// @brief Handle parsing request and sending response
 /// @param fd client file descriptor
 void	Server::handleRequest(int fd)
 {
-	// technicall should never happen
+	// technically should never happen
 	if (m_clients.find(fd) == m_clients.end())
 	{
 		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
@@ -242,6 +244,8 @@ void	Server::handleRequest(int fd)
 		return ;
 	}
 
+	// check if client is in timeout pool
+	// if it is, we should remove it from there
 	client->update(m_time);
 
 	// CGI

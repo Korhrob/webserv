@@ -58,7 +58,7 @@ class Client
 		int		fd() { return m_fd; }
 
 		// can handle all of these in constructor
-		bool	connect(int fd, t_time time)
+		bool	connect(int fd, t_time& time)
 		{
 			// technically not required, can remove
 			m_fd = fd;
@@ -78,31 +78,28 @@ class Client
 				close(m_fd);
 
 			m_state = ClientState::DISCONNECTED;
-
-			//Logger::getInstance().log("Client disconnected!");
 		}
 
-		void	update(t_time time)
+		void	update(t_time& time)
 		{
 			m_last_activity = time;
+			//m_state = ClientState::CONNECTED;
+			m_disconnect_time = time + std::chrono::seconds(3);
 		}
 
 		// rename send
 		int	respond(const std::string& response)
 		{
-			// if connection is already closed
 			if (m_state != ClientState::CONNECTED)
 				return 0;
 
 			int bytes_sent = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
 			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + " --\n\n");
-			//m_files_sent++; // not really required or correct
-			// m_pollfd.revents = POLLOUT; 
 
 			return (bytes_sent > 0);
 		}
 
-		bool	timeout(t_time now)
+		bool	timeout(t_time& now)
 		{
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
 
