@@ -41,13 +41,13 @@ enum ClientState
 class Client
 {
 	private:
-		int												m_fd;
-		t_sockaddr_in									m_addr;
-		unsigned int									m_files_sent;
-		t_time											m_last_activity;
-		bool											m_close_connection = false;
-		t_time											m_disconnect_time;
-		ClientState										m_state;
+		int				m_fd;
+		t_sockaddr_in	m_addr;
+		unsigned int	m_files_sent;
+		t_time			m_last_activity;
+		bool			m_close_connection = false;
+		t_time			m_disconnect_time;
+		ClientState		m_state;
 
 	public:
 

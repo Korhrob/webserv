@@ -10,7 +10,7 @@
 #include <fstream>
 #include <fcntl.h>
 
-Server::Server() : m_events(16)
+Server::Server() : m_events(EPOLL_POOL)
 {
 }
 
@@ -38,7 +38,7 @@ bool	Server::startServer()
 		return false;
 	}
 
-	for (auto& [server, node] : m_config.getNodeMap())
+	for (auto& [name, node] : m_config.getNodeMap())
 	{
 		std::vector<std::string> listen;
 
@@ -49,6 +49,7 @@ bool	Server::startServer()
 			continue;
 		}
 
+		// should always exist at this point, but just incase
 		if (listen.empty())
 		{
 			Logger::logError("listen directive is empty, skipping server block");
@@ -57,10 +58,9 @@ bool	Server::startServer()
 
 		// port is already validated during config parsing
 		unsigned int port = std::stoul(listen.front());
-		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
+		Logger::log("Starting server on " + name + ":" + std::to_string(port) + "...");
 
-		auto it = std::find(m_listeners.begin(), m_listeners.end(), port);
-		if (it == m_listeners.end()) //(m_listeners.find(port) == m_listeners.end())
+		if (!m_port_map.count(port))
 		{
 			createListener(port);
 			m_config.setDefault(port, node);

@@ -20,45 +20,44 @@
 #include "Const.hpp"
 #include "Config.hpp"
 
-typedef struct sockaddr_in t_sockaddr_in;
-typedef std::chrono::steady_clock::time_point t_time;
+using t_sockaddr_in = struct sockaddr_in;
+using t_time = std::chrono::steady_clock::time_point;
 
-struct TimeoutClient
-{
-	t_time					time;
-	std::shared_ptr<Client>	client;
+		struct TimeoutClient
+		{
+			t_time					time;
+			std::shared_ptr<Client>	client;
 
-	bool operator>(const TimeoutClient& other) const
-	{
-		return time > other.time;
-	}
-};
+			bool operator>(const TimeoutClient& other) const
+			{
+				return time > other.time;
+			}
+		};
 
 using Queue = std::priority_queue<TimeoutClient, std::vector<TimeoutClient>, std::greater<>>;
+using ClientMap = std::unordered_map<int, std::shared_ptr<Client>>;
 
 class Server
 {
 
 	private:
-		Config												m_config;
-		unsigned int										m_addr_len = sizeof(t_sockaddr_in);
+		Config							m_config;
+		unsigned int					m_addr_len = sizeof(t_sockaddr_in);
+		int								m_max_backlog = 128; // check config for override
 
-		int													m_max_backlog = 128;
-		int													m_sock_count;
-
-		t_time												m_time;
-		std::vector<t_sockaddr_in>							m_socket_addr;
-		Queue												m_timeout_queue;
+		t_time							m_time;
 
 		// new stuff
-		int													m_epoll_fd;
-		std::vector<epoll_event>							m_events;
-		std::vector<int>									m_listeners; // TODO: remove
-		std::unordered_map<int, int>						m_port_map; // fd -> port
-		std::unordered_map<int, std::shared_ptr<Client>>	m_clients;
+		int								m_epoll_fd;
+		std::vector<epoll_event>		m_events;
+		std::vector<int>				m_listeners; // TODO: remove
+		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
+		ClientMap						m_clients;
+		Queue							m_timeout_queue;
 
 
 	public:
+
 		Server(); // pass string for config name
 		~Server();
 
