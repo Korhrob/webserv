@@ -42,8 +42,6 @@ class Client
 {
 	private:
 		int				m_fd;
-		t_sockaddr_in	m_addr;
-		unsigned int	m_files_sent;
 		t_time			m_last_activity;
 		bool			m_close_connection = false;
 		t_time			m_disconnect_time;
@@ -60,13 +58,10 @@ class Client
 		int		fd() { return m_fd; }
 
 		// can handle all of these in constructor
-		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
+		bool	connect(int fd, t_time time)
 		{
 			// technically not required, can remove
 			m_fd = fd;
-
-			m_addr = sock_addr;
-			m_files_sent = 0;
 			m_last_activity = time;
 			m_state = ClientState::CONNECTED;
 
@@ -84,7 +79,7 @@ class Client
 
 			m_state = ClientState::DISCONNECTED;
 
-			Logger::getInstance().log("Client disconnected!");
+			//Logger::getInstance().log("Client disconnected!");
 		}
 
 		void	update(t_time time)

@@ -65,6 +65,7 @@ class Server
 		void	closeServer();
 		int		createListener(int port);
 		void	addClient(int fd);
+		void	removeClient(std::shared_ptr<Client> client);
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
 		void	handleRequest(int fd);

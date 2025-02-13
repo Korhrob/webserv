@@ -186,11 +186,9 @@ void	Server::addClient(int fd)
 	}
 
 	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
-	client->connect(client_fd, client_addr, m_time); // bool success = 
-
-	//Logger::log("register client " + std::to_string(client_fd));
+	client->connect(client_fd, m_time);
 	m_clients[client_fd] = client;
-	// m_client_count++;
+
 }
 
 /// @brief Handle client timeouts
@@ -211,12 +209,13 @@ void	Server::handleTimeouts()
 		}
 	}
 
-	if (!m_timeout_queue.empty() && m_time >= m_timeout_queue.top().time)
+	int max = 20;
+	while (!m_timeout_queue.empty() && max > 0 && m_time >= m_timeout_queue.top().time)
 	{
 		auto c = m_timeout_queue.top();
 		m_timeout_queue.pop();
-		m_clients.erase(c.client->fd());
-		c.client->disconnect();
+		removeClient(c.client);
+		--max;
 	}
 
 }
@@ -225,6 +224,7 @@ void	Server::handleTimeouts()
 /// @param fd client file descriptor
 void	Server::handleRequest(int fd)
 {
+	// technicall should never happen
 	if (m_clients.find(fd) == m_clients.end())
 	{
 		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
@@ -238,12 +238,7 @@ void	Server::handleRequest(int fd)
 	if (httpResponse.closeConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
-		//Logger::log("client " + std::to_string(client->fd()) + " EOF");
-
-		// manually removed from client collection after receiving EOF
-		client->disconnect();
-		m_clients.erase(client->fd());
-
+		removeClient(client);
 		return ;
 	}
 
@@ -302,7 +297,7 @@ void	Server::update()
 {
 	m_time = std::chrono::steady_clock::now();
 
-	auto event_count = epoll_wait(m_epoll_fd, m_events.data(), m_events.size(), CLIENT_TIMEOUT);
+	auto event_count = epoll_wait(m_epoll_fd, m_events.data(), m_events.size(), 200);
 
 	if (event_count == -1)
 		return;
@@ -316,4 +311,10 @@ void	Server::update()
 	handleEvents(event_count);
 	handleTimeouts();
 
+}
+
+void	Server::removeClient(std::shared_ptr<Client> client)
+{
+	m_clients.erase(client->fd());
+	client->disconnect();
 }
