@@ -1,18 +1,18 @@
 #pragma once
 
-#include <string>
+#include <string> // std::string
 #include <iostream> // std::cout
 #include <sys/socket.h> // socket
 #include <unistd.h> // close
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
-#include <poll.h> // pollfd
 #include <string.h>
 #include <sstream>
 #include <chrono> // time
 #include <vector> // vector
-#include <memory> // unique ptr
-#include <map>
+#include <memory> // shared_ptr
+#include <unordered_map>
+#include <sys/epoll.h> // epoll
 
 #include "Logger.hpp"
 #include "Client.hpp"
@@ -31,35 +31,29 @@ class Server
 
 		int											m_max_backlog = 128;
 		int											m_sock_count;
-		//int											m_max_sockets = 128;	// events { worker_connections}
 
 		t_time										m_time;
-		std::vector<struct pollfd>					m_pollfd_vector;
-		std::map<size_t, size_t>					m_pollfd; // index, pollfd_vector index
-		std::map<size_t, ConfigNode>				m_server_block; // fd
-		std::map<size_t, std::shared_ptr<Client>>	m_clients; /// index
 		std::vector<t_sockaddr_in>					m_socket_addr;
-		std::map<int, size_t>						m_listeners; // port, index
-		std::vector<std::shared_ptr<Client>>		m_disconnect;
-
 		std::vector<std::shared_ptr<Client>>		m_timeout_list;
+
+		// new stuff
+		int													m_epoll_fd;
+		std::vector<epoll_event>							m_events;
+		std::vector<int>									m_listeners; // TODO: remove
+		std::unordered_map<int, int>						m_port_map; // fd -> port
+		std::unordered_map<int, std::shared_ptr<Client>>	m_clients;
 
 
 	public:
-		// Server(const std::string& ip, int port); // depracated
-		Server();
+		Server(); // pass string for config name
 		~Server();
 
 		bool	startServer();
 		void	closeServer();
 		int		createListener(int port);
-		bool	tryRegisterClient(t_time time);
-		void	handleClients();
-		void	handleEvents();
-		void	handleRequest(std::shared_ptr<Client> client);
+		void	addClient(int fd);
+		void	handleEvents(int event_count);
+		void	handleTimeouts();
+		void	handleRequest(int fd);
 		void	update();
-		bool	clientEvent(std::shared_ptr<Client> client, int event);
-		int		respond(std::shared_ptr<Client> client, const std::string& response);
-		void	removeClient(std::shared_ptr<Client> client);
-		void	rebuildPollVector();
 };

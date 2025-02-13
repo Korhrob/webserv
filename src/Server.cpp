@@ -12,21 +12,17 @@
 #include <poll.h>
 #include <fcntl.h>
 
-Server::Server()
+Server::Server() : m_events(16)
 {
-	//m_pollfd.reserve(128);
 }
 
 Server::~Server()
 {
-	for (auto& pollfd : m_pollfd_vector)
+	for (auto& poll_event : m_events)
 	{
-		if (pollfd.fd > 0)
-			close(pollfd.fd);
+		if (poll_event.data.fd > 0)
+			close(poll_event.data.fd);
 	}
-
-	m_pollfd.clear();
-	m_clients.clear();
 }
 
 bool	Server::startServer()
@@ -34,6 +30,13 @@ bool	Server::startServer()
 	if (!m_config.isValid())
 	{
 		Logger::logError("Error in config file");
+		return false;
+	}
+
+	m_epoll_fd = epoll_create1(0);
+	if (m_epoll_fd == -1)
+	{
+		Logger::logError("failed to create epoll instance");
 		return false;
 	}
 
@@ -58,7 +61,8 @@ bool	Server::startServer()
 		unsigned int port = std::stoul(listen.front());
 		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
 
-		if (m_listeners.find(port) == m_listeners.end())
+		auto it = std::find(m_listeners.begin(), m_listeners.end(), port);
+		if (it == m_listeners.end()) //(m_listeners.find(port) == m_listeners.end())
 		{
 			createListener(port);
 			m_config.setDefault(port, node);
@@ -114,113 +118,110 @@ int	Server::createListener(int port)
 		return false;
 	}
 
-	// safe to use 1 2 3 4 5... here
-	size_t index = m_pollfd.size();
-	pollfd pfd { fd, POLLIN, 0 };
-	m_pollfd_vector.push_back(pfd);
-	m_pollfd[index] = index;
-	m_listeners[port] = index;
+	struct epoll_event event;
+	event.events = EPOLLIN;
+	event.data.fd = fd;
 
-	m_socket_addr.push_back(socket_addr); // not sure if required
+	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
+	{
+		Logger::logError("epoll_ctrl failed");
+		close(fd);
+		return false;
+	}
 
-	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(pfd.fd));
+	m_listeners.push_back(fd);
+	m_port_map[fd] = port;
+
+	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(fd));
 
 	return true;
 }
 
-// technically not required
+/// @brief Handle any logic before deconstruction
 void	Server::closeServer()
 {
 	Logger::log("Closing server...");
-
-	for (auto& pollfd : m_pollfd_vector)
-	{
-		if (pollfd.fd > 0)
-			close(pollfd.fd);
-	}
-
+	// ...
 	Logger::log("Server closed!");
 }
 
-bool	Server::tryRegisterClient(t_time time)
+/// @brief Handle epoll events
+void	Server::handleEvents(int event_count)
 {
-	// if full, should try to disconnect some idle clients
-	// if (m_sock_count >= m_max_sockets)
-	// 	return;
-
-	for (auto& [port, index] : m_listeners)
+	for (int i = 0; i < event_count; i++)
 	{
+		int fd = m_events[i].data.fd;
 
-		if (m_pollfd_vector[index].revents & POLLIN) { }
+		if (m_port_map.count(fd))
+			addClient(fd);
 		else
-		{
-			continue;
-		}
-
-		//m_pollfd_vector[index].revents = 0;
-
-		// move to addClient()
-		t_sockaddr_in client_addr = {};
-		m_addr_len = sizeof(client_addr);
-		int client_fd = accept(m_pollfd_vector[index].fd, (struct sockaddr*)&client_addr, &m_addr_len);
-
-		if (client_fd < 0)
-		{
-			Logger::logError("Accept client failed");
-			return false;
-		}
-
-		int	fd_index = m_pollfd_vector.size();
-		struct pollfd npfd { client_fd, POLLIN, 0 };
-		m_pollfd_vector.push_back(npfd);
-
-		std::shared_ptr<Client> client = std::make_shared<Client>(fd_index);
-		bool success = client->connect(client_fd, client_addr, time);
-
-		if (success)
-		{
-			m_pollfd[client_fd] = fd_index;
-			m_clients[client_fd] = client;
-			m_sock_count++;
-		}
-		else
-		{
-			Logger::logError("Failed to connect client");
-			m_pollfd_vector.pop_back();
-		}
-
+			handleRequest(fd);
 	}
 
-	return true;
 }
 
-void	Server::handleClients()
+/// @brief Accept new client
+/// @param fd listener file descriptor
+void	Server::addClient(int fd)
 {
-	auto t = m_time + std::chrono::seconds(2);
+	t_sockaddr_in client_addr = {};
+	m_addr_len = sizeof(client_addr);
+	int client_fd = accept(fd, (struct sockaddr*)&client_addr, &m_addr_len);
 
-	for (auto& [index, client] : m_clients)
+	if (client_fd < 0)
 	{
-		if (!client->isAlive())
-			continue;
-
-		if (!client->timeout(m_time))
-			continue;
-			
-		Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
-		client->setAlive(false);
-		client->respond(RESPONSE_TIMEOUT);
-		client->respond(EMPTY_STRING);
-		client->setDisconnectTime(t);
-		m_timeout_list.push_back(client);
-		m_sock_count--;
+		Logger::logError("error connecting client, accept");
+		return;
 	}
 
+	// setup non blocking
+
+	epoll_event	event;
+	event.events = EPOLLIN | EPOLLET;
+	event.data.fd = client_fd;
+
+	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
+	{
+		Logger::logError("error connecting client, epoll_ctl");
+		close(client_fd);
+		return;
+	}
+
+	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+	client->connect(client_fd, client_addr, m_time); // bool success = 
+
+	//Logger::log("register client " + std::to_string(client_fd));
+	m_clients[client_fd] = client;
+	// m_client_count++;
+}
+
+/// @brief Handle client timeouts
+void	Server::handleTimeouts()
+{
+	auto grace = m_time + std::chrono::seconds(2);
+
+	for (auto& [fd, client] : m_clients)
+	{
+		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
+		{
+			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
+			client->setClientState(ClientState::TIMEDOUT);
+			client->respond(RESPONSE_TIMEOUT);
+			client->respond(EMPTY_STRING);
+			client->setDisconnectTime(grace);
+			m_timeout_list.push_back(client);
+		}
+	}
+
+	// there has to be a cleaner way
 	for (auto it = m_timeout_list.begin(); it != m_timeout_list.end();)
 	{
 		auto client = *it;
 		if (m_time >= client->getDisconnectTime())
 		{
-			removeClient(client);
+			//Logger::log("remove client " + std::to_string(client->fd()));
+			m_clients.erase(client->fd());
+			client->disconnect();
 			it = m_timeout_list.erase(it);
 		}
 		else
@@ -229,51 +230,35 @@ void	Server::handleClients()
 		}
 	}
 
-	tryRegisterClient(m_time);
 }
 
-void	Server::handleEvents()
+/// @brief Handle parsing request and sending response
+/// @param fd client file descriptor
+void	Server::handleRequest(int fd)
 {
-	for (auto& [index, client] : m_clients)
+	if (m_clients.find(fd) == m_clients.end())
 	{
-		if (!client->isAlive())
-			continue;
-
-		if (clientEvent(client, POLLIN))
-		{
-			handleRequest(client);
-			client->update(m_time);
-		}
+		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
+		return;
 	}
 
-	if (m_disconnect.empty())
-		return;
-
-	for (auto& client : m_disconnect)
-		removeClient(client);
-
-	m_disconnect.clear();
-
-}
-
-void	Server::handleRequest(std::shared_ptr<Client> client)
-{
-	HttpHandler	httpHandler;
-	HttpResponse httpResponse = httpHandler.handleRequest(client->fd(), m_config);
+	HttpHandler	httpHandler; // move to class to prevent constant instances
+	HttpResponse httpResponse = httpHandler.handleRequest(fd, m_config);
+	std::shared_ptr<Client> client = m_clients.at(fd);
 
 	if (httpResponse.closeConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
-		// duplicate code and inefficient use of now(), save time on server class
-		auto t = m_time + std::chrono::seconds(2);
-		client->setAlive(false);
-		client->respond(EMPTY_STRING);
-		client->setDisconnectTime(t);
-		m_timeout_list.push_back(client);
-		//respond(client, httpResponse.getResponse());
-		//m_disconnect.push_back(client);
+		//Logger::log("client " + std::to_string(client->fd()) + " EOF");
+
+		// manually removed from client collection after receiving EOF
+		client->disconnect();
+		m_clients.erase(client->fd());
+
 		return ;
 	}
+
+	client->update(m_time);
 
 	// CGI
 	Logger::log("== SEND RESPONSE ==");
@@ -281,11 +266,11 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
 		//Logger::log(httpResponse.getResponse());
-		respond(client, httpResponse.getResponse());
+		client->respond(httpResponse.getResponse());
 	}
 	else if (httpResponse.getSendType() == TYPE_CHUNKED)
 	{
-		respond(client, httpResponse.getHeader());
+		client->respond(httpResponse.getHeader());
 
 		std::ifstream file;
 		try
@@ -314,71 +299,32 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 			oss << std::hex << count << "\r\n";
 			oss.write(buffer, count);
 			oss << "\r\n";
-			respond(client, oss.str());
+			client->respond(oss.str());
 			Logger::log("CHUNK");
 		}
 
-		respond(client, "0\r\n\r\n");
+		client->respond("0\r\n\r\n");
 		Logger::log("END CHUNK");
 	}
-	// disconnect
 }
 
+/// @brief Server update logic
 void	Server::update()
 {
-
 	m_time = std::chrono::steady_clock::now();
 
-	int	r = poll(m_pollfd_vector.data(), m_pollfd.size(), 1000);
+	auto event_count = epoll_wait(m_epoll_fd, m_events.data(), m_events.size(), CLIENT_TIMEOUT);
 
-	if (r == -1)
+	if (event_count == -1)
 		return;
 
-	handleClients();
-	handleEvents();
-
-}
-
-bool	Server::clientEvent(std::shared_ptr<Client> client, int event)
-{
-	return m_pollfd_vector[client->getIndex()].revents & event;
-}
-
-int		Server::respond(std::shared_ptr<Client> client, const std::string& msg)
-{
-	client->respond(msg);
-	m_pollfd_vector[client->getIndex()].revents = POLLOUT;
-	return 1;
-}
-
-void	Server::removeClient(std::shared_ptr<Client> client)
-{
-	client->disconnect();
-
-	if (m_clients.find(client->fd()) != m_clients.end())
-		m_clients.erase(client->fd());
-
-	auto it = m_pollfd.find(client->fd());
-	if (it != m_pollfd.end())
+	if (event_count == static_cast<int>(m_events.size()))
 	{
-		m_pollfd_vector.erase(m_pollfd_vector.begin() + it->second);
-		rebuildPollVector();
+		Logger::log("== RESIZE EVENT COLLECTION ==");
+		m_events.resize(m_events.size() * 2);
 	}
 
+	handleEvents(event_count);
+	handleTimeouts();
+
 }
-
-void	Server::rebuildPollVector()
-{
-	m_pollfd.clear();
-	for (size_t i = 0; i < m_pollfd_vector.size(); ++i)
-		m_pollfd[m_pollfd_vector[i].fd] = i;
-}
-
-// void asd(Config config)
-// {
-// 	ConfigNode server_block = config.getServerBlock("127.0.0.1:8080");
-
-// 	server_block.findDirective()
-
-
-// }
