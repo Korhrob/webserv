@@ -5,7 +5,7 @@
 
 HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE)
 {
-	m_close = m_code == 408 ? true : false;
+	m_close = (m_code == 408);
 
 	setHeaders();
 }
@@ -43,7 +43,11 @@ std::string	HttpResponse::getBody(const std::string& path)
 
 void	HttpResponse::setHeaders()
 {
-	m_close ? m_headers.emplace("Connection", "close") : m_headers.emplace("Connection", "keep-alive");
+	if (m_close)
+		m_headers.emplace("Connection", "close");
+	else
+		m_headers.emplace("Connection", "keep-alive");
+
 
 	if (m_type == TYPE_SINGLE)
 		m_headers.emplace("Content-Length", std::to_string(m_body.size()));
