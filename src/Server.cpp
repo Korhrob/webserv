@@ -16,10 +16,15 @@ Server::Server() : m_events(EPOLL_POOL)
 
 Server::~Server()
 {
-	for (auto& poll_event : m_events)
+	for (auto& [fd, client] : m_clients)
 	{
-		if (poll_event.data.fd > 0)
-			close(poll_event.data.fd);
+		if (fd > 0)
+			close(fd);
+	}
+	for (auto& [fd, port] : m_port_map)
+	{
+		if (fd > 0)
+			close(fd);
 	}
 }
 
@@ -78,8 +83,6 @@ bool	Server::startServer()
 
 int	Server::createListener(int port)
 {
-	t_sockaddr_in socket_addr;
-
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd <= 0)
 	{
@@ -96,19 +99,35 @@ int	Server::createListener(int port)
         return false;
     }
 
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+	{
+		Logger::logError("fctl get failed!");
+		close(fd);
+		return false;
+	}
+
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+	{
+		Logger::logError("fcntl set failed!");
+		close(fd);
+		return false;
+	}
+
+	t_sockaddr_in socket_addr { };
 	socket_addr.sin_family = AF_INET;
 	socket_addr.sin_addr.s_addr = INADDR_ANY;
 	socket_addr.sin_port = htons(port);
 
 	if (bind(fd, (struct sockaddr*)&socket_addr, sizeof(socket_addr)) < 0)
 	{
-		Logger::logError("Bind " + std::to_string(port) + " failed");
+		Logger::logError("Bind " + std::to_string(port) + " failed!");
 		close(fd);
 		closeServer();
 		return false;
 	}
 
-	if (listen(fd, m_max_backlog) < 0)
+	if (listen(fd, SOMAXCONN) == -1)
 	{
 		Logger::logError("Listen " + std::to_string(port) + " failed");
 		close(fd);
@@ -161,9 +180,9 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
-	t_sockaddr_in client_addr = {};
+	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
-	int client_fd = accept(fd, (struct sockaddr*)&client_addr, &m_addr_len);
+	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
 
 	if (client_fd < 0)
 	{

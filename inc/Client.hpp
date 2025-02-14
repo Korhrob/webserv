@@ -72,12 +72,14 @@ class Client
 
 		void	disconnect()
 		{
-			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
+			if (m_state == ClientState::DISCONNECTED)
+				return;
 
 			if (m_fd >= 0)
 				close(m_fd);
 
 			m_state = ClientState::DISCONNECTED;
+			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
 		}
 
 		void	update(t_time& time)
