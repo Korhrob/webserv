@@ -45,7 +45,7 @@ class Server
 	private:
 		Config							m_config;
 		unsigned int					m_addr_len = sizeof(t_sockaddr_in);
-		int								m_max_backlog = 128; // check config for override
+		//int								m_max_backlog = 128; // check config for override
 
 		t_time							m_time;
 
