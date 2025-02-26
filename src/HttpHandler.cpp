@@ -119,16 +119,13 @@ void	HttpHandler::getMaxSize()
 	std::vector<std::string> maxSize;
 	m_server->tryGetDirective("client_max_body_size", maxSize);
 
-	if (maxSize.empty())
+	if (!maxSize.empty()) // should a default value be set in a .hpp?
 	{
-		m_maxSize = -1;
-		return;
-	}
-
-	try {
-		m_maxSize = std::stoul(maxSize.front());
-	} catch (std::exception& e) {
-		throw HttpException::internalServerError("failed to get max body size");
+		try {
+			m_maxSize = std::stoul(maxSize.front());
+		} catch (std::exception& e) {
+			throw HttpException::internalServerError("failed to get max body size");
+		}
 	}
 }
 

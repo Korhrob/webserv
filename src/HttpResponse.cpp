@@ -3,12 +3,11 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body("") {
-	if (code == 408)
-	{
-		m_close = true; // Robert
-		m_headers.emplace("Connection", "close");
-	}
+HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE)
+{
+	m_close = (m_code == 408);
+
+	setHeaders();
 }
 
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body(""), m_close(false)
@@ -44,7 +43,11 @@ std::string	HttpResponse::getBody(const std::string& path)
 
 void	HttpResponse::setHeaders()
 {
-	m_close ? m_headers.emplace("Connection", "close") : m_headers.emplace("Connection", "keep-alive");
+	if (m_close)
+		m_headers.emplace("Connection", "close");
+	else
+		m_headers.emplace("Connection", "keep-alive");
+
 
 	if (m_type == TYPE_SINGLE)
 		m_headers.emplace("Content-Length", std::to_string(m_body.size()));
