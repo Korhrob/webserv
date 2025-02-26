@@ -290,5 +290,6 @@ const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host
 		return node;
 	}
 
-	return nullptr;
+	// could validate port
+	return m_default_node.at(std::stoi(port));
 }
