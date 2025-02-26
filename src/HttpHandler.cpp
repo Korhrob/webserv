@@ -27,7 +27,9 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
             	return handleDelete();
 		}
     } catch (HttpException& e) {
-        return HttpResponse(e.getStatusCode(), e.what());
+		std::vector<std::string>	root;
+		m_location->tryGetDirective("root", root);
+        return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()));
     }
 
 	// function has to always return something
@@ -75,9 +77,9 @@ void    HttpHandler::validatePath(const std::string& target)
     std::vector<std::string>    root;
 
     m_location->tryGetDirective("root", root);
-    m_path = root.empty() ? target : root.front() + target; // error ?
+    m_path = root.empty() ? target : root.front() + target;
 
-    try { // fix this - Set a default file to answer if the request is a directory
+    try {
 		if (!std::filesystem::exists(m_path) || std::filesystem::is_directory(m_path))
 		{
 			std::vector<std::string> indices;
