@@ -54,12 +54,11 @@ m_parsing(REQUEST), m_code(200), m_msg("OK"), m_status(STATUS_BLANK), m_header("
 
 	// set environment variables & invoke CGI here
 
-	Logger::getInstance().log("\npath " + m_path + "\n\n");
+	Logger::getInstance().log("\npath " + m_path + m_method + "\n\n");
 	if (m_path == "www/people.cgi")
 	{
 		displayMultipart(m_multipartData);
-		m_client->populateEnv(m_multipartData);
-		runCGI("../cgi-bin/people.cgi.php", m_client);
+		runCGI("../cgi-bin/people.cgi.php", m_client, m_method);
 		m_path = "www/index.html";
 		m_send_type = TYPE_SINGLE;
 		m_body = m_client->getBody();

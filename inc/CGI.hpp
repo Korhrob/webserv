@@ -10,4 +10,4 @@
 class Response;
 class Client;
 
-int runCGI(std::string script, std::shared_ptr<Client> client);
+int runCGI(std::string script, std::shared_ptr<Client> client, std::string method);

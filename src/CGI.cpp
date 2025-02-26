@@ -22,6 +22,7 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	// Close write end since we're only using the read end for stdin
 	close(pipefd[1]);
 
+	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
 	exit(EXIT_FAILURE);
@@ -45,17 +46,15 @@ static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
 	client->setBody(string);
 }
 
-int runCGI(std::string script, std::shared_ptr<Client> client)
+int runCGI(std::string script, std::shared_ptr<Client> client, std::string method)
 {
-	// char**		env;
 	pid_t		pid;
 	int			status;
 	FILE		*temp = std::tmpfile();
 	int			fdtemp = fileno(temp);
 	int			timeoutTime = 10;
-	std::string debug = "debugging";
-	std::vector<char*> envPtrs;
-	client->createEnv(envPtrs);
+	client->createEnv();
+	client->setEnvValue("REQUEST_METHOD", method);
 
 	// env = client->mallocEnv();
 	// if (env == NULL)
@@ -67,7 +66,7 @@ int runCGI(std::string script, std::shared_ptr<Client> client)
 	{
 		pid_t cgiPid = fork();
 		if (cgiPid == 0)
-			run(script, fdtemp, envPtrs);
+			run(script, fdtemp, client->getEnv());
 		pid_t timeoutPid = fork();
 		if (timeoutPid == 0)
 		{
@@ -93,3 +92,4 @@ int runCGI(std::string script, std::shared_ptr<Client> client)
 	}
 	return 0;
 }
+

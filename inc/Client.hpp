@@ -40,6 +40,7 @@ class Client
 {
 	private:
 		mapStr											m_env;
+		std::vector<char*> 								m_envPtrs;
 		std::string										m_body;
 		bool											m_alive;
 		struct pollfd&									m_pollfd; // shortcut
@@ -141,12 +142,9 @@ class Client
 		void setEnv(std::string envp);
 		void setEnvValue(std::string envp, std::string value);
 		void unsetEnv();
-		mapStr getEnv();
+		std::vector<char*> getEnv();
 		std::string getEnvValue(std::string envp);
-		void populateEnv(std::vector<multipart> info);
-		void freeEnv(char** env);
-		char** mallocEnv();
-		void createEnv(std::vector<char*> &envPtrs);
+		void createEnv();
 
 		void setBody(std::string string);
 		std::string getBody();

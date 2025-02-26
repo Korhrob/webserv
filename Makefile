@@ -25,6 +25,7 @@ clean:
 fclean: clean
 	rm -f $(SNAME)
 	rm -rf obj
+	rm -rf people.txt
 
 re: fclean all
 
