@@ -79,6 +79,9 @@ void    HttpHandler::validatePath(const std::string& target)
 		{
 			std::vector<std::string> indices;
 			m_location->tryGetDirective("index", indices);
+			/*	if no index is set ->
+			if autoindex on; is set, generate a directory listing.
+			if autoindex off;, return a 403 Forbidden error. */
 			for (std::string index: indices) {
 				std::string newPath = m_path + index;
 				if (std::filesystem::exists(newPath))
