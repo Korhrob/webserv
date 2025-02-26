@@ -99,15 +99,15 @@ int	Server::createListener(int port)
         return false;
     }
 
-	int flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-	{
-		Logger::logError("fctl get failed!");
-		close(fd);
-		return false;
-	}
+	// int flags = fcntl(fd, F_GETFL, 0);
+	// if (flags == -1)
+	// {
+	// 	Logger::logError("fctl get failed!");
+	// 	close(fd);
+	// 	return false;
+	// }
 
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) // flags | 
 	{
 		Logger::logError("fcntl set failed!");
 		close(fd);
