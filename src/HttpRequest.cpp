@@ -149,12 +149,13 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 	}
 }
 
-void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
-	std::cout << "MAX SIZE: " << maxSize << "\n"; 
+void	HttpRequest::parseChunked(size_t maxSize) {
 	if (!m_unchunked.is_open())
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / "unchunked";
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
 		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
+		if (!m_unchunked.is_open())
+			throw HttpException::internalServerError("error opening a file");
 	}
 
 	if (m_request.empty())
