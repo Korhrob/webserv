@@ -27,6 +27,8 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
             	return handleDelete();
 		}
     } catch (HttpException& e) {
+		if (!m_server)
+			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html");
 		std::vector<std::string>	root;
 		m_location->tryGetDirective("root", root);
         return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()));
