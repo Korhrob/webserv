@@ -290,5 +290,5 @@ const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host
 		return node;
 	}
 
-	return nullptr;
+	return m_default_node[std::stoi(port)];
 }

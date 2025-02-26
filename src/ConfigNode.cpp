@@ -149,6 +149,7 @@ const std::string&	ConfigNode::getErrorPage(int error_code)
 		if (page.m_codes.find(error_code) != page.m_codes.end())
 			return page.m_page;
 	}
+	// get default error pages
 	return EMPTY_STRING;
 }
 
