@@ -21,121 +21,104 @@
 #include "Logger.hpp" // log,  logError
 #include "Const.hpp"
 
-struct	multipart {
-	std::string				name;
-	std::string				filename;
-	std::string				contentType;
-	std::vector<char>		content;
-	std::vector<multipart>	nestedData;
-};
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+#endif
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
-typedef std::map<std::string, std::string>		mapStr;
-using formMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 // TODO: move inline function to their own .cpp file
+// TODO: add enum for client state
+
+enum ClientState
+{
+	CONNECTED,
+	TIMEDOUT,
+	DISCONNECTED
+};
 
 class Client
 {
 	private:
-		mapStr											m_env;
-		std::vector<char*> 								m_envPtrs;
-		std::string										m_body;
-		bool											m_alive;
-		struct pollfd&									m_pollfd; // shortcut
-		t_sockaddr_in									m_addr;
-		unsigned int									m_files_sent;
-		t_time											m_last_activity;
-		bool											m_close_connection = false;
+		int					m_fd;
+		t_time				m_last_activity;
+		//bool				m_close_connection = false;
+		t_time				m_disconnect_time;
+		ClientState			m_state;
+		std::vector<char*> 	m_envPtrs;
 
 	public:
-		Client(struct pollfd& pollfd) : m_pollfd(pollfd)
+
+		Client(int fd) : m_fd(fd)
 		{
-			m_pollfd.fd = -1;
-			m_pollfd.events = POLLIN | POLLOUT;
-			m_pollfd.revents = 0;
-			m_alive = false;
+
 		}
 		~Client() {}
 
-		bool	isAlive() { return m_alive; }
-		bool	incoming() { return m_pollfd.revents & POLLIN; }
-		bool	outgoing() { return m_pollfd.revents & POLLOUT; }
+		int		fd() { return m_fd; }
 
-		int		fd() { return m_pollfd.fd; }
-		struct pollfd& getPollfd() { return m_pollfd; }
-
-		bool	connect(int fd, t_sockaddr_in sock_addr, t_time time)
+		// can handle all of these in constructor
+		bool	connect(int fd, t_time& time)
 		{
-			// set up non blocking fd
-			int flags = fcntl(fd, F_GETFL, 0);
-    		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-			// check fcntl errors
-
-			// reinitialize client information
-			m_pollfd.fd = fd;
-			m_pollfd.events = POLLIN | POLLOUT;
-			m_pollfd.revents = 0;
-			m_alive = true;
-
-			m_addr = sock_addr;
-			m_files_sent = 0;
+			// technically not required, can remove
+			m_fd = fd;
 			m_last_activity = time;
+			m_state = ClientState::CONNECTED;
 
-			Logger::getInstance().log("Client connected!" + std::to_string(m_pollfd.fd));
+			Logger::log("Client id " + std::to_string(fd) + ", fd " + std::to_string(m_fd) + " connected!");
 
 			return true;
 		}
 
 		void	disconnect()
 		{
-			Logger::getInstance().log("Client disconnected!" + std::to_string(m_pollfd.fd));
-			close(m_pollfd.fd);
-			m_pollfd.fd = -1;
-			m_pollfd.revents = 0;
-			m_alive = false;
+			if (m_state == ClientState::DISCONNECTED)
+				return;
 
+			if (m_fd >= 0)
+				close(m_fd);
+
+			m_state = ClientState::DISCONNECTED;
+			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
 		}
 
-		void	update(t_time time)
+		void	update(t_time& time)
 		{
 			m_last_activity = time;
+			m_state = ClientState::CONNECTED;
 		}
 
+		// rename send
 		int	respond(const std::string& response)
 		{
-			#ifdef MSG_NOSIGNAL
-				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), MSG_NOSIGNAL);
-			#else
-				int bytes_sent = send(m_pollfd.fd, response.c_str(), response.size(), 0);
-			#endif
-			Logger::getInstance().log("-- BYTES SENT " + std::to_string(bytes_sent) + "--\n\n");
-			m_files_sent++;
-			m_pollfd.revents = POLLOUT; 
+			if (m_state != ClientState::CONNECTED)
+				return 0;
+
+			int bytes_sent = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
+			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + " --\n\n");
 
 			return (bytes_sent > 0);
 		}
 
-		bool	timeout(t_time now)
+		bool	timeout(t_time& now)
 		{
-			if (m_pollfd.revents & POLLIN)
-				return false;
-
 			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
 
 			return (diff > CLIENT_TIMEOUT);
 		}
 
-		void	resetEvents()
+		ClientState	getClientState() { return m_state; }
+		void	setClientState(ClientState state) { m_state = state; } 
+
+		void	setDisconnectTime(t_time& time)
 		{
-			m_pollfd.revents = 0;
+			m_disconnect_time = time;
 		}
 
-		void	setCloseConnection()
+		t_time	getDisconnectTime()
 		{
-			m_close_connection = true;
+			return m_disconnect_time;
 		}
 
 		// Env functions

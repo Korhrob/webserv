@@ -1,10 +1,12 @@
 
 #include "Server.hpp"
 #include "Logger.hpp"
+#include "Config.hpp"
 
 #include <iostream>
 #include <signal.h>
 #include <atomic>
+#include <exception>
 
 std::atomic<bool> is_running(false);
 
@@ -17,16 +19,18 @@ void	handleSigint(int sig)
 
 void	program()
 {
-	Server tcpServer("0.0.0.0", 8080);
+	Logger::init();
 
-	is_running = tcpServer.startServer();
+	Server tpc_server;
 
+	// if creation fails return
+
+	is_running = tpc_server.startServer();
+	
 	while (is_running)
 	{
-		tcpServer.update();
+		tpc_server.update();
 	}
-
-	// tcpServer.closeServer();
 }
 
 int	main()
@@ -34,7 +38,7 @@ int	main()
 	signal(SIGINT, handleSigint);
 	program();
 
-	Logger::getInstance().log("Clean Exit!");
+	Logger::log("Clean Exit!");
 
 	return 0;
 }

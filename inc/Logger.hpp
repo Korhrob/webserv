@@ -8,16 +8,14 @@
 class Logger {
 
 	private:
-		std::ofstream	m_log_file;
-		std::ofstream	m_log_error;
-		bool			m_enabled;
+		static std::ofstream	m_log_file;
+		static std::ofstream	m_log_error;
+		static bool				m_enabled;
 
 	public:
-		Logger() : m_log_file("logs/log", std::ios::out | std::ios::app), m_log_error("logs/error", std::ios::out | std::ios::app) {
-			#ifdef LOG_ENABLE
-				m_enabled = LOG_ENABLE;
-			#endif
-		}
+		Logger() {};
+		Logger(const Logger&) = delete;
+		Logger& operator=(const Logger&) = delete;
 		~Logger() {};
 
 	static Logger&	getInstance() {
@@ -25,7 +23,16 @@ class Logger {
 		return instance;
 	}
 
-	void	log(const std::string& msg);
-	void	logError(const std::string& msg);
+	static void init()
+	{
+		m_log_file.open("logs/log", std::ios::out | std::ios::app);
+		m_log_error.open("logs/error", std::ios::out | std::ios::app);
+		#ifdef LOG_ENABLE
+			m_enabled = LOG_ENABLE;
+		#endif
+	}
+
+	static void	log(const std::string& msg);
+	static void	logError(const std::string& msg);
 	
 };
