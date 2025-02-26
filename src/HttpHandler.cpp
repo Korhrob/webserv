@@ -56,20 +56,23 @@ void	HttpHandler::validateRequest(HttpRequest& request)
 
 void    HttpHandler::validateMethod(const std::string& method)
 {
-	{
-    std::vector<std::string>    methods;
+    std::vector<std::string>    allowedMethods;
 
-    m_location->tryGetDirective("methods", methods);
-    if (std::find(methods.begin(), methods.end(), method) == methods.end())
+    m_location->tryGetDirective("methods", allowedMethods);
+    if (std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
         throw HttpException::notImplemented();
-	}
 
-	std::unordered_map<std::string, e_method>	methods = {{"GET", GET}, {"POST", POST}, {"DELETE", DELETE}};
-	for (auto [key, value]: methods)
-	{
-		if (key == method)
-			m_method = methods[key];
-	}
+	static const std::unordered_map<std::string, e_method>	methodMap = {
+		{"GET", GET},
+		{"POST", POST},
+		{"DELETE", DELETE}
+	};
+
+	auto it = methodMap.find(method);
+	if (it != methodMap.end())
+		m_method = it->second;
+	else
+		throw HttpException::notImplemented();
 }
 
 void    HttpHandler::validatePath(const std::string& target)
