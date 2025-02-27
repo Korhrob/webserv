@@ -49,7 +49,7 @@ void	HttpRequest::getBodyType(size_t maxSize)
 	{
 		m_body = MULTIPART;
 		if (getContentLength() > maxSize)
-			throw HttpException::badRequest("Body exceeds max size limit");
+			throw HttpException::payloadTooLarge();
 	}
 	else
 		throw HttpException::notImplemented();
@@ -196,10 +196,9 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
 		m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
-		m_contentLength += chunkSize;
-		std::cout << "CONTENT LENGTH: " << m_contentLength << "\n";
+		m_contentLength += chunkSize;\
 		if (m_contentLength > maxSize)
-			throw HttpException::badRequest("Body exceeds max size limit");
+			throw HttpException::payloadTooLarge();
 		currentPos = endOfContent + 2;
 	}
 }
