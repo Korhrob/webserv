@@ -60,10 +60,6 @@ class HttpException : public std::exception {
 			return HttpException(411, "Length Required");
 		}
 
-        static HttpException    unsupportedMediaType() {
-            return HttpException(415, "Unsupported Media Type");
-        }
-
         static HttpException    internalServerError(std::string log) {
             return HttpException(500, "Internal Server Error: " + log);
         }
