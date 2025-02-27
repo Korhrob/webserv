@@ -29,6 +29,7 @@ class HttpResponse {
 	public:
 		HttpResponse(int code, const std::string& msg);
 		HttpResponse(int code, const std::string& msg, const std::string& path);
+		HttpResponse(const std::string& msg, const std::string& body);
 
 		~HttpResponse() = default;
 		HttpResponse&	operator=(const HttpResponse&) = default;

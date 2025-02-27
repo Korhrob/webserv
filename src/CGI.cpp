@@ -1,5 +1,4 @@
 #include "CGI.hpp"
-#include "Response.hpp"
 #include "Client.hpp"
 
 static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
@@ -46,7 +45,7 @@ static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
 	client->setBody(string);
 }
 
-int runCGI(std::string script, std::shared_ptr<Client> client, std::string method)
+HttpResponse runCGI(std::string script, std::string method)
 {
 	pid_t		pid;
 	int			status;
@@ -56,9 +55,6 @@ int runCGI(std::string script, std::shared_ptr<Client> client, std::string metho
 	client->createEnv();
 	client->setEnvValue("REQUEST_METHOD", method);
 
-	// env = client->mallocEnv();
-	// if (env == NULL)
-		// return 1;
 	pid = fork();
 	if (pid < 0)
 		return 1;
@@ -88,7 +84,6 @@ int runCGI(std::string script, std::shared_ptr<Client> client, std::string metho
 	{
 		waitpid(pid, &status, 0);
 		setCgiString(temp, fdtemp, client);
-		// client->freeEnv(env);
 	}
 	return 0;
 }

@@ -1,6 +1,7 @@
 #include "HttpHandler.hpp"
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
+#include "CGI.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -20,12 +21,12 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		{
         	case GET:
 				// if (m_cgi)
-					// handleCGI
+					// return handleCGI(request.getMultipartData());
             	return handleGet();
         	case POST:
 				request.parseBody(m_maxSize);
 				// if (m_cgi)
-					// handleCGI(request.getMultipartData());	
+					// return handleCGI(request.getMultipartData());	
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();

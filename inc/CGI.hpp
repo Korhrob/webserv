@@ -7,7 +7,6 @@
 #include <signal.h>
 #include <memory>
 
-class Response;
-class Client;
+#include "HttpResponse.hpp"
 
-int runCGI(std::string script, std::shared_ptr<Client> client, std::string method);
+HttpResponse runCGI(std::string script, std::string method);
