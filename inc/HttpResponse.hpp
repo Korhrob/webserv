@@ -18,8 +18,8 @@ class HttpResponse {
 		std::unordered_map<std::string, std::string>	m_headers;
 		std::string										m_body;
 		e_type											m_type;
-		bool											m_close;
 		std::string										m_targetUrl;
+		bool											m_close;
 
 		std::string	getStatusLine();
 		std::string	getHeaders();
@@ -29,7 +29,7 @@ class HttpResponse {
 		void	setHeaders();
 		
 	public:
-		HttpResponse(int code, const std::string& msg, const std::string& path = "", const std::string& targetUrl = "");
+		HttpResponse(int code, const std::string& msg, const std::string& path = "", const std::string& targetUrl = "", bool close = false);
 
 		~HttpResponse() = default;
 		HttpResponse&	operator=(const HttpResponse&) = default;
