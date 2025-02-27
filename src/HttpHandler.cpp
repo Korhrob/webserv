@@ -32,10 +32,10 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		}
     } catch (HttpException& e) {
 		if (!m_server)
-			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html");
+			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html", e.getTargetUrl());
 		std::vector<std::string>	root;
 		m_location->tryGetDirective("root", root);
-        return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()));
+        return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()), e.getTargetUrl());
     }
 }
 
@@ -46,6 +46,11 @@ void	HttpHandler::getLocation(HttpRequest& request, Config& config)
         throw HttpException::badRequest("Server node is null");
 	
     m_location = m_server->findClosestMatch(request.getTarget());
+	
+	std::vector<std::string>	redirect;
+	m_location->tryGetDirective("return", redirect);
+	if (!redirect.empty())
+		throw HttpException::temporaryRedirect(redirect[1]); // is this safe? checked in config parsing?
 }
 
 void	HttpHandler::validateRequest(HttpRequest& request)
@@ -144,7 +149,7 @@ HttpResponse HttpHandler::handleGet()
 	if (std::filesystem::is_directory(m_path))
 		throw HttpException::forbidden();
 
-	return HttpResponse(200, "OK", m_path);
+	return HttpResponse(200, "OK", m_path, "");
 }
 
 HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
