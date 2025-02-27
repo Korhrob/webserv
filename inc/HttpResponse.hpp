@@ -19,16 +19,17 @@ class HttpResponse {
 		std::string										m_body;
 		e_type											m_type;
 		bool											m_close;
+		std::string										m_targetUrl;
 
 		std::string	getStatusLine();
 		std::string	getHeaders();
 		std::string	getBody(const std::string& path);
 		
+		void	setBody(const std::string& path);
 		void	setHeaders();
 		
 	public:
-		HttpResponse(int code, const std::string& msg);
-		HttpResponse(int code, const std::string& msg, const std::string& path);
+		HttpResponse(int code, const std::string& msg, const std::string& path = "", const std::string& targetUrl = "");
 
 		~HttpResponse() = default;
 		HttpResponse&	operator=(const HttpResponse&) = default;
