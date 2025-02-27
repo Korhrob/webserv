@@ -32,11 +32,16 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		}
     } catch (HttpException& e) {
 		if (!m_server)
-			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html", e.getTargetUrl());
-		std::vector<std::string>	root;
-		m_location->tryGetDirective("root", root);
-        return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()), e.getTargetUrl());
+			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html", e.getTargetUrl(), true);
+        return HttpResponse(e.getStatusCode(), e.what(), getErrorPage(e.getStatusCode()), e.getTargetUrl(), request.closeConnection());
     }
+}
+
+std::string	HttpHandler::getErrorPage(int code)
+{
+	std::vector<std::string>	root;
+	m_location->tryGetDirective("root", root);
+	return root[0] + m_server->getErrorPage(code);
 }
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
@@ -165,7 +170,10 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	m_location->tryGetDirective("uploadDir", uploadDir);
 
 	if (uploadDir.empty())
-		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this a config error?
+		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
+	std::filesystem::perms perms = std::filesystem::status(uploadDir[0]).permissions();
+	if ((perms & std::filesystem::perms::others_write) == std::filesystem::perms::none)
+		throw HttpException::forbidden();
 
 	for (multipart part: multipartData)
 	{
@@ -174,8 +182,10 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
 			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
 			try {
-				std::filesystem::copy_file(tmpFile, destination);
+				std::filesystem::copy_file(tmpFile, destination, std::filesystem::copy_options::overwrite_existing);
 			} catch (std::filesystem::filesystem_error& e) {
+				std::cout << "THROWING HERE\n";
+				std::cerr << "Filesystem error: " << e.what() << " | Path: " << destination << std::endl;
 				throw HttpException::internalServerError("error uploading file");
 			}
 		}
