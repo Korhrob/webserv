@@ -32,7 +32,7 @@ class HttpException : public std::exception {
         }
 
 		static HttpException	movedPermanently(const std::string& targetUrl) {
-			return HttpException(302, "Moved Permanently", targetUrl);
+			return HttpException(301, "Moved Permanently", targetUrl);
 		}
 
 		static HttpException	temporaryRedirect(const std::string& targetUrl) {
@@ -58,6 +58,10 @@ class HttpException : public std::exception {
 
 		static HttpException	lengthRequired() {
 			return HttpException(411, "Length Required");
+		}
+
+		static HttpException	payloadTooLarge() {
+			return HttpException(413, "Payload Too Large");
 		}
 
         static HttpException    internalServerError(std::string log) {
