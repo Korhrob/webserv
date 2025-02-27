@@ -348,6 +348,13 @@ const std::vector<multipart>&	HttpRequest::getMultipartData()
 	return m_multipartData;
 }
 
+bool	HttpRequest::closeConnection()
+{
+	if (m_headers.find("connection") != m_headers.end())
+		return m_headers["connection"] == "close";
+	return false;
+}
+
 HttpRequest::~HttpRequest()
 {
 	for (multipart part: m_multipartData)
