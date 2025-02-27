@@ -63,7 +63,7 @@ void	HttpRequest::readRequest()
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
-		throw HttpException::internalServerError("failed to receive request");
+		throw HttpException::badRequest("failed to receive request");
 	if (bytes_read == 0)
 		throw HttpException::requestTimeout();
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
@@ -149,12 +149,13 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 	}
 }
 
-void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
-	std::cout << "MAX SIZE: " << maxSize << "\n"; 
+void	HttpRequest::parseChunked(size_t maxSize) {
 	if (!m_unchunked.is_open())
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / "unchunked";
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
 		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
+		if (!m_unchunked.is_open())
+			throw HttpException::internalServerError("error opening a file");
 	}
 
 	if (m_request.empty())
@@ -345,6 +346,13 @@ const std::string&	HttpRequest::getMethod()
 const std::vector<multipart>&	HttpRequest::getMultipartData()
 {
 	return m_multipartData;
+}
+
+bool	HttpRequest::closeConnection()
+{
+	if (m_headers.find("connection") != m_headers.end())
+		return m_headers["connection"] == "close";
+	return false;
 }
 
 HttpRequest::~HttpRequest()

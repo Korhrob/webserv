@@ -7,10 +7,11 @@ class HttpException : public std::exception {
     private:
         int         m_statusCode;
         std::string m_msg;
+		std::string	m_targetUrl;
 
     public:
-        HttpException(int code, std::string msg)
-            : m_statusCode(code), m_msg(msg) {}
+        HttpException(int code, std::string msg, std::string targetUrl = "")
+            : m_statusCode(code), m_msg(msg), m_targetUrl(targetUrl) {}
 
 		~HttpException() = default;
 
@@ -22,9 +23,21 @@ class HttpException : public std::exception {
             return m_msg.c_str();
         }
 
+		const std::string	getTargetUrl() {
+			return m_targetUrl;
+		}
+
         int getStatusCode() const noexcept {
             return m_statusCode;
         }
+
+		static HttpException	movedPermanently(const std::string& targetUrl) {
+			return HttpException(302, "Moved Permanently", targetUrl);
+		}
+
+		static HttpException	temporaryRedirect(const std::string& targetUrl) {
+			return HttpException(307, "Temporary Redirect", targetUrl);
+		}
 
         static HttpException    badRequest(std::string log) {
             return HttpException(400, "Bad Request: " + log);
@@ -46,10 +59,6 @@ class HttpException : public std::exception {
 		static HttpException	lengthRequired() {
 			return HttpException(411, "Length Required");
 		}
-
-        static HttpException    unsupportedMediaType() {
-            return HttpException(415, "Unsupported Media Type");
-        }
 
         static HttpException    internalServerError(std::string log) {
             return HttpException(500, "Internal Server Error: " + log);

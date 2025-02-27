@@ -3,29 +3,32 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg) : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close)
+: m_code(code), m_msg(msg), m_body(""), m_targetUrl(targetUrl), m_close(close)
 {
-	m_close = (m_code == 408);
-
+	setBody(path);
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path) : m_code(code), m_msg(msg), m_body(""), m_close(false)
+void	HttpResponse::setBody(const std::string& path)
 {
-    try {
-		size_t size = std::filesystem::file_size(path);
-        if (size <= PACKET_SIZE) {
-            m_body = getBody(path);
-            m_type = TYPE_SINGLE;
-		} else
-            m_type = TYPE_CHUNKED;
-	} catch (const std::filesystem::filesystem_error& e) {
-		m_code = 404;
-		m_msg = "Not Found: filesystem error";
-		m_type = TYPE_SINGLE;
+	if (!path.empty())
+	{
+		try {
+			size_t size = std::filesystem::file_size(path);
+			if (size <= PACKET_SIZE)
+			{
+				m_body = getBody(path);
+				m_type = TYPE_SINGLE;
+			}
+			else
+				m_type = TYPE_CHUNKED;
+		} catch (const std::filesystem::filesystem_error& e) {
+			m_code = 404;
+			m_msg = "Not Found: filesystem error";
+			m_type = TYPE_SINGLE;
+		}
 	}
-	
-	setHeaders();
 }
 
 HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(false)
@@ -65,6 +68,12 @@ std::string	HttpResponse::getBody(const std::string& path)
 
 void	HttpResponse::setHeaders()
 {
+	if (!m_close)
+		m_close = (m_code == 400) || (m_code == 408) || (m_code == 411) || (m_code == 500) || (m_code == 501) || (m_code == 505);
+
+	if (!m_targetUrl.empty())
+		m_headers.emplace("Location", m_targetUrl);
+
 	if (m_close)
 		m_headers.emplace("Connection", "close");
 	else
