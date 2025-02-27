@@ -19,9 +19,13 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
         switch (m_method)
 		{
         	case GET:
+				// if (m_cgi)
+				// 	return handleCGI();
             	return handleGet();
         	case POST:
 				request.parseBody(m_maxSize);
+				// if (m_cgi)
+					// 	return handleCGI();
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
@@ -33,9 +37,6 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		m_location->tryGetDirective("root", root);
         return HttpResponse(e.getStatusCode(), e.what(), root[0] + m_server->getErrorPage(e.getStatusCode()));
     }
-
-	// function has to always return something
-	return HttpResponse(0, ""); // Robert
 }
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
@@ -60,7 +61,9 @@ void    HttpHandler::validateMethod(const std::string& method)
 
     m_location->tryGetDirective("methods", allowedMethods);
     if (std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
+	{
         throw HttpException::notImplemented();
+	}
 
 	static const std::unordered_map<std::string, e_method>	methodMap = {
 		{"GET", GET},
