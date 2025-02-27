@@ -257,6 +257,8 @@ void	Server::handleRequest(int fd)
 	HttpResponse httpResponse = httpHandler.handleRequest(fd, m_config);
 	std::shared_ptr<Client> client = m_clients.at(fd);
 
+	Logger::log(httpResponse.getResponse());
+
 	if (httpResponse.closeConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
