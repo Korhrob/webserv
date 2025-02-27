@@ -19,9 +19,13 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
         switch (m_method)
 		{
         	case GET:
+				// if (m_cgi)
+					// handleCGI
             	return handleGet();
         	case POST:
 				request.parseBody(m_maxSize);
+				// if (m_cgi)
+					// handleCGI(request.getMultipartData());	
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
@@ -103,12 +107,16 @@ void    HttpHandler::validatePath(const std::string& target)
 
 void    HttpHandler::validateCgi(const std::string& target)
 {
+	// Logger::log("testing some stuff\n\n");
+	// std::cout << target << std::endl;
     if (target.find(".") == std::string::npos) return;
 
 	std::string					extension(target.substr(target.find_last_of(".")));
 	std::vector<std::string>	cgi;
 
     m_location->tryGetDirective("cgi", cgi);
+
+	// for (const auto& str : cgi) {std::cout << str << std::endl;}
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_cgi = true;
@@ -149,9 +157,10 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	std::vector<std::string>	uploadDir;
 	m_location->tryGetDirective("uploadDir", uploadDir);
 
+	
 	if (uploadDir.empty())
 		throw HttpException::forbidden(); // what's the correct error when uploadDir is not defined? is this a config error?
-
+	
 	for (multipart part: multipartData)
 	{
 		if (!part.filename.empty())

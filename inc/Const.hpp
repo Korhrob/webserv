@@ -4,7 +4,7 @@
 #include <vector>
 
 static const unsigned int BUFFER_SIZE = 1024;
-static const unsigned int PACKET_SIZE = 1024; // 8 KB
+static const unsigned int PACKET_SIZE = 4048; // 8 KB
 static const unsigned int CLIENT_TIMEOUT = 3000; // 3 seconds
 static const unsigned int EPOLL_POOL = 128;
 
