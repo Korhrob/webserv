@@ -1,14 +1,14 @@
 <?php
 
-$filename = 'people.txt';
+$filename = __DIR__ . '/people.txt';
 
-// echo "<br><br>";
-// print_r($_SERVER);
-// echo "<br><br>";
-// print_r(getenv());
-// echo "<br><br>";
-// print_r($_POST);
-// echo "<br><br>";
+echo "<br><br>";
+print_r($_SERVER);
+echo "<br><br>";
+print_r(getenv());
+echo "<br><br>";
+print_r($_POST);
+echo "<br><br>";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['first_name'], $_SERVER['last_name'])) {
     $firstName = trim($_SERVER['first_name']);

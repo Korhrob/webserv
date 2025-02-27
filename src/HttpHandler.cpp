@@ -20,13 +20,13 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
         switch (m_method)
 		{
         	case GET:
-				// if (m_cgi)
-					// return handleCGI(request.getMultipartData());
+				if (m_cgi)
+					return handleCGI(request.getMultipartData(), request.getQuery(), "../cgi-bin/people.cgi.php", "GET");
             	return handleGet();
         	case POST:
 				request.parseBody(m_maxSize);
-				// if (m_cgi)
-					// return handleCGI(request.getMultipartData());	
+				if (m_cgi)
+					return handleCGI(request.getMultipartData(), request.getQuery(), "../cgi-bin/people.cgi.php", "POST");
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();

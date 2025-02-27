@@ -10,6 +10,28 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 	setHeaders();
 }
 
+HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(false)
+{
+	if (body.empty())
+	{
+		m_code = 404;
+		m_msg = "Not Found: CGI fail";
+		m_type = TYPE_SINGLE;
+	}
+	else
+	{
+		m_code = 200;
+		size_t size = body.size();
+		if (size <= PACKET_SIZE) {
+			m_body = body;
+			m_type = TYPE_SINGLE;
+		} else
+			m_type = TYPE_CHUNKED;
+	}
+
+	setHeaders();
+}
+
 void	HttpResponse::setBody(const std::string& path)
 {
 	if (!path.empty())
@@ -29,28 +51,6 @@ void	HttpResponse::setBody(const std::string& path)
 			m_type = TYPE_SINGLE;
 		}
 	}
-}
-
-HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(false)
-{
-	if (body.empty())
-	{
-		m_code = 404;
-		m_msg = "Not Found: CGI fail";
-		m_type = TYPE_SINGLE;
-	}
-	else
-	{
-		m_code = 200;
-		size_t size = body.size();
-        if (size <= PACKET_SIZE) {
-            m_body = body;
-            m_type = TYPE_SINGLE;
-		} else
-            m_type = TYPE_CHUNKED;
-	}
-
-	setHeaders();
 }
 
 std::string	HttpResponse::getBody(const std::string& path)

@@ -1,6 +1,39 @@
 #include "CGI.hpp"
 #include "Client.hpp"
 
+static void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs)
+{
+	std::string env = envp + "=" + value;
+	char* newEnv = strdup(env.c_str());
+	envPtrs.push_back(newEnv);
+}
+
+static void createEnv(std::vector<char*>& envPtrs)
+{
+	// std::string postData = "first_name=John&last_name=Doe";
+	// int contentLength = postData.size();
+
+	setEnvValue("SERVER_NAME", "localhost", envPtrs);
+	setEnvValue("GATEWAY_INTERFACE", "CGI/1.1", envPtrs);
+	setEnvValue("SERVER_PORT", "8080", envPtrs);
+	setEnvValue("SERVER_PROTOCOL", "HTTP/1.1", envPtrs);
+	setEnvValue("REMOTE_ADDR", "127.0.0.1", envPtrs);
+	setEnvValue("SCRIPT_NAME", "people.cgi.php", envPtrs);
+	setEnvValue("SCRIPT_FILENAME", "/home/avegis/projects/wwebserver/cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("QUERY_STRING", "", envPtrs);
+	setEnvValue("CONTENT_TYPE", "application/x-www-form-urlencoded", envPtrs);
+	// setEnvValue("CONTENT_LENGTH", std::to_string(contentLength));
+	setEnvValue("PHP_SELF", "../cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("DOCUMENT_ROOT", "/home/avegis/projects/wwebserver", envPtrs);
+	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
+	setEnvValue("REQUEST_URI", "/cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
+	// setEnvValue("first_name", "asd", envPtrs);
+	// setEnvValue("last_name", "qweasd", envPtrs);
+	// setEnvValue("search_type", "first_name", envPtrs);
+	// setEnvValue("search_name", "asd", envPtrs);
+}
+
 static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 {
 	std::string interpreter = "/usr/bin/php";
@@ -27,7 +60,7 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	exit(EXIT_FAILURE);
 }
 
-static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
+static void setCgiString(FILE *temp, int fdtemp, std::string& body)
 {
 	char buffer[4096];
 	std::string string;
@@ -42,27 +75,51 @@ static void setCgiString(FILE *temp, int fdtemp, std::shared_ptr<Client> client)
 	}
 	close(fdtemp);
 	fclose(temp);
-	client->setBody(string);
+	body = string;
 }
 
-HttpResponse runCGI(std::string script, std::string method)
+static void addData(std::vector<multipart> data, std::vector<char*>& envPtrs)
 {
-	pid_t		pid;
-	int			status;
-	FILE		*temp = std::tmpfile();
-	int			fdtemp = fileno(temp);
-	int			timeoutTime = 10;
-	client->createEnv();
-	client->setEnvValue("REQUEST_METHOD", method);
+	for (multipart part: data) {
+		std::string str(part.content.begin(), part.content.end());
+		setEnvValue(part.name, str, envPtrs);
+		if (!part.nestedData.empty())
+			addData(part.nestedData, envPtrs);
+	}
+}
+
+static void addQuery(queryMap map, std::vector<char*>& envPtrs)
+{
+	for (auto it = map.begin(); it != map.end(); ++it)
+	{
+		setEnvValue(it->first, it->second[0], envPtrs);
+	}
+}
+
+HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
+{
+	pid_t				pid;
+	int					status;
+	FILE				*temp = std::tmpfile();
+	int					fdtemp = fileno(temp);
+	int					timeoutTime = 10;
+	std::vector<char*> 	envPtrs;
+	std::string			body;
+	createEnv(envPtrs);
+	setEnvValue("REQUEST_METHOD", method, envPtrs);
+	if (!data.empty())
+		addData(data, envPtrs);
+	else
+		addQuery(map, envPtrs);
 
 	pid = fork();
 	if (pid < 0)
-		return 1;
+		return HttpResponse(200, "OK"); // replace with error
 	if (pid == 0)
 	{
 		pid_t cgiPid = fork();
 		if (cgiPid == 0)
-			run(script, fdtemp, client->getEnv());
+			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
 		if (timeoutPid == 0)
 		{
@@ -83,8 +140,8 @@ HttpResponse runCGI(std::string script, std::string method)
 	else
 	{
 		waitpid(pid, &status, 0);
-		setCgiString(temp, fdtemp, client);
+		setCgiString(temp, fdtemp, body);
 	}
-	return 0;
+	return HttpResponse("CGI success", body);
 }
 
