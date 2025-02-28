@@ -31,10 +31,6 @@ class HttpException : public std::exception {
             return m_statusCode;
         }
 
-		static HttpException	movedPermanently(const std::string& targetUrl) {
-			return HttpException(301, "Moved Permanently", targetUrl);
-		}
-
 		static HttpException	temporaryRedirect(const std::string& targetUrl) {
 			return HttpException(307, "Temporary Redirect", targetUrl);
 		}
