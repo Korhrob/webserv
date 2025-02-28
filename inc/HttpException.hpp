@@ -23,11 +23,11 @@ class HttpException : public std::exception {
             return m_msg.c_str();
         }
 
-		const std::string	getTargetUrl() {
+		const std::string	target() {
 			return m_targetUrl;
 		}
 
-        int getStatusCode() const noexcept {
+        int code() const noexcept {
             return m_statusCode;
         }
 

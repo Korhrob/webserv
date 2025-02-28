@@ -21,7 +21,7 @@ void	HttpResponse::setBody(const std::string& path)
 				try {
 					m_body = getBody(path);
 				} catch (HttpException& e) {
-					m_code = e.getStatusCode();
+					m_code = e.code();
 					m_msg = e.what();
 				}
 			}

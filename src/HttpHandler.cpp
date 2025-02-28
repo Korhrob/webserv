@@ -32,8 +32,8 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		}
     } catch (HttpException& e) {
 		if (!m_server)
-			return HttpResponse(e.getStatusCode(), e.what(), "www/error/400.html", e.getTargetUrl(), true);
-        return HttpResponse(e.getStatusCode(), e.what(), getErrorPage(e.getStatusCode()), e.getTargetUrl(), request.closeConnection());
+			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
+        return HttpResponse(e.code(), e.what(), getErrorPage(e.code()), e.target(), request.closeConnection());
     }
 }
 
