@@ -18,15 +18,31 @@ void	HttpResponse::setBody(const std::string& path)
 			size_t size = std::filesystem::file_size(path);
 			if (size <= PACKET_SIZE)
 			{
-				m_body = getBody(path);
-				m_type = TYPE_SINGLE;
+				try {
+					m_body = getBody(path);
+				} catch (HttpException& e) {
+					m_code = e.getStatusCode();
+					m_msg = e.what();
+				}
 			}
 			else
 				m_type = TYPE_CHUNKED;
 		} catch (const std::filesystem::filesystem_error& e) {
-			m_code = 404;
-			m_msg = "Not Found: filesystem error";
-			m_type = TYPE_SINGLE;
+			if (e.code() == std::errc::no_such_file_or_directory)
+			{
+				m_code = 404;
+				m_msg = "Not Found";
+			}
+			else if (e.code() == std::errc::permission_denied)
+			{
+				m_code = 403;
+				m_msg = "Forbidden";
+			}
+			else
+			{
+				m_code = 500;
+				m_msg = "Internal Server Error: filesystem error";
+			}
 		}
 	}
 }
@@ -35,8 +51,15 @@ std::string	HttpResponse::getBody(const std::string& path)
 {
 	std::ifstream file(path, std::ios::binary);
 
-	if (!file.good())
-		return "";
+	if (!file)
+	{
+		if (!std::filesystem::exists(path))
+			throw HttpException::notFound();
+		std::filesystem::perms perms = std::filesystem::status(path).permissions();
+		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+			throw HttpException::forbidden();
+		throw HttpException::internalServerError("filesystem error");
+	}
 
 	std::stringstream buffer;
 	buffer << file.rdbuf();
