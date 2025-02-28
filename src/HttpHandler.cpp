@@ -40,15 +40,22 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 std::string	HttpHandler::getErrorPage(int code)
 {
 	std::vector<std::string>	root;
+	std::string					errorPage;
+
 	m_location->tryGetDirective("root", root);
-	return root[0] + m_server->getErrorPage(code);
+	errorPage = m_server->getErrorPage(code);
+
+	if (!root.empty() && !errorPage.empty())
+		return root[0] + errorPage;
+	if (!errorPage.empty())
+		return errorPage;
+	return EMPTY_STRING;
 }
 
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
-    if (m_server == nullptr) // temp
-        throw HttpException::badRequest("Server node is null");
+    if (m_server == nullptr) throw HttpException::badRequest("Server node is null");
 	
     m_location = m_server->findClosestMatch(request.getTarget());
 	
@@ -102,6 +109,9 @@ void    HttpHandler::validatePath(const std::string& target)
 		{
 			std::vector<std::string> indices;
 			m_location->tryGetDirective("index", indices);
+			/*	if no index is set ->
+				if autoindex on; is set, generate a directory listing.
+				if autoindex off;, return a 403 Forbidden error. */
 			for (std::string index: indices) {
 				std::string newPath = m_path + index;
 				if (std::filesystem::exists(newPath))
@@ -182,11 +192,9 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
 			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
 			try {
-				std::filesystem::copy_file(tmpFile, destination, std::filesystem::copy_options::overwrite_existing);
+				std::filesystem::copy_file(tmpFile, destination);
 			} catch (std::filesystem::filesystem_error& e) {
-				std::cout << "THROWING HERE\n";
-				std::cerr << "Filesystem error: " << e.what() << " | Path: " << destination << std::endl;
-				throw HttpException::internalServerError("error uploading file");
+				throw HttpException::internalServerError(e.what());
 			}
 		}
 		if (!part.nestedData.empty())
