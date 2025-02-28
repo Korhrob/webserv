@@ -55,7 +55,8 @@ std::string	HttpHandler::getErrorPage(int code)
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
-    if (m_server == nullptr) throw HttpException::badRequest("Server node is null");
+    if (m_server == nullptr)// temp
+		throw HttpException::badRequest("Server node is null");
 	
     m_location = m_server->findClosestMatch(request.getTarget());
 	
