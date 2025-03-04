@@ -78,6 +78,36 @@ static void setCgiString(FILE *temp, int fdtemp, std::string& body)
 	body = string;
 }
 
+static void addLines(std::ifstream &file, int lines_to_read, std::string &temp)
+{
+	std::string line;
+	for (int i = 0; i < lines_to_read; ++i) 
+	{
+		std::getline(file, line);
+		temp += line + "\n";
+	}
+}
+
+static void createBody(std::string &body, std::string method)
+{
+	std::ifstream file("www/people.html");
+	if (!file) 
+	{
+		std::cerr << "Error opening the file!" << std::endl; // use exception
+		return ;
+	}
+	std::string temp;
+	addLines(file, 42, temp);
+	if (method == "POST")
+		temp += body;
+	addLines(file, 23, temp);
+	if (method == "GET")
+		temp += body;
+	addLines(file, 4, temp);
+	file.close();
+	body = temp;
+}
+
 static void addData(std::vector<multipart> data, std::vector<char*>& envPtrs)
 {
 	for (multipart part: data) {
@@ -141,7 +171,9 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 	{
 		waitpid(pid, &status, 0);
 		setCgiString(temp, fdtemp, body);
+		createBody(body, method);
 	}
+	std::cout << body;
 	return HttpResponse("CGI success", body);
 }
 

@@ -2,20 +2,17 @@
 
 $filename = __DIR__ . '/people.txt';
 
-echo "<br><br>";
-print_r($_SERVER);
-echo "<br><br>";
-print_r(getenv());
-echo "<br><br>";
-print_r($_POST);
-echo "<br><br>";
+// echo "<br><br>";
+// print_r($_SERVER);
+// echo "<br><br>";
+// print_r(getenv());
+// echo "<br><br>";
+// print_r($_POST);
+// echo "<br><br>";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['first_name'], $_SERVER['last_name'])) {
     $firstName = trim($_SERVER['first_name']);
     $lastName = trim($_SERVER['last_name']);
-
-	echo "First Name: $firstName<br>";
-	echo "Last Name: $lastName<br>";
 
     if (!empty($firstName) && !empty($lastName)) 
 	{
@@ -23,10 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['first_name'], $_SER
 		while (($line = fgets($file)) !== false) 
 		{
 			$line = trim($line);
-			// echo "$line      ";
 			list($fileFirstName, $fileLastName) = explode(" ", $line);
 			if ($fileFirstName === $firstName && $fileLastName === $lastName) {
-				// $found = true;
 				echo "Person $firstName $lastName already exists in the database.";
 				fclose($file);
 				return ;
@@ -76,6 +71,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SERVER['search_name'], $_SER
         } else {echo "Error reading the file.";}
     } else {echo "Please enter a name to search.";}
 }
-
-echo "php is functional!";
 ?>

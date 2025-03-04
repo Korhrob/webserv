@@ -28,7 +28,6 @@ HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_
 		} else
 			m_type = TYPE_CHUNKED;
 	}
-
 	setHeaders();
 }
 
