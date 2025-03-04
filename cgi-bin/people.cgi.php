@@ -14,6 +14,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['first_name'], $_SER
     $firstName = trim($_SERVER['first_name']);
     $lastName = trim($_SERVER['last_name']);
 
+	if (strpos($firstName, ' ') !== false)
+	{
+		echo "[$firstName] cannot contain spaces!";
+		return ;
+	}
+	if (strpos($lastName, ' ') !== false)
+	{
+		echo "[$lastName] cannot contain spaces!";
+		return ;
+	}
+
     if (!empty($firstName) && !empty($lastName)) 
 	{
         $file = fopen($filename, 'r');

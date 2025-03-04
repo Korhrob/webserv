@@ -46,7 +46,6 @@ class Client
 		//bool				m_close_connection = false;
 		t_time				m_disconnect_time;
 		ClientState			m_state;
-		std::vector<char*> 	m_envPtrs;
 
 	public:
 
@@ -120,15 +119,4 @@ class Client
 		{
 			return m_disconnect_time;
 		}
-
-		// Env functions
-		void setEnv(std::string envp);
-		void setEnvValue(std::string envp, std::string value);
-		void unsetEnv();
-		std::vector<char*> getEnv();
-		std::string getEnvValue(std::string envp);
-		void createEnv();
-
-		void setBody(std::string string);
-		std::string getBody();
 };

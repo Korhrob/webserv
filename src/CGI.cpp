@@ -1,5 +1,6 @@
 #include "CGI.hpp"
 #include "Client.hpp"
+#include "HttpException.hpp"
 
 static void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs)
 {
@@ -28,10 +29,6 @@ static void createEnv(std::vector<char*>& envPtrs)
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
 	setEnvValue("REQUEST_URI", "/cgi-bin/people.cgi.php", envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
-	// setEnvValue("first_name", "asd", envPtrs);
-	// setEnvValue("last_name", "qweasd", envPtrs);
-	// setEnvValue("search_type", "first_name", envPtrs);
-	// setEnvValue("search_name", "asd", envPtrs);
 }
 
 static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
@@ -93,8 +90,9 @@ static void createBody(std::string &body, std::string method)
 	std::ifstream file("www/people.html");
 	if (!file) 
 	{
-		std::cerr << "Error opening the file!" << std::endl; // use exception
-		return ;
+		throw HttpException::internalServerError("Error opening the file!");
+		// std::cerr << "Error opening the file!" << std::endl; // use exception
+		// return ;
 	}
 	std::string temp;
 	addLines(file, 42, temp);
@@ -144,7 +142,7 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 
 	pid = fork();
 	if (pid < 0)
-		return HttpResponse(200, "OK"); // replace with error
+		throw HttpException::internalServerError("Fork fail");
 	if (pid == 0)
 	{
 		pid_t cgiPid = fork();
