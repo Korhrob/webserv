@@ -177,6 +177,16 @@ void	ConfigNode::handleMethod(std::vector<std::string>& directives)
 	}
 }
 
+void	ConfigNode::handleAutoIndex(std::vector<std::string>& directives)
+{
+	if (directives.size() > 1)
+		throw ConfigException::tooManyDirectives("autoindex");
+	else if (directives.front() == "on")
+		m_autoindex = true;
+	else if (directives.front() != "off")
+		throw ConfigException::emptyDirective("autoindex");
+}
+
 void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives)
 {
 	for (auto it = directives.begin(); it != directives.end() - 1; it++)

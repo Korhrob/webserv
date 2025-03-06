@@ -24,16 +24,19 @@ class ConfigNode : public std::exception
 	std::string		m_name; // technically not required
 	DirectiveMap	m_directives;
 	NodeMap			m_children;
+	bool			m_autoindex;
 
 	std::vector<ErrorPage>	m_error_pages;
 
 	const std::unordered_map<std::string, void(ConfigNode::*)(std::vector<std::string>& d)> m_handler = {
 		{ "listen", &ConfigNode::handleListen },
-		{ "method", &ConfigNode::handleMethod }
+		{ "method", &ConfigNode::handleMethod },
+		{ "autoindex", &ConfigNode::handleAutoIndex }
 	};
 
 	void	handleListen(std::vector<std::string>& d);
 	void	handleMethod(std::vector<std::string>& d);
+	void	handleAutoIndex(std::vector<std::string>& d);
 	// ...
 
 
@@ -53,5 +56,6 @@ public:
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 	const std::string&					getName() { return m_name; };
 	void								emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives);
+	bool								autoindexOn() { return m_autoindex; }
 
 };

@@ -1,5 +1,6 @@
 #include "HttpResponse.hpp"
 #include "HttpException.hpp"
+#include "Directory.hpp"
 
 #include <filesystem>
 
@@ -15,7 +16,16 @@ void	HttpResponse::setBody(const std::string& path)
 	if (!path.empty())
 	{
 		try {
-			size_t size = std::filesystem::file_size(path);
+			if (std::filesystem::is_directory(path))
+			{
+				m_body = listDirectory(path, m_targetUrl);
+				// could also check size of body after this
+				// to ensure we arent sending a massive directory listing
+				// (unlikely to ever happen)
+				return;
+			}
+
+			size_t size = std::filesystem::file_size(path); // cant be used for directories
 			if (size <= PACKET_SIZE)
 			{
 				try {
