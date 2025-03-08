@@ -35,40 +35,40 @@ class HttpException : public std::exception {
 			return HttpException(307, "Temporary Redirect", targetUrl);
 		}
 
-        static HttpException    badRequest(std::string log) {
-            return HttpException(400, "Bad Request: " + log);
+        static HttpException    badRequest(std::string log = "") {
+            return HttpException(400, "Bad Request " + log);
         }
 
-        static HttpException    forbidden() {
-            return HttpException(403, "Forbidden");
+        static HttpException    forbidden(std::string log = "") {
+            return HttpException(403, "Forbidden " + log);
         }
 
-        static HttpException    notFound() {
-            return HttpException(404, "Not Found");
+        static HttpException    notFound(std::string log = "") {
+            return HttpException(404, "Not Found " + log);
         }
 
-		static HttpException	requestTimeout()
+		static HttpException	requestTimeout(std::string log = "")
 		{
-			return HttpException(408, "Request Timeout");
+			return HttpException(408, "Request Timeout " + log);
 		}
 
-		static HttpException	lengthRequired() {
-			return HttpException(411, "Length Required");
+		static HttpException	lengthRequired(std::string log = "") {
+			return HttpException(411, "Length Required " + log);
 		}
 
-		static HttpException	payloadTooLarge() {
-			return HttpException(413, "Payload Too Large");
+		static HttpException	payloadTooLarge(std::string log = "") {
+			return HttpException(413, "Payload Too Large " + log);
 		}
 
-        static HttpException    internalServerError(std::string log) {
-            return HttpException(500, "Internal Server Error: " + log);
+        static HttpException    internalServerError(std::string log = "") {
+            return HttpException(500, "Internal Server Error " + log);
         }
 
-        static HttpException    notImplemented() {
-            return HttpException(501, "Not Implemented");
+        static HttpException    notImplemented(std::string log = "") {
+            return HttpException(501, "Not Implemented " + log);
         }
 
-        static HttpException    httpVersionNotSupported() {
-            return HttpException(505, "HTTP Version Not Supported");
+        static HttpException    httpVersionNotSupported(std::string log = "") {
+            return HttpException(505, "HTTP Version Not Supported " + log);
         }
 };
