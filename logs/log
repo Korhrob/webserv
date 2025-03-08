@@ -5708,3 +5708,907 @@ Location: /
 
 [17:21:26] Client 7 timed out!
 [17:21:28] Client fd 7 disconnected!
+[16:21:52] Starting server on server_0:8080...
+[16:21:52] Listen port 8080 fd 6
+[16:22:03] Client id 7, fd 7 connected!
+[16:22:03] -- BYTES READ 490 --
+
+
+[16:22:03] GET /people HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:22:03] root: www, target: /people
+[16:22:03] try_files: /people
+[16:22:03] try_files: /people/
+[16:22:03] try_files: /people.html
+[16:22:03] HTTP/1.1 200 OK
+Content-Length: 1992
+Connection: keep-alive
+Location: /people.html
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+
+	<hr>
+
+    <!-- Form to search people by first or last name -->
+    <h2>Search for Person</h2>
+    <form action="people.cgi.php" method="get" enctype="multipart/form-data">
+        <label for="search_name">Search by First or Last Name:</label>
+        <input type="text" id="search_name" name="search_name" required><br>
+
+        <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
+        <label for="first_name_search">First Name</label>
+
+        <input type="radio" id="last_name_search" name="search_type" value="last_name">
+        <label for="last_name_search">Last Name</label><br>
+        
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <!-- Section for displaying search results -->
+    <div id="search_results">
+    </div>
+
+	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
+</body>
+</html>
+[16:22:03] == SEND RESPONSE ==
+[16:22:03] -- BYTES SENT 2081 --
+
+
+[16:22:06] -- BYTES READ 1000 --
+
+
+[16:22:06] POST /people.cgi.php HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Content-Type: multipart/form-data; boundary=---------------------------369179504637688663633854376518
+Content-Length: 300
+Origin: http://127.0.0.1:8080
+Connection: keep-alive
+Referer: http://127.0.0.1:8080/people
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+-----------------------------369179504637688663633854376518
+Content-Disposition: form-data; name="first_name"
+
+qwe
+-----------------------------369179504637688663633854376518
+Content-Disposition: form-data; name="last_name"
+
+asd
+-----------------------------369179504637688663633854376518--
+
+[16:22:06] root: cgi-bin, target: /people.cgi.php
+[16:22:06] HTTP/1.1 200 CGI success
+Content-Length: 1117
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+Person added successfully!
+[16:22:06] == SEND RESPONSE ==
+[16:22:06] -- BYTES SENT 1191 --
+
+
+[16:22:08] -- BYTES READ 1003 --
+
+
+[16:22:08] POST /people.cgi.php HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Content-Type: multipart/form-data; boundary=---------------------------46125945132920520752966638722
+Content-Length: 296
+Origin: http://127.0.0.1:8080
+Connection: keep-alive
+Referer: http://127.0.0.1:8080/people.cgi.php
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+-----------------------------46125945132920520752966638722
+Content-Disposition: form-data; name="first_name"
+
+qe
+-----------------------------46125945132920520752966638722
+Content-Disposition: form-data; name="last_name"
+
+asd
+-----------------------------46125945132920520752966638722--
+
+[16:22:08] root: cgi-bin, target: /people.cgi.php
+[16:22:08] HTTP/1.1 200 CGI success
+Content-Length: 1117
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+Person added successfully!
+[16:22:08] == SEND RESPONSE ==
+[16:22:08] -- BYTES SENT 1191 --
+
+
+[16:22:12] Client 7 timed out!
+[16:22:14] Client fd 7 disconnected!
+[16:22:18] Client id 7, fd 7 connected!
+[16:22:18] -- BYTES READ 490 --
+
+
+[16:22:18] GET /people HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:22:18] root: www, target: /people
+[16:22:18] try_files: /people
+[16:22:18] try_files: /people/
+[16:22:18] try_files: /people.html
+[16:22:18] HTTP/1.1 200 CGI success
+Content-Length: 1166
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+Could not open input file: /home/avegis/projects/wwebserver/cgi-bin/people
+
+[16:22:18] == SEND RESPONSE ==
+[16:22:18] -- BYTES SENT 1240 --
+
+
+[16:22:21] Client 7 timed out!
+[16:22:23] Client fd 7 disconnected!
+[16:22:35] Clean Exit!
+[16:22:37] Starting server on server_0:8080...
+[16:22:37] Listen port 8080 fd 6
+[16:22:39] Client id 7, fd 7 connected!
+[16:22:39] -- BYTES READ 490 --
+
+
+[16:22:39] GET /people HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:22:39] root: www, target: /people
+[16:22:39] try_files: /people
+[16:22:39] try_files: /people/
+[16:22:39] try_files: /people.html
+[16:22:39] HTTP/1.1 200 OK
+Content-Length: 1992
+Connection: keep-alive
+Location: /people.html
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+
+	<hr>
+
+    <!-- Form to search people by first or last name -->
+    <h2>Search for Person</h2>
+    <form action="people.cgi.php" method="get" enctype="multipart/form-data">
+        <label for="search_name">Search by First or Last Name:</label>
+        <input type="text" id="search_name" name="search_name" required><br>
+
+        <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
+        <label for="first_name_search">First Name</label>
+
+        <input type="radio" id="last_name_search" name="search_type" value="last_name">
+        <label for="last_name_search">Last Name</label><br>
+        
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <!-- Section for displaying search results -->
+    <div id="search_results">
+    </div>
+
+	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
+</body>
+</html>
+[16:22:39] == SEND RESPONSE ==
+[16:22:39] -- BYTES SENT 2081 --
+
+
+[16:22:42] -- BYTES READ 583 --
+
+
+[16:22:42] GET /people.cgi.php?search_name=asd&search_type=first_name HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Referer: http://127.0.0.1:8080/people
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:22:42] root: cgi-bin, target: /people.cgi.php
+[16:22:42] HTTP/1.1 200 CGI success
+Content-Length: 1108
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+No results found.
+[16:22:42] == SEND RESPONSE ==
+[16:22:42] -- BYTES SENT 1182 --
+
+
+[16:22:45] Client 7 timed out!
+[16:22:47] Client fd 7 disconnected!
+[16:28:02] Clean Exit!
+[16:28:06] Starting server on server_0:8080...
+[16:28:06] Listen port 8080 fd 6
+[16:28:16] Client id 7, fd 7 connected!
+[16:28:16] -- BYTES READ 490 --
+
+
+[16:28:16] GET /people HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:28:16] root: www, target: /people
+[16:28:16] try_files: /people
+[16:28:16] try_files: /people/
+[16:28:16] try_files: /people.html
+[16:28:16] HTTP/1.1 200 OK
+Content-Length: 1992
+Connection: keep-alive
+Location: /people.html
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+
+	<hr>
+
+    <!-- Form to search people by first or last name -->
+    <h2>Search for Person</h2>
+    <form action="people.cgi.php" method="get" enctype="multipart/form-data">
+        <label for="search_name">Search by First or Last Name:</label>
+        <input type="text" id="search_name" name="search_name" required><br>
+
+        <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
+        <label for="first_name_search">First Name</label>
+
+        <input type="radio" id="last_name_search" name="search_type" value="last_name">
+        <label for="last_name_search">Last Name</label><br>
+        
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <!-- Section for displaying search results -->
+    <div id="search_results">
+    </div>
+
+	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
+</body>
+</html>
+[16:28:16] == SEND RESPONSE ==
+[16:28:16] -- BYTES SENT 2081 --
+
+
+[16:28:18] -- BYTES READ 996 --
+
+
+[16:28:18] POST /people.cgi.php HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Content-Type: multipart/form-data; boundary=---------------------------37747743345982186571818503429
+Content-Length: 297
+Origin: http://127.0.0.1:8080
+Connection: keep-alive
+Referer: http://127.0.0.1:8080/people
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+-----------------------------37747743345982186571818503429
+Content-Disposition: form-data; name="first_name"
+
+qwe
+-----------------------------37747743345982186571818503429
+Content-Disposition: form-data; name="last_name"
+
+asd
+-----------------------------37747743345982186571818503429--
+
+[16:28:18] root: cgi-bin, target: /people.cgi.php
+[16:28:18] HTTP/1.1 200 CGI success
+Content-Length: 1137
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+Person qwe asd already exists in the database.
+[16:28:18] == SEND RESPONSE ==
+[16:28:18] -- BYTES SENT 1211 --
+
+
+[16:28:22] Client 7 timed out!
+[16:28:24] Client fd 7 disconnected!
+[16:38:23] Clean Exit!
+[16:38:25] Starting server on server_0:8080...
+[16:38:25] Listen port 8080 fd 6
+[16:38:31] Client id 7, fd 7 connected!
+[16:38:31] -- BYTES READ 490 --
+
+
+[16:38:31] GET /people HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[16:38:31] root: www, target: /people
+[16:38:31] try_files: /people
+[16:38:31] try_files: /people/
+[16:38:31] try_files: /people.html
+[16:38:31] HTTP/1.1 200 OK
+Content-Length: 1992
+Connection: keep-alive
+Location: /people.html
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+
+	<hr>
+
+    <!-- Form to search people by first or last name -->
+    <h2>Search for Person</h2>
+    <form action="people.cgi.php" method="get" enctype="multipart/form-data">
+        <label for="search_name">Search by First or Last Name:</label>
+        <input type="text" id="search_name" name="search_name" required><br>
+
+        <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
+        <label for="first_name_search">First Name</label>
+
+        <input type="radio" id="last_name_search" name="search_type" value="last_name">
+        <label for="last_name_search">Last Name</label><br>
+        
+        <button type="submit">Search</button>
+    </form>
+
+    <hr>
+
+    <!-- Section for displaying search results -->
+    <div id="search_results">
+    </div>
+
+	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
+</body>
+</html>
+[16:38:31] == SEND RESPONSE ==
+[16:38:31] -- BYTES SENT 2081 --
+
+
+[16:38:33] -- BYTES READ 1000 --
+
+
+[16:38:33] POST /people.cgi.php HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Content-Type: multipart/form-data; boundary=---------------------------252939732530383929651227476619
+Content-Length: 300
+Origin: http://127.0.0.1:8080
+Connection: keep-alive
+Referer: http://127.0.0.1:8080/people
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: same-origin
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+-----------------------------252939732530383929651227476619
+Content-Disposition: form-data; name="first_name"
+
+qwe
+-----------------------------252939732530383929651227476619
+Content-Disposition: form-data; name="last_name"
+
+asd
+-----------------------------252939732530383929651227476619--
+
+[16:38:33] root: cgi-bin, target: /people.cgi.php
+[16:38:33] HTTP/1.1 200 CGI success
+Content-Length: 1137
+Connection: keep-alive
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Webserv</title>
+   		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    	<title>Nested Multipart File Upload Form</title>
+		<style>
+			.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+		</style>
+	</head>
+<body>
+    <h1>People Database</h1>
+
+    <!-- Form to add new people -->
+    <h2>Add Person</h2>
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required><br>
+        
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required><br>
+        
+        <button type="submit">Add Person</button>
+    </form>
+
+    <hr>
+
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+Person qwe asd already exists in the database.
+[16:38:33] == SEND RESPONSE ==
+[16:38:33] -- BYTES SENT 1211 --
+
+
+[16:38:36] Client 7 timed out!
+[16:38:38] Client fd 7 disconnected!
+[16:40:43] Clean Exit!
