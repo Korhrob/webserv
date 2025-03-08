@@ -231,7 +231,7 @@ void    HttpHandler::validatePath(const std::string& target)
 				if (!m_location->autoindexOn())
 				{
 					Logger::log("autoindex: off, but trying to access directory");
-					throw HttpException::forbidden();
+					throw HttpException::forbidden("1");
 				}
 
 				// could setup some autoindexing settings here,
@@ -247,7 +247,7 @@ void    HttpHandler::validatePath(const std::string& target)
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
 		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden();
+			throw HttpException::forbidden("2");
 
 	} catch (std::exception& e) {
 
@@ -309,8 +309,8 @@ HttpResponse HttpHandler::handleGet()
 HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
 	upload(multipartData);
-	
-	return HttpResponse(200, "OK");
+
+	return HttpResponse(303, "See Other", "", "index");
 }
 
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
@@ -320,9 +320,9 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 
 	if (uploadDir.empty())
 		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
-	std::filesystem::perms perms = std::filesystem::status(uploadDir[0]).permissions();
-	if ((perms & std::filesystem::perms::others_write) == std::filesystem::perms::none)
-		throw HttpException::forbidden();
+	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
+		throw HttpException::forbidden("3");
 
 	for (multipart part: multipartData)
 	{
@@ -345,7 +345,7 @@ HttpResponse HttpHandler::handleDelete()
 {
 	try {
 		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden();
+			throw HttpException::forbidden("4");
 		std::filesystem::remove(m_path);
 		return HttpResponse(200, "OK");
 	} catch (std::filesystem::filesystem_error& e) {
