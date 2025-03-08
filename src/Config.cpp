@@ -256,7 +256,7 @@ const NodeMap&	Config::getNodeMap()
 
 /// @brief find server block with host 
 /// @param host ex. "127.0.0.1:8080"
-/// @return server block or nullptr
+/// @return server block or default block for port
 const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host)
 {
 	size_t pos = host.find(":");

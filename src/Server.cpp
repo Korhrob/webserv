@@ -253,12 +253,11 @@ void	Server::handleRequest(int fd)
 		return;
 	}
 
-	HttpHandler	httpHandler; // move to class to prevent constant instances
-	HttpResponse httpResponse = httpHandler.handleRequest(fd, m_config);
+	HttpResponse httpResponse = m_handler.handleRequest(fd, m_config);
 	std::shared_ptr<Client> client = m_clients.at(fd);
 
-	std::cout << httpResponse.getResponse() << std::endl;
-	
+	Logger::log(httpResponse.getResponse());
+
 	if (httpResponse.closeConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
@@ -282,7 +281,7 @@ void	Server::handleRequest(int fd)
 		std::ifstream file;
 		try
 		{
-			file = std::ifstream(httpHandler.getTarget(), std::ios::binary);
+			file = std::ifstream(m_handler.getTarget(), std::ios::binary);
 		}
 		catch(const std::exception& e)
 		{

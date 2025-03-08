@@ -23,17 +23,13 @@ class HttpException : public std::exception {
             return m_msg.c_str();
         }
 
-		const std::string	getTargetUrl() {
+		const std::string	target() {
 			return m_targetUrl;
 		}
 
-        int getStatusCode() const noexcept {
+        int code() const noexcept {
             return m_statusCode;
         }
-
-		static HttpException	movedPermanently(const std::string& targetUrl) {
-			return HttpException(302, "Moved Permanently", targetUrl);
-		}
 
 		static HttpException	temporaryRedirect(const std::string& targetUrl) {
 			return HttpException(307, "Temporary Redirect", targetUrl);
@@ -58,6 +54,10 @@ class HttpException : public std::exception {
 
 		static HttpException	lengthRequired() {
 			return HttpException(411, "Length Required");
+		}
+
+		static HttpException	payloadTooLarge() {
+			return HttpException(413, "Payload Too Large");
 		}
 
         static HttpException    internalServerError(std::string log) {

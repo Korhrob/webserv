@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HttpRequest.hpp"
+#include "ConfigNode.hpp"
 
 #include <string>
 #include <unordered_map>
