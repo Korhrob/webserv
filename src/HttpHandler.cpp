@@ -21,12 +21,12 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		{
         	case GET:
 				if (m_cgi)
-					return handleCGI(request.getMultipartData(), request.getQuery(), "../cgi-bin/people.cgi.php", "GET");
+					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
             	return handleGet();
         	case POST:
 				request.parseBody(m_maxSize);
 				if (m_cgi)
-					return handleCGI(request.getMultipartData(), request.getQuery(), "../cgi-bin/people.cgi.php", "POST");
+					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();

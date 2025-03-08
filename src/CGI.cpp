@@ -9,22 +9,18 @@ static void setEnvValue(std::string envp, std::string value, std::vector<char*>&
 	envPtrs.push_back(newEnv);
 }
 
-static void createEnv(std::vector<char*>& envPtrs)
+static void createEnv(std::vector<char*>& envPtrs, std::string script)
 {
-	// std::string postData = "first_name=John&last_name=Doe";
-	// int contentLength = postData.size();
-
 	setEnvValue("SERVER_NAME", "localhost", envPtrs);
 	setEnvValue("GATEWAY_INTERFACE", "CGI/1.1", envPtrs);
 	setEnvValue("SERVER_PORT", "8080", envPtrs);
 	setEnvValue("SERVER_PROTOCOL", "HTTP/1.1", envPtrs);
 	setEnvValue("REMOTE_ADDR", "127.0.0.1", envPtrs);
-	setEnvValue("SCRIPT_NAME", "people.cgi.php", envPtrs);
-	setEnvValue("SCRIPT_FILENAME", "/home/avegis/projects/wwebserver/cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("SCRIPT_NAME", script, envPtrs);
+	setEnvValue("SCRIPT_FILENAME", "/home/avegis/projects/wwebserver/cgi-bin" + script, envPtrs);
 	setEnvValue("QUERY_STRING", "", envPtrs);
 	setEnvValue("CONTENT_TYPE", "application/x-www-form-urlencoded", envPtrs);
-	// setEnvValue("CONTENT_LENGTH", std::to_string(contentLength));
-	setEnvValue("PHP_SELF", "../cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
 	setEnvValue("DOCUMENT_ROOT", "/home/avegis/projects/wwebserver", envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
 	setEnvValue("REQUEST_URI", "/cgi-bin/people.cgi.php", envPtrs);
@@ -34,22 +30,21 @@ static void createEnv(std::vector<char*>& envPtrs)
 static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 {
 	std::string interpreter = "/usr/bin/php";
-	std::string cgitest = "/home/avegis/projects/wwebserver/cgi-bin/people.cgi.php";
-	// char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgi.c_str(), nullptr};
-	cgi = "yes";
-	char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgitest.c_str(), nullptr};
+	std::filesystem::path currentPath = std::filesystem::current_path();
+	cgi = currentPath.string() + "/cgi-bin" + cgi;
+	char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgi.c_str(), nullptr};
 	if (dup2(fdtemp, STDOUT_FILENO) < 0)
 	{
 		perror("dup2");
 		exit(EXIT_FAILURE);
 	}
-	std::string postData = "first_name=John&last_name=Doe";
-	int pipefd[2];
-	pipe(pipefd);  // Create pipe
-	write(pipefd[1], postData.c_str(), postData.size());  // Write POST data to pipe
+	// std::string postData = "first_name=John&last_name=Doe";
+	// int pipefd[2];
+	// pipe(pipefd);  // Create pipe
+	// write(pipefd[1], postData.c_str(), postData.size());  // Write POST data to pipe
 
-	// Close write end since we're only using the read end for stdin
-	close(pipefd[1]);
+	// // Close write end since we're only using the read end for stdin
+	// close(pipefd[1]);
 
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
@@ -133,13 +128,12 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 	int					timeoutTime = 10;
 	std::vector<char*> 	envPtrs;
 	std::string			body;
-	createEnv(envPtrs);
+	createEnv(envPtrs, script);
 	setEnvValue("REQUEST_METHOD", method, envPtrs);
 	if (!data.empty())
 		addData(data, envPtrs);
 	else
 		addQuery(map, envPtrs);
-
 	pid = fork();
 	if (pid < 0)
 		throw HttpException::internalServerError("Fork fail");
@@ -171,7 +165,7 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 		setCgiString(temp, fdtemp, body);
 		createBody(body, method);
 	}
-	std::cout << body;
+	// std::cout << body;
 	return HttpResponse("CGI success", body);
 }
 
