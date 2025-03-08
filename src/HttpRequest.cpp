@@ -3,9 +3,11 @@
 
 #include <filesystem>
 #include <algorithm>
+#include <random>
+#include <chrono>
 #include <regex>
 
-HttpRequest::HttpRequest(int fd) : m_fd(fd) {}
+HttpRequest::HttpRequest(int fd) : m_fd(fd), m_unchunked(-1) {}
 
 void	HttpRequest::parseRequest()
 {
@@ -150,11 +152,14 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 }
 
 void	HttpRequest::parseChunked(size_t maxSize) {
-	if (!m_unchunked.is_open())
+	if (m_unchunked == -1)
 	{
 		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
-		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
-		if (!m_unchunked.is_open())
+		// m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
+		// if (!m_unchunked.is_open())
+		// 	throw HttpException::internalServerError("error opening a file");
+		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
 	}
 
@@ -181,7 +186,8 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 		{
 			Logger::log("CHUNKED PARSING COMPLETE");
 			m_body = COMPLETE;
-			m_unchunked.close();
+			// m_unchunked.close();
+			close(m_unchunked);
 			return;
 		}
 		endOfSize += 2;
@@ -195,8 +201,11 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 		}
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
-		m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
-		m_contentLength += chunkSize;\
+		// m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
+		int bytesWritten = write(m_unchunked, &(*endOfSize), std::distance(endOfSize, endOfContent));
+		if (bytesWritten == -1)
+			throw HttpException::internalServerError("error writing to a file");
+		m_contentLength += chunkSize;
 		if (m_contentLength > maxSize)
 			throw HttpException::payloadTooLarge();
 		currentPos = endOfContent + 2;
@@ -234,7 +243,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		multipart	part;
 		std::string	headers(currentPos, endOfHeaders);
-		ParseMultipartHeaders(headers, part);
+		parseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
@@ -280,7 +289,19 @@ std::string	HttpRequest::getBoundary(std::string& contentType)
 	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
-void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& part)
+std::string		HttpRequest::uniqueId()
+{
+	auto now = std::chrono::system_clock::now();
+	auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
+	std::random_device	rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<int> dist(100, 999);
+
+	return std::to_string(timestamp) + std::to_string(dist(gen));
+}
+
+void	HttpRequest::parseMultipartHeaders(std::string& headerString, multipart& part)
 {
 	std::istringstream	headers(headerString);
 	size_t				startPos;
@@ -308,7 +329,7 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 				endPos = line.find("\"", startPos);
 				if (endPos == std::string::npos)
 					throw HttpException::badRequest("invalid header for multipart/form-data");
-				part.filename = line.substr(startPos, endPos - startPos);
+				part.filename = uniqueId() + "_" + line.substr(startPos, endPos - startPos);
 				if (part.filename.find("../") != std::string::npos)	
 					throw HttpException::badRequest("forbidden traversal pattern in filename");
 			}

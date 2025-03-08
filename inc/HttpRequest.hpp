@@ -32,7 +32,7 @@ class HttpRequest {
 		std::string										m_target;
 		queryMap										m_queryData;
 		std::unordered_map<std::string, std::string>	m_headers;
-		std::ofstream									m_unchunked;
+		int												m_unchunked;
 		std::vector<multipart>							m_multipartData;
 		size_t											m_contentLength;
 
@@ -48,7 +48,8 @@ class HttpRequest {
 		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);
 		size_t			getContentLength();
 		std::string		getBoundary(std::string& contentType);
-		void			ParseMultipartHeaders(std::string& headerString, multipart& part);
+		void			parseMultipartHeaders(std::string& headerString, multipart& part);
+		std::string		uniqueId();
 
 	public:
 		HttpRequest(int fd);
