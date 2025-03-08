@@ -46,11 +46,12 @@ std::string	HttpHandler::getErrorPage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	m_location->tryGetDirective("root", root);
+	if (!m_location->tryGetDirective("root", root))
+		m_server->tryGetDirective("root", root);
 	errorPage = m_server->getErrorPage(code);
 
 	if (!root.empty() && !errorPage.empty())
-		return root[0] + errorPage;
+		return root.front() + errorPage;
 	if (!errorPage.empty())
 		return errorPage;
 	return EMPTY_STRING;
