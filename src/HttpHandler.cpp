@@ -231,7 +231,7 @@ void    HttpHandler::validatePath(const std::string& target)
 				if (!m_location->autoindexOn())
 				{
 					Logger::log("autoindex: off, but trying to access directory");
-					throw HttpException::forbidden("1");
+					throw HttpException::forbidden("autoindex: off, but trying to access directory");
 				}
 
 				// could setup some autoindexing settings here,
@@ -246,8 +246,8 @@ void    HttpHandler::validatePath(const std::string& target)
 
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
-		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden("2");
+		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+			throw HttpException::forbidden("permission denied");
 
 	} catch (std::exception& e) {
 
@@ -322,7 +322,7 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
 	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
-		throw HttpException::forbidden("3");
+		throw HttpException::forbidden("permission denied");
 
 	for (multipart part: multipartData)
 	{
@@ -345,7 +345,7 @@ HttpResponse HttpHandler::handleDelete()
 {
 	try {
 		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden("4");
+			throw HttpException::forbidden("trying to delete a directory");
 		std::filesystem::remove(m_path);
 		return HttpResponse(200, "OK");
 	} catch (std::filesystem::filesystem_error& e) {

@@ -67,7 +67,7 @@ std::string	HttpResponse::getBody(const std::string& path)
 			throw HttpException::notFound();
 		std::filesystem::perms perms = std::filesystem::status(path).permissions();
 		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden();
+			throw HttpException::forbidden("permission denied");
 		throw HttpException::internalServerError("filesystem error");
 	}
 
