@@ -19,6 +19,7 @@ class HttpHandler {
 		std::shared_ptr<ConfigNode> m_server;
         std::shared_ptr<ConfigNode> m_location;
         std::string                 m_path;
+		std::string					m_target; // robert
 		e_method					m_method;
         bool                        m_cgi;
 		size_t						m_maxSize;
