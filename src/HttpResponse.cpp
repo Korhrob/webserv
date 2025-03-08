@@ -19,13 +19,12 @@ void	HttpResponse::setBody(const std::string& path)
 			if (std::filesystem::is_directory(path))
 			{
 				m_body = listDirectory(path, m_targetUrl);
-				// could also check size of body after this
-				// to ensure we arent sending a massive directory listing
-				// (unlikely to ever happen)
+				if (m_body.length() > PACKET_SIZE)
+					m_type = TYPE_CHUNKED;
 				return;
 			}
 
-			size_t size = std::filesystem::file_size(path); // cant be used for directories
+			size_t size = std::filesystem::file_size(path);
 			if (size <= PACKET_SIZE)
 			{
 				try {
