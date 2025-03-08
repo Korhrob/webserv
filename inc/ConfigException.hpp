@@ -46,4 +46,9 @@ class ConfigException : public std::exception
 			return ConfigException("empty directive for key " + key);
 		}
 
+		static ConfigException	tooManyDirectives(const std::string& key)
+		{
+			return ConfigException("too many directives for key " + key);
+		}
+
 };
