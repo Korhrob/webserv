@@ -30,17 +30,17 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
             	return handlePost(request.getMultipartData());
         	case DELETE:
             	return handleDelete();
+			default:
+				return HttpResponse(500, "FAIL", "", "", true); // robert
 		}
     } catch (HttpException& e) {
 		if (!m_server)
 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
-        return HttpResponse(e.code(), e.what(), getErrorPage(e.code()), e.target(), request.closeConnection());
+        return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
     }
-
-	return HttpResponse(500, "FAIL", "", "", true); // robert
 }
 
-std::string	HttpHandler::getErrorPage(int code)
+std::string	HttpHandler::errorPage(int code)
 {
 	std::vector<std::string>	root;
 	std::string					errorPage;
@@ -58,10 +58,6 @@ std::string	HttpHandler::getErrorPage(int code)
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
-
-	// technically should never happen, as findServerNode would never return null
-    // if (m_server == nullptr) // temp
-	// 	throw HttpException::badRequest("Server node is null");
 	
     m_location = m_server->findClosestMatch(request.getTarget());
 	
