@@ -4,7 +4,7 @@ LDFLAG		=	#-g -fsanitize=address
 SNAME		=	server
 SSRC		=	src/main.cpp			src/Server.cpp			src/HttpHandler.cpp \
 				src/Logger.cpp			src/Config.cpp			src/ConfigNode.cpp	\
-				src/HttpResponse.cpp	src/HttpRequest.cpp
+				src/HttpResponse.cpp	src/HttpRequest.cpp		src/CGI.cpp
 SOBJ		=	$(patsubst src/%.cpp, obj/%.o, $(SSRC)) # $(SSRC:.cpp=.o)
 
 all: $(SNAME) 
@@ -21,12 +21,14 @@ obj/:
 
 clean:
 	rm -f $(SOBJ)
-	rm logs/log
-	rm logs/error
+	if [ -f logs/log ]; then rm logs/log; fi
+	if [ -f logs/error ]; then rm logs/error; fi
 
 fclean: clean
 	rm -f $(SNAME)
 	rm -rf obj
+	rm -rf cgi-bin/people.txt
+	touch cgi-bin/people.txt
 
 re: fclean all
 

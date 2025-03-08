@@ -35,6 +35,8 @@ class HttpHandler {
 		HttpResponse handlePost(const std::vector<multipart>& multipartData);
         HttpResponse handleDelete();
 
+		std::string	getErrorPage(int code);
+		
     public:
         HttpHandler();
 		~HttpHandler() = default;

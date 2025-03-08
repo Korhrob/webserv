@@ -27,13 +27,14 @@ void	HttpRequest::parseRequest()
 
 void	HttpRequest::parseBody(size_t maxSize)
 {
+	m_contentLength = 0;
 	getBodyType(maxSize);
 
 	while (m_body != COMPLETE)
 	{
 		if (m_body == CHUNKED)
 			parseChunked(maxSize);
-		if (m_body == MULTIPART)
+		else if (m_body == MULTIPART)
 			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
 		if (m_body != COMPLETE)
 			readRequest();
@@ -59,10 +60,10 @@ void	HttpRequest::readRequest()
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(m_fd, buffer, PACKET_SIZE, 0);
 
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + "--\n\n");
+	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
-		throw HttpException::internalServerError("failed to receive request");
+		throw HttpException::badRequest("failed to receive request");
 	if (bytes_read == 0)
 		throw HttpException::requestTimeout();
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
@@ -73,7 +74,7 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 {
 	std::string	line;
 	std::string	excess;
-	std::string version;
+	std::string	version;
 
 	getline(request, line);
 	std::istringstream	requestLine(line);
@@ -148,11 +149,13 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 	}
 }
 
-void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
+void	HttpRequest::parseChunked(size_t maxSize) {
 	if (!m_unchunked.is_open())
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / "unchunked";
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
 		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
+		if (!m_unchunked.is_open())
+			throw HttpException::internalServerError("error opening a file");
 	}
 
 	if (m_request.empty())
@@ -166,8 +169,12 @@ void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
 	while (true)
 	{
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
-		if (endOfSize == currentPos || endOfSize == m_request.end()) // content should begin with size
-			throw HttpException::badRequest("malformed chunked content");
+		if (endOfSize == m_request.end()) {
+			Logger::log("INCOMPLETE CHUNK");
+			if (currentPos > m_request.begin())
+				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
+			return;
+		}
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0)
@@ -181,6 +188,7 @@ void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
 		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
 		if (endOfContent == m_request.end()) // incomplete chunk
 		{
+			Logger::log("INCOMPLETE CHUNK");
 			if (currentPos > m_request.begin())
 				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
 			return;
@@ -189,6 +197,7 @@ void	HttpRequest::parseChunked(size_t maxSize) { // not properly tested
 			throw HttpException::badRequest("invalid chunk size");
 		m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
 		m_contentLength += chunkSize;
+		std::cout << "CONTENT LENGTH: " << m_contentLength << "\n";
 		if (m_contentLength > maxSize)
 			throw HttpException::badRequest("Body exceeds max size limit");
 		currentPos = endOfContent + 2;
@@ -339,6 +348,18 @@ const std::vector<multipart>&	HttpRequest::getMultipartData()
 	return m_multipartData;
 }
 
+const queryMap&	HttpRequest::getQuery()
+{
+	return m_queryData;
+}
+
+bool	HttpRequest::closeConnection()
+{
+	if (m_headers.find("connection") != m_headers.end())
+		return m_headers["connection"] == "close";
+	return false;
+}
+
 HttpRequest::~HttpRequest()
 {
 	for (multipart part: m_multipartData)
@@ -353,10 +374,9 @@ HttpRequest::~HttpRequest()
 			}
 		}
 	}
-	try {
-		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
-	} catch (std::filesystem::filesystem_error& e) {
-		Logger::log("error removing temporary file");
-	}
+	// try {
+	// 	std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
+	// } catch (std::filesystem::filesystem_error& e) {
+	// 	Logger::log("error removing temporary file");
+	// }
 }
-

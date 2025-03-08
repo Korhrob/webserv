@@ -82,15 +82,21 @@ bool	Config::parse(std::ifstream& stream)
 			}
 
 			// if node name starts with "location", we treat node as the path
-			// ex. "location /" becomes "/"
+			// ex. "location /" becomes just "/"
+
+			// TODO:
+			// should only allow certain name(s) like location or route
+			// also improve search for cases like 'qwertyu /location/location'
+
 			if (node_name.find("location") != std::string::npos)
 			{
 				node_name = node_name.substr(9);
 				node_name = trim(node_name);
-				Logger::log("location node = [" + node_name + "]");
+				//Logger::log("location node = [" + node_name + "]");
 			}
 
-			if (findNode(node_name) != nullptr)
+			// Test this
+			if (!tree.empty() && tree.back()->findNode(node_name) != nullptr)
 			{
 				Logger::logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
 				Logger::logError(line);
@@ -118,6 +124,7 @@ bool	Config::parse(std::ifstream& stream)
 			tree.pop_back();
 			continue;
 		}
+
 		// if not back != '{' and tree.empty, error
 		// if back == '}' and tree.empty, error
 
@@ -137,24 +144,19 @@ bool	Config::parse(std::ifstream& stream)
 
 		std::string	name = directives[0];
 
-		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), name);
-
-		if (it == VALID_DIRECTIVES.end())
-		{
-			Logger::logError(name + " is not a valid directive, line " + std::to_string(line_nbr) + ":");
-			Logger::logError(line);
-			return false;
-		}
-
-		if (!tree.back()->findDirective(name).empty())
-		{
-			Logger::logError("duplicate directive " + name + " on line " + std::to_string(line_nbr) + ":");
-			Logger::logError(line);
-			return false;
-		}
-
 		directives.erase(directives.begin());
-		tree.back()->addDirective(name, directives);
+
+		try {
+			if (name == "error_page")
+				tree.back()->addErrorPage(directives);
+			else
+				tree.back()->addDirective(name, directives);
+		}
+		catch (std::exception& e)
+		{
+			Logger::logError(std::string(e.what()) + " on line " + std::to_string(line_nbr));
+			return false;
+		}
 
 	}
 
@@ -164,83 +166,28 @@ bool	Config::parse(std::ifstream& stream)
 		return false;
 	}
 
-	// std::shared_ptr<ConfigNode>	serverNode = findNode("server");
-	// if (serverNode == nullptr)
-	// {
-	// 	Logger::logError("missing server node");
-	// 	return false;
-	// }
-
 	if (m_server_count == 0)
 	{
 		Logger::logError("missing server node");
 		return false;
 	}
 
-	for (auto& nodePair : m_nodes)
+	for (auto& [key, node] : m_nodes)
 	{
-		std::shared_ptr<ConfigNode> serverNode = nodePair.second;
-		std::vector<std::string> d;
+		std::vector<std::string> temp;
 		for (auto& str : MANDATORY_DIRECTIVES)
 		{
-			if (!serverNode->tryGetDirective(str, d))
+			if (!node->tryGetDirective(str, temp))
 			{
-				Logger::logError(nodePair.first + " missing mandatory directive '" + str + "'");
+				Logger::logError(key + " missing mandatory directive '" + str + "'");
 				return false;
 			}
 		}
 	}
 
-	//Logger::log("Config OK");
-
-	// some test functions
-	// if (findNode("/") != nullptr)
-	// {
-	// 	Logger::log("location / (root) found!");
-		
-	// }
-
-	// std::vector<std::string> t;
-
-	// if (tryGetDirective("root", t)) {
-	// 	Logger::log("found root");
-	// }
+	// create default error rules for each server
 
 	return true;
-}
-
-unsigned int	Config::getPort(const std::string& server_name)
-{
-	if (m_nodes.find(server_name) == m_nodes.end())
-	{
-		Logger::logError("no such server block as " + server_name);
-		return 8080; // default
-	}
-
-	std::vector<std::string> directive = m_nodes[server_name]->findDirective("listen");
-
-	if (directive.empty())
-	{
-		Logger::logError("server block does not contain listen directive");
-		return 8080; // default
-	}
-
-	try
-	{
-		unsigned int	value = std::stoul(directive.front());
-		return value;
-	}
-	catch (const std::invalid_argument& e)
-	{
-		Logger::logError("Invalid port argument");
-	}
-	catch (const std::out_of_range& e)
-	{
-		Logger::logError("Port out of range");
-	}
-
-	Logger::logError("using default port 8080");
-	return 8080; // default
 }
 
 std::vector<std::string> 	Config::parseDirective(std::string& line, const int &line_nbr)
@@ -297,51 +244,6 @@ std::string	Config::trim(const std::string& str)
 	return str.substr(first, last - first + 1);
 }
 
-/// @brief recursively find directive with key
-/// @param key 
-/// @return vector for directive or constant empty vector
-const std::vector<std::string>&	Config::findDirective(const std::string& key)
-{
-	for (const auto& node : m_nodes)
-	{
-		const std::vector<std::string>& temp = node.second->findDirective(key);
-		if (!temp.empty())
-			return temp;
-	}
-	return EMPTY_VECTOR;
-}
-
-/// @brief recursively find node with key
-/// @param key node name
-/// @return pointer to found node or nullptr
-const std::shared_ptr<ConfigNode>	Config::findNode(const std::string& key)
-{
-	auto it = m_nodes.find(key);
-	if (it != m_nodes.end())
-		return it->second;
-
-	// if (m_nodes.find(key) != m_nodes.end())
-	// 	return m_nodes[key];
-
-	for (const auto& node : m_nodes)
-	{
-		const std::shared_ptr<ConfigNode> temp = node.second->findNode(key);
-		if (temp != nullptr)
-			return temp;
-	}
-	return nullptr;
-}
-
-/// @brief assign directive[key] to out and return true if it isn't empty
-/// @param key directive key
-/// @param out output directive
-/// @return true or false
-bool	Config::tryGetDirective(const std::string&key, std::vector<std::string>& out)
-{
-	out = findDirective(key);
-	return !out.empty();
-}
-
 int	Config::getServerCount()
 {
 	return m_server_count;
@@ -360,6 +262,8 @@ const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host
 	size_t pos = host.find(":");
 	std::string host_name = host.substr(0, pos);
 	std::string port = host.substr(pos + 1);
+
+	// should return default or first server_block for a specific port
 
 	for (auto& [key, node] : m_nodes)
 	{
@@ -386,5 +290,5 @@ const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host
 		return node;
 	}
 
-	return nullptr;
+	return m_default_node[std::stoi(port)];
 }

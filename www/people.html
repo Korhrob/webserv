@@ -25,7 +25,7 @@
 
     <!-- Form to add new people -->
     <h2>Add Person</h2>
-    <form action="people.cgi" method="post" enctype="multipart/form-data">
+    <form action="people.cgi.php" method="post" enctype="multipart/form-data">
         <label for="first_name">First Name:</label>
         <input type="text" id="first_name" name="first_name" required><br>
         
@@ -37,9 +37,15 @@
 
     <hr>
 
+	<!-- Section for displaying search results -->
+    <div id="Post results">
+    </div>
+
+	<hr>
+
     <!-- Form to search people by first or last name -->
     <h2>Search for Person</h2>
-    <form action="people.cgi" method="get" enctype="multipart/form-data">
+    <form action="people.cgi.php" method="get" enctype="multipart/form-data">
         <label for="search_name">Search by First or Last Name:</label>
         <input type="text" id="search_name" name="search_name" required><br>
 

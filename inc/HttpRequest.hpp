@@ -65,4 +65,6 @@ class HttpRequest {
 		const std::string&				getTarget();
 		const std::string&				getMethod();
 		const std::vector<multipart>&	getMultipartData();
+		const queryMap&					getQuery();
+		bool							closeConnection();
 };

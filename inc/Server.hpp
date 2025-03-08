@@ -1,63 +1,76 @@
 #pragma once
 
-#include <string>
+#include <string> // std::string
 #include <iostream> // std::cout
 #include <sys/socket.h> // socket
 #include <unistd.h> // close
 #include <netinet/in.h> // sockaddr_in
 #include <arpa/inet.h> // For inet_ntoa and struct in_addr
-#include <poll.h> // pollfd
 #include <string.h>
 #include <sstream>
 #include <chrono> // time
 #include <vector> // vector
-#include <memory> // unique ptr
-#include <map>
+#include <memory> // shared_ptr
+#include <unordered_map>
+#include <sys/epoll.h> // epoll
+#include <queue> // priority_queue
+#include <unordered_set>
 
 #include "Logger.hpp"
 #include "Client.hpp"
 #include "Const.hpp"
 #include "Config.hpp"
 
-typedef struct sockaddr_in t_sockaddr_in;
-typedef std::chrono::steady_clock::time_point t_time;
+using t_sockaddr_in = struct sockaddr_in;
+using t_time = std::chrono::steady_clock::time_point;
+
+struct TimeoutClient
+{
+	t_time					time;
+	std::shared_ptr<Client>	client;
+
+	bool operator>(const TimeoutClient& other) const
+	{
+		return time > other.time;
+	}
+};
+
+using Queue = std::priority_queue<TimeoutClient, std::vector<TimeoutClient>, std::greater<>>;
+using Set = std::unordered_set<std::shared_ptr<Client>>;
+using ClientMap = std::unordered_map<int, std::shared_ptr<Client>>;
 
 class Server
 {
 
 	private:
-		Config				m_config;
-		unsigned int		m_addr_len = sizeof(t_sockaddr_in);
+		Config							m_config;
+		unsigned int					m_addr_len = sizeof(t_sockaddr_in);
+		//int								m_max_backlog = 128; // check config for override
 
-		int											m_max_backlog = 128;
-		int											m_sock_count;
-		//int											m_max_sockets = 128;	// events { worker_connections}
+		t_time							m_time;
 
-		t_time										m_time;
-		std::vector<struct pollfd>					m_pollfd_vector;
-		std::map<size_t, size_t>					m_pollfd; // index, pollfd_vector index
-		std::map<size_t, ConfigNode>				m_server_block; // fd
-		std::map<size_t, std::shared_ptr<Client>>	m_clients; /// index
-		std::vector<t_sockaddr_in>					m_socket_addr;
-		std::map<int, size_t>						m_listeners; // port, index
-		std::vector<std::shared_ptr<Client>>		m_disconnect;
+		// new stuff
+		int								m_epoll_fd;
+		std::vector<epoll_event>		m_events;
+		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
+		ClientMap						m_clients;
+		Queue							m_timeout_queue;
+		Set								m_timeout_set;
 
 
 	public:
-		// Server(const std::string& ip, int port); // depracated
-		Server();
+
+		Server(); // pass string for config name
 		~Server();
 
 		bool	startServer();
 		void	closeServer();
 		int		createListener(int port);
-		bool	tryRegisterClient(t_time time);
-		void	handleRequest(std::shared_ptr<Client> client);
-		void	handleClients();
-		void	handleEvents();
-		void	update();
-		bool	clientEvent(std::shared_ptr<Client> client, int event);
-		int		respond(std::shared_ptr<Client> client, const std::string& response);
+		void	addClient(int fd);
 		void	removeClient(std::shared_ptr<Client> client);
-		void	rebuildPollVector();
+		void	updateClient(std::shared_ptr<Client> client);
+		void	handleEvents(int event_count);
+		void	handleTimeouts();
+		void	handleRequest(int fd);
+		void	update();
 };

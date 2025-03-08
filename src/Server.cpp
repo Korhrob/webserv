@@ -1,7 +1,6 @@
 
 #include "Client.hpp"
 #include "Server.hpp"
-// #include "Parse.hpp"
 #include "Const.hpp"
 #include "HttpHandler.hpp"
 
@@ -9,24 +8,24 @@
 #include <algorithm> // min
 #include <sstream>
 #include <fstream>
-#include <poll.h>
 #include <fcntl.h>
 
-Server::Server()
+Server::Server() : m_events(EPOLL_POOL)
 {
-	//m_pollfd.reserve(128);
 }
 
 Server::~Server()
 {
-	for (auto& pollfd : m_pollfd_vector)
+	for (auto& [fd, client] : m_clients)
 	{
-		if (pollfd.fd > 0)
-			close(pollfd.fd);
+		if (fd > 0)
+			close(fd);
 	}
-
-	m_pollfd.clear();
-	m_clients.clear();
+	for (auto& [fd, port] : m_port_map)
+	{
+		if (fd > 0)
+			close(fd);
+	}
 }
 
 bool	Server::startServer()
@@ -37,15 +36,45 @@ bool	Server::startServer()
 		return false;
 	}
 
-	for (auto& [server, node] : m_config.getNodeMap())
+	m_epoll_fd = epoll_create1(0);
+	if (m_epoll_fd == -1)
 	{
-		int port = m_config.getPort(server);
-		Logger::log("Starting server on " + server + ":" + std::to_string(port) + "...");
+		Logger::logError("failed to create epoll instance");
+		return false;
+	}
 
-		if (m_listeners.find(port) == m_listeners.end())
+	for (auto& [name, node] : m_config.getNodeMap())
+	{
+		std::vector<std::string> listen;
+
+		// should validatate, but we are pretty sure it exists
+		if (!node->tryGetDirective("listen", listen))
+		{
+			Logger::logError("missing listen directive, skipping server block");
+			continue;
+		}
+
+		// should always exist at this point, but just incase
+		if (listen.empty())
+		{
+			Logger::logError("listen directive is empty, skipping server block");
+			continue;
+		}
+
+		// port is already validated during config parsing
+		unsigned int port = std::stoul(listen.front());
+		Logger::log("Starting server on " + name + ":" + std::to_string(port) + "...");
+
+		if (!m_port_map.count(port))
+		{
 			createListener(port);
-
-		// host_name, ConfigNode
+			m_config.setDefault(port, node);
+		} 
+		else if (listen.back() == "default_server")
+		{
+			// override current default
+			m_config.setDefault(port, node);
+		}
 		
 	}
 
@@ -54,8 +83,6 @@ bool	Server::startServer()
 
 int	Server::createListener(int port)
 {
-	t_sockaddr_in socket_addr;
-
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd <= 0)
 	{
@@ -72,19 +99,35 @@ int	Server::createListener(int port)
         return false;
     }
 
+	// int flags = fcntl(fd, F_GETFL, 0);
+	// if (flags == -1)
+	// {
+	// 	Logger::logError("fctl get failed!");
+	// 	close(fd);
+	// 	return false;
+	// }
+
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) // flags | 
+	{
+		Logger::logError("fcntl set failed!");
+		close(fd);
+		return false;
+	}
+
+	t_sockaddr_in socket_addr { };
 	socket_addr.sin_family = AF_INET;
 	socket_addr.sin_addr.s_addr = INADDR_ANY;
 	socket_addr.sin_port = htons(port);
 
 	if (bind(fd, (struct sockaddr*)&socket_addr, sizeof(socket_addr)) < 0)
 	{
-		Logger::logError("Bind " + std::to_string(port) + " failed");
+		Logger::logError("Bind " + std::to_string(port) + " failed!");
 		close(fd);
 		closeServer();
 		return false;
 	}
 
-	if (listen(fd, m_max_backlog) < 0)
+	if (listen(fd, SOMAXCONN) == -1)
 	{
 		Logger::logError("Listen " + std::to_string(port) + " failed");
 		close(fd);
@@ -92,134 +135,149 @@ int	Server::createListener(int port)
 		return false;
 	}
 
-	// safe to use 1 2 3 4 5... here
-	size_t index = m_pollfd.size();
-	pollfd pfd { fd, POLLIN, 0 };
-	m_pollfd_vector.push_back(pfd);
-	m_pollfd[index] = index;
-	m_listeners[port] = index;
+	struct epoll_event event;
+	event.events = EPOLLIN;
+	event.data.fd = fd;
 
-	m_socket_addr.push_back(socket_addr); // not sure if required
+	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
+	{
+		Logger::logError("epoll_ctrl failed");
+		close(fd);
+		return false;
+	}
 
-	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(pfd.fd));
+	m_port_map[fd] = port;
+
+	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(fd));
 
 	return true;
 }
 
-// technically not required
+/// @brief Handle any logic before deconstruction
 void	Server::closeServer()
 {
 	Logger::log("Closing server...");
-
-	for (auto& pollfd : m_pollfd_vector)
-	{
-		if (pollfd.fd > 0)
-			close(pollfd.fd);
-	}
-
+	// ...
 	Logger::log("Server closed!");
 }
 
-bool	Server::tryRegisterClient(t_time time)
+/// @brief Handle epoll events
+void	Server::handleEvents(int event_count)
 {
-	// if full, should try to disconnect some idle clients
-	// if (m_sock_count >= m_max_sockets)
-	// 	return;
-
-	for (auto& [port, index] : m_listeners)
+	for (int i = 0; i < event_count; i++)
 	{
+		int fd = m_events[i].data.fd;
 
-		if (m_pollfd_vector[index].revents & POLLIN) { }
+		if (m_port_map.count(fd))
+			addClient(fd);
 		else
-		{
-			continue;
-		}
-
-		//m_pollfd_vector[index].revents = 0;
-
-		// move to addClient()
-		t_sockaddr_in client_addr = {};
-		m_addr_len = sizeof(client_addr);
-		int client_fd = accept(m_pollfd_vector[index].fd, (struct sockaddr*)&client_addr, &m_addr_len);
-
-		if (client_fd < 0)
-		{
-			Logger::logError("Accept client failed");
-			return false;
-		}
-
-		int	fd_index = m_pollfd_vector.size();
-		struct pollfd npfd { client_fd, POLLIN, 0 };
-		m_pollfd_vector.push_back(npfd);
-
-		std::shared_ptr<Client> client = std::make_shared<Client>(fd_index);
-		bool success = client->connect(client_fd, client_addr, time);
-
-		if (success)
-		{
-			m_pollfd[client_fd] = fd_index;
-			m_clients[client_fd] = client;
-			m_sock_count++;
-		}
-		else
-		{
-			Logger::logError("Failed to connect client");
-			m_pollfd_vector.pop_back();
-		}
-
+			handleRequest(fd);
 	}
 
-	return true;
 }
 
-void	Server::handleClients()
+/// @brief Accept new client
+/// @param fd listener file descriptor
+void	Server::addClient(int fd)
 {
-	auto time = std::chrono::steady_clock::now();
+	t_sockaddr_in client_addr = { };
+	m_addr_len = sizeof(client_addr);
+	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
 
-	std::vector<std::shared_ptr<Client>> client_list;
-
-	for (auto& [index, client] : m_clients)
+	if (client_fd < 0)
 	{
-		if (client->isAlive() && client->timeout(time))
+		Logger::logError("error connecting client, accept");
+		return;
+	}
+
+	// setup non blocking
+
+	epoll_event	event;
+	event.events = EPOLLIN | EPOLLET;
+	event.data.fd = client_fd;
+
+	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
+	{
+		Logger::logError("error connecting client, epoll_ctl");
+		close(client_fd);
+		return;
+	}
+
+	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+	client->connect(client_fd, m_time);
+	m_clients[client_fd] = client;
+
+}
+
+/// @brief Handle client timeouts
+void	Server::handleTimeouts()
+{
+	auto grace = m_time + std::chrono::seconds(2);
+
+	for (auto& [fd, client] : m_clients)
+	{
+		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
 		{
-			Logger::log("Client " + std::to_string(client->getIndex()) + " timed out!");
-			//removeClient(client);
+			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
+			client->setClientState(ClientState::TIMEDOUT);
 			client->respond(RESPONSE_TIMEOUT);
-			client_list.push_back(client);
-			m_sock_count--;
+			client->respond(EMPTY_STRING);
+			client->setDisconnectTime(grace);
+			m_timeout_queue.push({grace, client});
+			m_timeout_set.insert(client);
 		}
 	}
 
-	for (auto& client : client_list)
-		removeClient(client);
+	int max = 20;
+	while (!m_timeout_queue.empty() && max > 0 && m_time >= m_timeout_queue.top().time)
+	{
+		auto c = m_timeout_queue.top();
+		m_timeout_queue.pop();
+		m_timeout_set.erase(c.client);
+		removeClient(c.client);
+		--max;
+	}
 
-	tryRegisterClient(time);
+	// could adjust epoll timeout rate
+
 }
 
-void	Server::handleRequest(std::shared_ptr<Client> client)
+/// @brief Handle parsing request and sending response
+/// @param fd client file descriptor
+void	Server::handleRequest(int fd)
 {
-	HttpHandler	httpHandler;
-	HttpResponse httpResponse = httpHandler.handleRequest(client->fd(), m_config);
+	// technically should never happen
+	if (m_clients.find(fd) == m_clients.end())
+	{
+		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
+		return;
+	}
 
+	HttpHandler	httpHandler; // move to class to prevent constant instances
+	HttpResponse httpResponse = httpHandler.handleRequest(fd, m_config);
+	std::shared_ptr<Client> client = m_clients.at(fd);
+
+	std::cout << httpResponse.getResponse() << std::endl;
+	
 	if (httpResponse.closeConnection())
 	{
-		//client->update(m_time);
-		Logger::log(httpResponse.getResponse());
-		respond(client, httpResponse.getResponse());
-		m_disconnect.push_back(client);
+		Logger::log("== CLOSE CONNECTION ==");
+		removeClient(client);
 		return ;
 	}
 
-	// CGI
+	updateClient(client);
+
+	Logger::log("== SEND RESPONSE ==");
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		Logger::log(httpResponse.getResponse());
-		respond(client, httpResponse.getResponse());
+		//Logger::log(httpResponse.getResponse());
+		client->respond(httpResponse.getResponse());
 	}
 	else if (httpResponse.getSendType() == TYPE_CHUNKED)
 	{
-		respond(client, httpResponse.getHeader());
+		client->respond(httpResponse.getHeader());
 
 		std::ifstream file;
 		try
@@ -248,97 +306,60 @@ void	Server::handleRequest(std::shared_ptr<Client> client)
 			oss << std::hex << count << "\r\n";
 			oss.write(buffer, count);
 			oss << "\r\n";
-			respond(client, oss.str());
-			Logger::log("chunk encoding");
+			client->respond(oss.str());
+			Logger::log("CHUNK");
 		}
 
-		respond(client, "0\r\n\r\n");
-		Logger::log("end chunk encoding");
+		client->respond("0\r\n\r\n");
+		Logger::log("END CHUNK");
 	}
 }
 
-void	Server::handleEvents()
-{
-	for (auto& [index, client] : m_clients)
-	{
-		if (!client->isAlive())
-			continue;
-
-		if (clientEvent(client, POLLIN))
-		{
-			handleRequest(client);
-			client->update(m_time);
-		}
-	}
-
-	if (m_disconnect.empty())
-		return;
-
-	for (auto& client : m_disconnect)
-		removeClient(client);
-
-	m_disconnect.clear();
-
-}
-
+/// @brief Server update logic
 void	Server::update()
 {
-
 	m_time = std::chrono::steady_clock::now();
 
-	int	r = poll(m_pollfd_vector.data(), m_pollfd.size(), 1000);
+	auto event_count = epoll_wait(m_epoll_fd, m_events.data(), m_events.size(), 200);
 
-	if (r == -1)
+	if (event_count == -1)
 		return;
 
-	handleClients();
-	handleEvents();
+	if (event_count == static_cast<int>(m_events.size()))
+	{
+		Logger::log("== RESIZE EVENT COLLECTION ==");
+		m_events.resize(m_events.size() * 2);
+	}
 
-}
+	handleEvents(event_count);
+	handleTimeouts();
 
-bool	Server::clientEvent(std::shared_ptr<Client> client, int event)
-{
-	return m_pollfd_vector[client->getIndex()].revents & event;
-}
-
-int		Server::respond(std::shared_ptr<Client> client, const std::string& msg)
-{
-	client->respond(msg);
-	m_pollfd_vector[client->getIndex()].revents = POLLOUT;
-	return 1;
 }
 
 void	Server::removeClient(std::shared_ptr<Client> client)
 {
-	if (!client->isAlive())
-		return;
-
+	m_clients.erase(client->fd());
 	client->disconnect();
-
-	if (m_clients.find(client->fd()) != m_clients.end())
-		m_clients.erase(client->fd());
-
-	auto it = m_pollfd.find(client->fd());
-	if (it != m_pollfd.end())
-	{
-		m_pollfd_vector.erase(m_pollfd_vector.begin() + it->second);
-		rebuildPollVector();
-	}
-
 }
 
-void	Server::rebuildPollVector()
+void	Server::updateClient(std::shared_ptr<Client> client)
 {
-	m_pollfd.clear();
-	for (size_t i = 0; i < m_pollfd_vector.size(); ++i)
-		m_pollfd[m_pollfd_vector[i].fd] = i;
+	client->update(m_time);
+
+	// remove client from timeout pool
+	if (m_timeout_set.find(client) != m_timeout_set.end())
+	{
+		Queue new_queue;
+
+		while (!m_timeout_queue.empty())
+		{
+			auto top = m_timeout_queue.top();
+			m_timeout_queue.pop();
+			if (top.client != client)
+				new_queue.push(top);
+		}
+
+		m_timeout_queue = new_queue;
+		m_timeout_set.erase(client);
+	}	
 }
-
-// void asd(Config config)
-// {
-// 	ConfigNode server_block = config.getServerBlock("127.0.0.1:8080");
-
-// 	server_block.findDirective()
-
-
-// }
