@@ -254,12 +254,17 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 				part.content.insert(part.content.end(), currentPos, endOfContent - 2);
 			else
 			{
-				std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-				std::ofstream fileStream(tmpFile, std::ios::binary);
-				if (!fileStream)
-					throw HttpException::internalServerError("error opening file");
-				fileStream.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
-				fileStream.close();
+				std::string	tmpPath = std::filesystem::temp_directory_path() / part.filename;
+
+				int tmpFile = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+				if (tmpFile == -1)
+					throw HttpException::internalServerError("error opening a file");
+
+				int bytesWritten = write(tmpFile, &(*currentPos), std::distance(currentPos, endOfContent - 2));
+				if (bytesWritten == -1)
+					throw HttpException::internalServerError("error writing to a file");
+				
+				close(tmpFile);
 			}
 		}
 		multipartData.push_back(part);
