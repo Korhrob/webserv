@@ -260,12 +260,14 @@ void    HttpHandler::validatePath(const std::string& target)
 		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden("permission denied");
 
+	} catch (HttpException& e) {
+		if (e.code() == 403)
+			throw HttpException::forbidden();
+		else
+			throw HttpException::notFound();
+
 	} catch (std::exception& e) {
-
-		// shouldn't always throw not found!!
-		// what about forbidden?
-		throw HttpException::notFound();
-
+		throw HttpException::internalServerError(e.what());
 	}
 }
 
