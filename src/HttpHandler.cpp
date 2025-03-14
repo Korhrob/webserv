@@ -45,13 +45,25 @@ std::string	HttpHandler::errorPage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	m_location->tryGetDirective("root", root);
-	errorPage = m_server->getErrorPage(code);
+	if (!m_location->tryGetDirective("root", root))
+		m_server->tryGetDirective("root", root);
+
+	std::vector<std::string>	pages;
+	if (m_location->tryGetDirective("error_page", pages))
+	{
+		errorPage = m_location->getErrorPage(code);
+	}
+	else
+	{
+		errorPage = m_server->getErrorPage(code);
+	}
 
 	if (!root.empty() && !errorPage.empty())
-		return root[0] + errorPage;
+		return root.front() + errorPage;
+
 	if (!errorPage.empty())
 		return errorPage;
+
 	return EMPTY_STRING;
 }
 
@@ -63,6 +75,7 @@ void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 	
 	std::vector<std::string>	redirect;
 	m_location->tryGetDirective("return", redirect);
+
 	if (!redirect.empty())
 		throw HttpException::temporaryRedirect(redirect[1]); // is this safe? checked in config parsing?
 }
@@ -78,7 +91,9 @@ void    HttpHandler::validateMethod(const std::string& method)
 {
     std::vector<std::string>    allowedMethods;
 
-    m_location->tryGetDirective("methods", allowedMethods);
+    if (!m_location->tryGetDirective("methods", allowedMethods))
+		m_server->tryGetDirective("methods", allowedMethods);
+
     if (std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
 	{
         throw HttpException::notImplemented();
@@ -261,7 +276,8 @@ void    HttpHandler::validateCgi(const std::string& target)
 	std::string					extension(target.substr(target.find_last_of(".")));
 	std::vector<std::string>	cgi;
 
-    m_location->tryGetDirective("cgi", cgi);
+    if (!m_location->tryGetDirective("cgi", cgi))
+		m_server->tryGetDirective("cgi", cgi);
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_cgi = true;
@@ -270,7 +286,9 @@ void    HttpHandler::validateCgi(const std::string& target)
 void	HttpHandler::getMaxSize()
 {
 	std::vector<std::string> maxSize;
-	m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
+		m_server->tryGetDirective("client_max_body_size", maxSize);
 
 	if (!maxSize.empty()) // should a default value be set in a .hpp?
 	{
@@ -312,7 +330,8 @@ HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
-	m_location->tryGetDirective("uploadDir", uploadDir);
+	if (!m_location->tryGetDirective("uploadDir", uploadDir))
+		m_server->tryGetDirective("uploadDir", uploadDir);
 
 	if (uploadDir.empty())
 		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
