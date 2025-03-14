@@ -266,11 +266,12 @@ void    HttpHandler::validatePath(const std::string& target)
 
 	} catch (HttpException& e) {
 		if (e.code() == 403)
-			throw HttpException::forbidden();
+			throw HttpException::forbidden(e.what());
 		else
 			throw HttpException::notFound();
 
 	} catch (std::exception& e) {
+		// other possible exceptions thrown by stoi() / replace() / filesystem functions
 		throw HttpException::internalServerError(e.what());
 	}
 }
@@ -296,7 +297,7 @@ void	HttpHandler::getMaxSize()
 	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
 		m_server->tryGetDirective("client_max_body_size", maxSize);
 
-	if (!maxSize.empty()) // should a default value be set in a .hpp?
+	if (!maxSize.empty())
 	{
 		try {
 			m_maxSize = std::stoul(maxSize.front());
