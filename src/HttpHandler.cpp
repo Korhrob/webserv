@@ -46,7 +46,7 @@ std::string	HttpHandler::getErrorPage(int code)
 	std::string					errorPage;
 
 	m_location->tryGetDirective("root", root);
-	errorPage = m_server->getErrorPage(code);
+	errorPage = m_server->findErrorPage(code);
 
 	if (!root.empty() && !errorPage.empty())
 		return root[0] + errorPage;
@@ -176,11 +176,11 @@ void    HttpHandler::validatePath(const std::string& target)
 					std::vector<std::string> tmp;
 					if (m_location->tryGetDirective("error_page", tmp))
 					{
-						m_path = r + m_location->getErrorPage(e_code);
+						m_path = r + m_location->findErrorPage(e_code);
 					}
 					else
 					{
-						m_path = r + m_server->getErrorPage(e_code);
+						m_path = r + m_server->findErrorPage(e_code);
 					}
 
 					Logger::log(m_path);

@@ -46,6 +46,7 @@ class Client
 		//bool			m_close_connection = false;
 		t_time			m_disconnect_time;
 		ClientState		m_state;
+		int				m_last_response;
 
 	public:
 
@@ -64,6 +65,7 @@ class Client
 			m_fd = fd;
 			m_last_activity = time;
 			m_state = ClientState::CONNECTED;
+			m_last_response = 0;
 
 			Logger::log("Client id " + std::to_string(fd) + ", fd " + std::to_string(m_fd) + " connected!");
 
@@ -88,16 +90,60 @@ class Client
 			m_state = ClientState::CONNECTED;
 		}
 
-		// rename send
 		int	respond(const std::string& response)
 		{
 			if (m_state != ClientState::CONNECTED)
 				return 0;
 
-			int bytes_sent = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
-			Logger::log("-- BYTES SENT " + std::to_string(bytes_sent) + " --\n\n");
+			m_last_response = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
+			Logger::log("-- BYTES SENT " + std::to_string(m_last_response) + " --\n\n");
 
-			return (bytes_sent > 0);
+			if (m_last_response <= 0)
+			{
+				m_state = ClientState::DISCONNECTED;
+				Logger::log(m_last_response == 0 ? "remote closed connection" : "critical error");
+			}
+
+			return m_last_response;
+		}
+
+		int respondChunked(const std::string& target)
+		{
+			std::ifstream file;
+			try
+			{
+				file = std::ifstream(target, std::ios::binary);
+
+				char buffer[PACKET_SIZE];
+				while (true) {
+			
+					file.read(buffer, PACKET_SIZE);
+					std::streamsize count = file.gcount();
+			
+					if (count <= 0)
+						break;
+			
+					if (count < PACKET_SIZE)
+						buffer[count] = '\0';
+			
+					std::ostringstream	oss;
+					oss << std::hex << count << "\r\n";
+					oss.write(buffer, count);
+					oss << "\r\n";
+					respond(oss.str());
+			
+					if (m_last_response <= 0)
+						break;
+				}
+				respond("0\r\n\r\n");
+			}
+			catch(const std::exception& e)
+			{
+				std::cerr << e.what() << '\n';
+				m_last_response = -1;
+			}
+			
+			return m_last_response;
 		}
 
 		bool	timeout(t_time& now)
@@ -118,6 +164,11 @@ class Client
 		t_time	getDisconnectTime()
 		{
 			return m_disconnect_time;
+		}
+
+		int	getResponseState()
+		{
+			return m_last_response;
 		}
 
 };

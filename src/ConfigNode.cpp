@@ -49,20 +49,33 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 		return;
 	}
 
-	for (auto page : m_error_pages)
+	std::unordered_set<int>	codes;
+	for (std::size_t i = 0; i < (directives.size() - 1); i++)
 	{
+		// validate stoi in try block
+		codes.insert(std::stoi(directives[i]));
+	}
+
+	for (auto& page : m_error_pages)
+	{
+		// for every existing page, remove the codes we are about to add
+		for (auto& code : codes)
+			page.m_codes.erase(code);
+
 		if (page.m_page == directives.back())
 		{
-			emplaceCodes(page, directives);
+			emplaceCodes(page, codes);
 			return;
 		}
 	}
 
 	ErrorPage error_page;
 
-	emplaceCodes(error_page, directives);
+	emplaceCodes(error_page, codes);
 	error_page.m_page = directives.back();
+
 	m_error_pages.push_back(error_page);
+
 }
 
 void	ConfigNode::addChild(std::string key, std::shared_ptr<ConfigNode> node)
@@ -142,7 +155,7 @@ bool	ConfigNode::tryGetDirective(const std::string&key, std::vector<std::string>
 	return !out.empty();
 }
 
-const std::string&	ConfigNode::getErrorPage(int error_code)
+const std::string&	ConfigNode::findErrorPage(int error_code)
 {
 	for (auto& page : m_error_pages)
 	{
@@ -187,29 +200,14 @@ void	ConfigNode::handleAutoIndex(std::vector<std::string>& directives)
 		throw ConfigException::emptyDirective("autoindex");
 }
 
-void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives)
+void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& codes)
 {
-	for (auto it = directives.begin(); it != directives.end() - 1; it++)
+	for (auto& code : codes)
 	{
-		try
+		auto result = error_page.m_codes.emplace(code);
+		if (!(result.second))
 		{
-			int error_code = std::stoul(*it);
-
-			auto result = error_page.m_codes.emplace(error_code);
-			if (!(result.second))
-			{
-				Logger::logError("duplicate error code " + std::to_string(error_code));
-				return;
-			}
-		}
-		catch (const std::invalid_argument& e)
-		{
-			Logger::logError("invalid error code");
-			return;
-		}
-		catch (const std::out_of_range& e)
-		{
-			Logger::logError("error code out of range");
+			Logger::logError("duplicate error code " + std::to_string(code));
 			return;
 		}
 	}

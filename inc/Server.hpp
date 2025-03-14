@@ -74,5 +74,6 @@ class Server
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
 		void	handleRequest(int fd);
+		bool	checkResponseState(std::shared_ptr<Client> client);
 		void	update();
 };

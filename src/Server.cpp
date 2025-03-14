@@ -212,6 +212,7 @@ void	Server::addClient(int fd)
 /// @brief Handle client timeouts
 void	Server::handleTimeouts()
 {
+	// get timeout from config!!
 	auto grace = m_time + std::chrono::seconds(2);
 
 	for (auto& [fd, client] : m_clients)
@@ -220,8 +221,12 @@ void	Server::handleTimeouts()
 		{
 			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
 			client->setClientState(ClientState::TIMEDOUT);
+
 			client->respond(RESPONSE_TIMEOUT);
 			client->respond(EMPTY_STRING);
+			if (checkResponseState(client))
+				continue;
+
 			client->setDisconnectTime(grace);
 			m_timeout_queue.push({grace, client});
 			m_timeout_set.insert(client);
@@ -237,8 +242,6 @@ void	Server::handleTimeouts()
 		removeClient(c.client);
 		--max;
 	}
-
-	// could adjust epoll timeout rate
 
 }
 
@@ -271,47 +274,28 @@ void	Server::handleRequest(int fd)
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		//Logger::log(httpResponse.getResponse());
 		client->respond(httpResponse.getResponse());
+		checkResponseState(client);
 	}
 	else if (httpResponse.getSendType() == TYPE_CHUNKED)
 	{
 		client->respond(httpResponse.getHeader());
-
-		std::ifstream file;
-		try
-		{
-			file = std::ifstream(m_handler.getTarget(), std::ios::binary);
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << e.what() << '\n';
-			return;
-		}
-		
-		char buffer[PACKET_SIZE];
-		while (true) {
-
-			file.read(buffer, PACKET_SIZE);
-			std::streamsize count = file.gcount();
-
-			if (count <= 0)
-				break;
-
-			if (count < PACKET_SIZE)
-				buffer[count] = '\0';
-
-			std::ostringstream	oss;
-			oss << std::hex << count << "\r\n";
-			oss.write(buffer, count);
-			oss << "\r\n";
-			client->respond(oss.str());
-			Logger::log("CHUNK");
-		}
-
-		client->respond("0\r\n\r\n");
-		Logger::log("END CHUNK");
+		client->respondChunked(m_handler.getTarget());
+		checkResponseState(client);
 	}
+
+}
+
+// checks clients previous send attept (or the first that failed)
+// returns true if client was disconnected
+bool	Server::checkResponseState(std::shared_ptr<Client> client)
+{
+	if (client->getClientState() <= 0)
+	{
+		removeClient(client);
+		return true;
+	}
+	return false;
 }
 
 /// @brief Server update logic
@@ -332,7 +316,6 @@ void	Server::update()
 
 	handleEvents(event_count);
 	handleTimeouts();
-
 }
 
 void	Server::removeClient(std::shared_ptr<Client> client)
