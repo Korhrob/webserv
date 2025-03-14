@@ -320,6 +320,12 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
 		throw HttpException::forbidden("permission denied");
 
+	if (!std::filesystem::exists(uploadDir.front()))
+	{
+		if (!std::filesystem::create_directory(uploadDir.front()))
+			throw HttpException::internalServerError("unable to create upload directory");
+	}
+
 	for (multipart part: multipartData)
 	{
 		if (!part.filename.empty())
