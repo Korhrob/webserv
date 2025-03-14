@@ -27,6 +27,7 @@ clean:
 fclean: clean
 	rm -f $(SNAME)
 	rm -rf obj
+	rm -rf www/uploads/*
 
 re: fclean all
 
