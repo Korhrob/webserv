@@ -77,7 +77,11 @@ void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 	m_location->tryGetDirective("return", redirect);
 
 	if (!redirect.empty())
-		throw HttpException::temporaryRedirect(redirect[1]); // is this safe? checked in config parsing?
+	{
+		if (redirect.size() != 2)
+			throw HttpException::internalServerError("invalid redirect"); // config error?
+		throw HttpException::temporaryRedirect(redirect[1]);
+	}
 }
 
 void	HttpHandler::validateRequest(HttpRequest& request)
