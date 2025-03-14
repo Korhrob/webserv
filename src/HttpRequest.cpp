@@ -155,9 +155,6 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 	if (m_unchunked == -1)
 	{
 		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
-		// m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
-		// if (!m_unchunked.is_open())
-		// 	throw HttpException::internalServerError("error opening a file");
 		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
 		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
@@ -174,40 +171,45 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 	while (true)
 	{
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
-		if (endOfSize == m_request.end()) {
-			Logger::log("INCOMPLETE CHUNK");
+		if (endOfSize == m_request.end())
+		{
+			// couldn't find end of chunk size: incomplete chunk
+			// erase what's already unchunked and return to read more 
 			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
+				m_request.erase(m_request.begin(), currentPos);
 			return;
 		}
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0)
 		{
-			Logger::log("CHUNKED PARSING COMPLETE");
+			Logger::log("UNCHUNKING COMPLETE");
 			m_body = COMPLETE;
-			// m_unchunked.close();
 			close(m_unchunked);
 			return;
 		}
+
 		endOfSize += 2;
 		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
-		if (endOfContent == m_request.end()) // incomplete chunk
+		if (endOfContent == m_request.end())
 		{
-			Logger::log("INCOMPLETE CHUNK");
+			// couldn't find end of chunk: incomplete chunk
+			// erase what's already unchunked and return to read more
 			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
+				m_request.erase(m_request.begin(), currentPos);
 			return;
 		}
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
-		// m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
+
 		int bytesWritten = write(m_unchunked, &(*endOfSize), std::distance(endOfSize, endOfContent));
 		if (bytesWritten == -1)
 			throw HttpException::internalServerError("error writing to a file");
+
 		m_contentLength += chunkSize;
 		if (m_contentLength > maxSize)
 			throw HttpException::payloadTooLarge();
+
 		currentPos = endOfContent + 2;
 	}
 }
