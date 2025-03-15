@@ -1,3 +1,0 @@
-[21:32:32] missing ; on line 2:
-[21:32:32] listen 8080 default_server; // default 80
-[21:32:32] Error in config file

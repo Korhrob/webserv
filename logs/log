@@ -1,11 +1,11 @@
-[21:32:32] Clean Exit!
-[21:33:04] Starting server on server_0:8080...
-[21:33:04] Listen port 8080 fd 6
-[21:33:09] Client id 7, fd 7 connected!
-[21:33:09] -- BYTES READ 446 --
+[13:51:33] Starting server on server_0:8080...
+[13:51:33] Listen port 8080 fd 6
+[13:51:37] Client id 7, fd 7 connected!
+[13:51:37] Set timeout duration: 60
+[13:51:37] -- BYTES READ 446 --
 
 
-[21:33:09] GET / HTTP/1.1
+[13:51:37] GET / HTTP/1.1
 Host: 127.0.0.1:8080
 User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
@@ -20,10 +20,10 @@ Sec-Fetch-User: ?1
 Priority: u=0, i
 
 
-[21:33:09] root: www, target: /
-[21:33:09] try index: www/index.html
-[21:33:09] target has index
-[21:33:09] HTTP/1.1 200 OK
+[13:51:37] root: www, target: /
+[13:51:37] try index: www/index.html
+[13:51:37] target has index
+[13:51:37] HTTP/1.1 200 OK
 Content-Length: 1104
 Connection: keep-alive
 Location: /
@@ -70,943 +70,206 @@ Location: /
 </body>
 </html>
 
-[21:33:09] == SEND RESPONSE ==
-[21:33:09] -- BYTES SENT 1182 --
+[13:51:37] == SEND RESPONSE ==
+[13:51:37] -- BYTES SENT 1182 --
 
 
-[21:33:09] Client fd 7 disconnected!
-[21:33:12] Client id 7, fd 7 connected!
-[21:33:13] -- BYTES READ 451 --
+[13:51:37] Client fd 7 disconnected!
+[13:51:44] Client id 7, fd 7 connected!
+[13:51:44] Set timeout duration: 60
+[13:51:49] -- BYTES READ 0 --
 
 
-[21:33:13] GET /index HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:13] root: www, target: /index
-[21:33:13] try_files: /index
-[21:33:13] try_files: /index/
-[21:33:13] try_files: /index.html
-[21:33:13] HTTP/1.1 200 OK
-Content-Length: 1104
-Connection: keep-alive
-Location: /index.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index</title>
-    <style>
-        .button-container {
-            display: flex;
-            justify-content: space-evenly;
-            position: absolute;
-            bottom: 20px;
-            width: 100%;
-            padding: 0 20px;
-        }
-        .button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .button:hover {
-            background-color: #45a049;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Container for buttons -->
-    <div class="button-container">
-        <a href="/upload" class="button" content="no-referrer">Upload file</a>
-        <a href="/credit" class="button"content="no-referrer">Credits</a>
-        <a href="/form" class="button"content="no-referrer">Submit Form</a>
-    </div>
-
-</body>
-</html>
-
-[21:33:13] == SEND RESPONSE ==
-[21:33:13] -- BYTES SENT 1192 --
-
-
-[21:33:13] Client fd 7 disconnected!
-[21:33:15] Client id 7, fd 7 connected!
-[21:33:15] -- BYTES READ 450 --
-
-
-[21:33:15] GET /inde HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:15] root: www, target: /inde
-[21:33:15] try_files: /inde
-[21:33:15] try_files: /inde/
-[21:33:15] try_files: /inde.html
-[21:33:15] try_files: /inde.htm
-[21:33:15] try_files: /inde.php
-[21:33:15] try_files: =404
-[21:33:15] try_files failed use ecode: 404
-[21:33:15] www/error/404.html
-[21:33:15] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /inde
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:15] == SEND RESPONSE ==
-[21:33:15] -- BYTES SENT 1200 --
-
-
-[21:33:15] Client fd 7 disconnected!
-[21:33:16] Client id 7, fd 7 connected!
-[21:33:20] Client 7 timed out!
-[21:33:20] -- BYTES READ 449 --
-
-
-[21:33:20] GET /501 HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:20] root: www, target: /501
-[21:33:20] try_files: /501
-[21:33:20] try_files: /501/
-[21:33:20] try_files: /501.html
-[21:33:20] try_files: /501.htm
-[21:33:20] try_files: /501.php
-[21:33:20] try_files: =404
-[21:33:20] try_files failed use ecode: 404
-[21:33:20] www/error/404.html
-[21:33:20] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /501
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:20] == SEND RESPONSE ==
-[21:33:20] -- BYTES SENT 1199 --
-
-
-[21:33:20] Client fd 7 disconnected!
-[21:33:27] Client id 7, fd 7 connected!
-[21:33:27] -- BYTES READ 454 --
-
-
-[21:33:27] GET /501.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:27] root: www, target: /501.html
-[21:33:27] try_files: /501.html
-[21:33:27] try_files: /501.html/
-[21:33:27] try_files: /501.html.html
-[21:33:27] try_files: /501.html.htm
-[21:33:27] try_files: /501.html.php
-[21:33:27] try_files: =404
-[21:33:27] try_files failed use ecode: 404
-[21:33:27] www/error/404.html
-[21:33:27] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /501.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:27] == SEND RESPONSE ==
-[21:33:27] -- BYTES SENT 1204 --
-
-
-[21:33:27] Client fd 7 disconnected!
-[21:33:33] Client id 7, fd 7 connected!
-[21:33:33] -- BYTES READ 460 --
-
-
-[21:33:33] GET /error/501.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:33] root: www, target: /error/501.html
-[21:33:33] try_files: /error/501.html
-[21:33:33] try_files: /error/501.html/
-[21:33:33] try_files: /error/501.html.html
-[21:33:33] try_files: /error/501.html.htm
-[21:33:33] try_files: /error/501.html.php
-[21:33:33] try_files: =404
-[21:33:33] try_files failed use ecode: 404
-[21:33:33] www/error/404.html
-[21:33:33] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /error/501.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:33] == SEND RESPONSE ==
-[21:33:33] -- BYTES SENT 1210 --
-
-
-[21:33:33] Client fd 7 disconnected!
-[21:33:38] Client id 7, fd 7 connected!
-[21:33:38] -- BYTES READ 460 --
-
-
-[21:33:38] GET /error/500.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:38] root: www, target: /error/500.html
-[21:33:38] HTTP/1.1 200 OK
-Content-Length: 1112
-Connection: keep-alive
-Location: /error/500.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>500 Error - Internal Server Error</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>500</h1>
-    <p>Oops! Something went wrong on our end.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:38] == SEND RESPONSE ==
-[21:33:38] -- BYTES SENT 1204 --
-
-
-[21:33:38] Client fd 7 disconnected!
-[21:33:41] Client id 7, fd 7 connected!
-[21:33:41] -- BYTES READ 460 --
-
-
-[21:33:41] GET /error/501.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:41] root: www, target: /error/501.html
-[21:33:41] try_files: /error/501.html
-[21:33:41] try_files: /error/501.html/
-[21:33:41] try_files: /error/501.html.html
-[21:33:41] try_files: /error/501.html.htm
-[21:33:41] try_files: /error/501.html.php
-[21:33:41] try_files: =404
-[21:33:41] try_files failed use ecode: 404
-[21:33:41] www/error/404.html
-[21:33:41] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /error/501.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:41] == SEND RESPONSE ==
-[21:33:41] -- BYTES SENT 1210 --
-
-
-[21:33:41] Client fd 7 disconnected!
-[21:33:45] Client id 7, fd 7 connected!
-[21:33:45] -- BYTES READ 460 --
-
-
-[21:33:45] GET /error/502.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:45] root: www, target: /error/502.html
-[21:33:45] HTTP/1.1 200 OK
-Content-Length: 1130
-Connection: keep-alive
-Location: /error/502.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>502 Error - Bad Gateway</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>502</h1>
-    <p>The server received and invalid response from the upstream server.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:45] == SEND RESPONSE ==
-[21:33:45] -- BYTES SENT 1222 --
-
-
-[21:33:45] Client fd 7 disconnected!
-[21:33:47] Client id 7, fd 7 connected!
-[21:33:47] -- BYTES READ 454 --
-
-
-[21:33:47] GET /502.html HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: none
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:47] root: www, target: /502.html
-[21:33:47] try_files: /502.html
-[21:33:47] try_files: /502.html/
-[21:33:47] try_files: /502.html.html
-[21:33:47] try_files: /502.html.htm
-[21:33:47] try_files: /502.html.php
-[21:33:47] try_files: =404
-[21:33:47] try_files failed use ecode: 404
-[21:33:47] www/error/404.html
-[21:33:47] HTTP/1.1 200 OK
-Content-Length: 1118
-Connection: keep-alive
-Location: /502.html
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 Error - Page Not Found</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      text-align: center;
-    }
-
-    .container {
-      background-color: #fff;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      font-size: 120px;
-      color: #ff6347;
-      margin: 0;
-    }
-
-    p {
-      font-size: 24px;
-      color: #555;
-    }
-
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      font-size: 18px;
-      color: #4CAF50;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h1>404</h1>
-    <p>Oops! The page you are looking for cannot be found.</p>
-    <a href="/">Go back to Home</a>
-  </div>
-
-</body>
-</html>
-[21:33:47] == SEND RESPONSE ==
-[21:33:47] -- BYTES SENT 1204 --
-
-
-[21:33:47] Client fd 7 disconnected!
-[21:33:55] Client id 7, fd 7 connected!
-[21:33:55] -- BYTES READ 494 --
-
-
-[21:33:55] GET / HTTP/1.1
-Host: 127.0.0.1:8080
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate, br, zstd
-Connection: keep-alive
-Referer: http://127.0.0.1:8080/502.html
-Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
-Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: same-origin
-Sec-Fetch-User: ?1
-Priority: u=0, i
-
-
-[21:33:55] root: www, target: /
-[21:33:55] try index: www/index.html
-[21:33:55] target has index
-[21:33:55] HTTP/1.1 200 OK
-Content-Length: 1104
-Connection: keep-alive
-Location: /
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index</title>
-    <style>
-        .button-container {
-            display: flex;
-            justify-content: space-evenly;
-            position: absolute;
-            bottom: 20px;
-            width: 100%;
-            padding: 0 20px;
-        }
-        .button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .button:hover {
-            background-color: #45a049;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Container for buttons -->
-    <div class="button-container">
-        <a href="/upload" class="button" content="no-referrer">Upload file</a>
-        <a href="/credit" class="button"content="no-referrer">Credits</a>
-        <a href="/form" class="button"content="no-referrer">Submit Form</a>
-    </div>
-
-</body>
-</html>
-
-[21:33:55] == SEND RESPONSE ==
-[21:33:55] -- BYTES SENT 1182 --
-
-
-[21:33:55] Client fd 7 disconnected!
-[21:33:58] Client id 7, fd 7 connected!
-[21:34:01] Client 7 timed out!
-[21:34:03] -- BYTES READ 0 --
-
-
-[21:34:03] HTTP/1.1 404 Not Found
+[13:51:49] HTTP/1.1 404 Not Found
 Content-Length: 0
 Connection: keep-alive
 
 
-[21:34:03] == SEND RESPONSE ==
-[21:34:03] -- BYTES SENT 69 --
+[13:51:49] == SEND RESPONSE ==
+[13:51:49] -- BYTES SENT 69 --
 
 
-[21:34:03] Client fd 7 disconnected!
-[21:35:31] Clean Exit!
+[13:51:49] Client fd 7 disconnected!
+[14:02:40] Clean Exit!
+[14:05:42] Starting server on server_0:8080...
+[14:05:42] Listen port 8080 fd 6
+[14:05:46] Client id 7, fd 7 connected!
+[14:05:46] Set timeout duration: 60
+[14:05:46] -- BYTES READ 446 --
+
+
+[14:05:46] GET / HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[14:05:46] root: www, target: /
+[14:05:46] try index: www/index.html
+[14:05:46] target has index
+[14:05:46] HTTP/1.1 200 OK
+Content-Length: 1104
+Connection: keep-alive
+Location: /
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index</title>
+    <style>
+        .button-container {
+            display: flex;
+            justify-content: space-evenly;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            padding: 0 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container for buttons -->
+    <div class="button-container">
+        <a href="/upload" class="button" content="no-referrer">Upload file</a>
+        <a href="/credit" class="button"content="no-referrer">Credits</a>
+        <a href="/form" class="button"content="no-referrer">Submit Form</a>
+    </div>
+
+</body>
+</html>
+
+[14:05:46] == SEND RESPONSE ==
+[14:05:46] -- BYTES SENT 1182 --
+
+
+[14:05:46] Client fd 7 disconnected!
+[14:05:50] Client id 7, fd 7 connected!
+[14:05:50] Set timeout duration: 60
+[14:05:55] -- BYTES READ 0 --
+
+
+[14:05:55] handleRequest exception 408
+[14:05:55] Request Timeout
+[14:05:55] HTTP/1.1 404 Not Found
+Content-Length: 0
+Connection: keep-alive
+
+
+[14:05:55] == SEND RESPONSE ==
+[14:05:55] -- BYTES SENT 69 --
+
+
+[14:05:55] Client fd 7 disconnected!
+[14:21:22] Clean Exit!
+[14:56:29] Starting server on server_0:8080...
+[14:56:29] Listen port 8080 fd 6
+[14:56:31] Client id 7, fd 7 connected!
+[14:56:31] Set timeout duration: 60
+[14:56:31] -- BYTES READ 446 --
+
+
+[14:56:31] GET / HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br, zstd
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Sec-Fetch-Dest: document
+Sec-Fetch-Mode: navigate
+Sec-Fetch-Site: none
+Sec-Fetch-User: ?1
+Priority: u=0, i
+
+
+[14:56:31] root: www, target: /
+[14:56:31] try index: www/index.html
+[14:56:31] target has index
+[14:56:31] HTTP/1.1 200 OK
+Content-Length: 1104
+Connection: keep-alive
+Location: /
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index</title>
+    <style>
+        .button-container {
+            display: flex;
+            justify-content: space-evenly;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            padding: 0 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container for buttons -->
+    <div class="button-container">
+        <a href="/upload" class="button" content="no-referrer">Upload file</a>
+        <a href="/credit" class="button"content="no-referrer">Credits</a>
+        <a href="/form" class="button"content="no-referrer">Submit Form</a>
+    </div>
+
+</body>
+</html>
+
+[14:56:31] == SEND RESPONSE ==
+[14:56:31] -- BYTES SENT 1182 --
+
+
+[14:56:31] Client fd 7 disconnected!
+[14:56:34] Client id 7, fd 7 connected!
+[14:56:34] Set timeout duration: 60
+[14:56:39] -- BYTES READ 0 --
+
+
+[14:56:39] HTTP/1.1 0 remote closed connection
+
+
+[14:56:39] == CLOSE CONNECTION ==
+[14:56:39] Client fd 7 disconnected!

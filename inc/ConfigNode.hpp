@@ -25,6 +25,7 @@ class ConfigNode : public std::exception
 	DirectiveMap	m_directives;
 	NodeMap			m_children;
 	bool			m_autoindex;
+	bool			m_is_server;
 
 	std::vector<ErrorPage>	m_error_pages;
 
@@ -42,7 +43,7 @@ class ConfigNode : public std::exception
 
 public:
 	ConfigNode();
-	ConfigNode(const std::string& name);
+	ConfigNode(const std::string& name, bool is_server);
 	~ConfigNode();
 
 	void								addDirective(std::string key, std::vector<std::string>& value);

@@ -206,14 +206,21 @@ void	Server::addClient(int fd)
 	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
 	client->connect(client_fd, m_time);
 	m_clients[client_fd] = client;
+	
+	int port = m_port_map[fd];
+	auto node = m_config.findServerNode(":" + std::to_string(port));
 
+	std::vector<std::string> timeout = { "3" };
+	node->tryGetDirective("keepalive_timeout", timeout);
+	client->setTimeoutDuration(std::stoi(timeout.front()));
+	Logger::log("Set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
 void	Server::handleTimeouts()
 {
-	// get timeout from config!!
-	auto grace = m_time + std::chrono::seconds(2);
+	// hard coded grace period
+	//auto grace = m_time + std::chrono::seconds(2);
 
 	for (auto& [fd, client] : m_clients)
 	{
@@ -227,8 +234,10 @@ void	Server::handleTimeouts()
 			if (checkResponseState(client))
 				continue;
 
-			client->setDisconnectTime(grace);
-			m_timeout_queue.push({grace, client});
+			// calculate timeout time per client
+			auto time = m_time + client->getTimeoutDuration() + std::chrono::seconds(2);
+			client->setDisconnectTime(time);
+			m_timeout_queue.push({time, client});
 			m_timeout_set.insert(client);
 		}
 	}
@@ -256,8 +265,8 @@ void	Server::handleRequest(int fd)
 		return;
 	}
 
-	HttpResponse httpResponse = m_handler.handleRequest(fd, m_config);
 	std::shared_ptr<Client> client = m_clients.at(fd);
+	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
 	Logger::log(httpResponse.getResponse());
 

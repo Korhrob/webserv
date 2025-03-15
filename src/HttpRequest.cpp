@@ -63,9 +63,11 @@ void	HttpRequest::readRequest()
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
-		throw HttpException::badRequest("failed to receive request");
+		throw HttpException::badRequest("failed to receive request"); // might not be the correct error
 	if (bytes_read == 0)
-		throw HttpException::requestTimeout();
+		throw HttpException::remoteClosedConnetion(); 
+		//throw HttpException::requestTimeout(); // not a server timeout
+
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
 }

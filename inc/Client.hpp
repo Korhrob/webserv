@@ -27,6 +27,7 @@
 
 typedef struct sockaddr_in t_sockaddr_in;
 typedef std::chrono::steady_clock::time_point t_time;
+typedef	std::chrono::milliseconds t_ms;
 
 // TODO: move inline function to their own .cpp file
 // TODO: add enum for client state
@@ -47,6 +48,7 @@ class Client
 		t_time			m_disconnect_time;
 		ClientState		m_state;
 		int				m_last_response;
+		t_ms			m_timeout_duration;
 
 	public:
 
@@ -146,11 +148,19 @@ class Client
 			return m_last_response;
 		}
 
-		bool	timeout(t_time& now)
+		bool	timeout(const t_time& now)
 		{
-			auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_last_activity).count();
+			return ((now - m_last_activity) > m_timeout_duration);
+		}
 
-			return (diff > CLIENT_TIMEOUT);
+		void	setTimeoutDuration(int seconds)
+		{
+			m_timeout_duration = t_ms(seconds * 1000);
+		}
+
+		t_ms	getTimeoutDuration()
+		{
+			return m_timeout_duration;
 		}
 
 		ClientState	getClientState() { return m_state; }

@@ -9,7 +9,7 @@
 #include <algorithm>
 
 ConfigNode::ConfigNode() {};
-ConfigNode::ConfigNode(const std::string& name) : m_name(name) {}
+ConfigNode::ConfigNode(const std::string& name, bool is_server) : m_name(name), m_is_server(is_server) {}
 ConfigNode::~ConfigNode() {};
 
 void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directives)
