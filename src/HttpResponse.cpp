@@ -96,7 +96,6 @@ void	HttpResponse::setHeaders()
 	{
 		m_headers.emplace("Connection", "keep-alive");
 		m_headers.emplace("Keep-Alive", "timeout=" + std::to_string(m_timeout.count() / 1000));
-		// how long?
 	}
 
 
