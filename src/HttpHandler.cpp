@@ -68,8 +68,8 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		}
     } catch (HttpException& e) {
 		if (!m_server)
-			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
-        return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
+			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), true);
+        return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection());
     }
 
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection());
