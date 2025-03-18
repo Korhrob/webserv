@@ -18,8 +18,11 @@ class HttpHandler {
     private:
 		std::shared_ptr<ConfigNode> m_server;
         std::shared_ptr<ConfigNode> m_location;
+		int							m_code;
+		std::string					m_msg;
         std::string                 m_path;
-		std::string					m_target; // robert
+		std::string					m_redir;
+		std::string					m_target;
 		e_method					m_method;
         bool                        m_cgi;
 		size_t						m_maxSize;
@@ -32,9 +35,12 @@ class HttpHandler {
 		void	getMaxSize();
 		void	upload(const std::vector<multipart>& multipartData);
 
-        HttpResponse handleGet();
-		HttpResponse handlePost(const std::vector<multipart>& multipartData);
-        HttpResponse handleDelete();
+        // HttpResponse handleGet();
+		// HttpResponse handlePost(const std::vector<multipart>& multipartData);
+        // HttpResponse handleDelete();
+
+		void handlePost(const std::vector<multipart>& multipartData);
+        void handleDelete();
 
 		std::string	errorPage(int code);
 		

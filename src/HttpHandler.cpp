@@ -9,8 +9,43 @@
 
 HttpHandler::HttpHandler() : m_cgi(false) {}
 
+// HttpResponse HttpHandler::handleRequest(int fd, Config& config)
+// {
+// 	HttpRequest request(fd);
+
+//     try {
+// 		request.parseRequest();
+//         getLocation(request, config);
+// 		validateRequest(request);
+//         switch (m_method)
+// 		{
+//         	case GET:
+// 				// if (m_cgi)
+// 				// 	return handleCGI();
+//             	return handleGet();
+//         	case POST:
+// 				request.parseBody(m_maxSize);
+// 				// if (m_cgi)
+// 					// 	return handleCGI();
+//             	return handlePost(request.getMultipartData());
+//         	case DELETE:
+//             	return handleDelete();
+// 			default:
+// 				return HttpResponse(500, "FAIL", "", "", true); // robert
+// 		}
+//     } catch (HttpException& e) {
+// 		if (!m_server)
+// 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
+//         return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
+//     }
+// }
+
 HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 {
+	m_code = 200;
+	m_msg = "OK";
+	m_redir = "";
+
 	HttpRequest request(fd);
 
     try {
@@ -21,23 +56,23 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 		{
         	case GET:
 				// if (m_cgi)
-				// 	return handleCGI();
-            	return handleGet();
+				// 	handleCGI();
+				break;
         	case POST:
 				request.parseBody(m_maxSize);
-				// if (m_cgi)
-					// 	return handleCGI();
-            	return handlePost(request.getMultipartData());
+            	handlePost(request.getMultipartData());
+				break;
         	case DELETE:
-            	return handleDelete();
-			default:
-				return HttpResponse(500, "FAIL", "", "", true); // robert
+            	handleDelete();
+				break;
 		}
     } catch (HttpException& e) {
 		if (!m_server)
 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
         return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
     }
+
+	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection());
 }
 
 std::string	HttpHandler::errorPage(int code)
@@ -70,10 +105,10 @@ std::string	HttpHandler::errorPage(int code)
 void	HttpHandler::getLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
-	
     m_location = m_server->findClosestMatch(request.getTarget());
 	
 	std::vector<std::string>	redirect;
+
 	m_location->tryGetDirective("return", redirect);
 
 	if (!redirect.empty())
@@ -307,31 +342,43 @@ void	HttpHandler::getMaxSize()
 	}
 }
 
-HttpResponse HttpHandler::handleGet()
+// HttpResponse HttpHandler::handleGet()
+// {
+// 	// if file validation for directory listing is handled ealier,
+// 	// we dont have to check if this is a directory
+// 	// could double check that file exists,
+// 	// but that seems to be handled earlier
+
+// 	// if (std::filesystem::is_directory(m_path))
+// 	// {
+// 	// 	if (m_location->autoindexOn()) // robert
+// 	// 	{
+// 	// 		Logger::log("autoindex: on; target is a directory: " + m_path + ":" + m_target);
+// 	// 		return HttpResponse(200, "OK", m_path, m_target);
+// 	// 	}
+// 	// 	throw HttpException::forbidden();
+// 	// }
+
+// 	return HttpResponse(200, "OK", m_path, m_target);
+// }
+
+// HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
+// {
+// 	upload(multipartData);
+
+// 	return HttpResponse(303, "See Other", "", "index");
+// }
+
+void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
-	// if file validation for directory listing is handled ealier,
-	// we dont have to check if this is a directory
-	// could double check that file exists,
-	// but that seems to be handled earlier
-
-	// if (std::filesystem::is_directory(m_path))
-	// {
-	// 	if (m_location->autoindexOn()) // robert
-	// 	{
-	// 		Logger::log("autoindex: on; target is a directory: " + m_path + ":" + m_target);
-	// 		return HttpResponse(200, "OK", m_path, m_target);
-	// 	}
-	// 	throw HttpException::forbidden();
-	// }
-
-	return HttpResponse(200, "OK", m_path, m_target);
-}
-
-HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
-{
+	// if (m_cgi)
+	// 	handleCGI();
+	// else
 	upload(multipartData);
 
-	return HttpResponse(303, "See Other", "", "index");
+	m_code = 303;
+	m_msg = "See Other";
+	m_redir = "index";
 }
 
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
@@ -369,13 +416,23 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	}
 }
 
-HttpResponse HttpHandler::handleDelete()
+// HttpResponse HttpHandler::handleDelete()
+// {
+// 	try {
+// 		if (std::filesystem::is_directory(m_path))
+// 			throw HttpException::forbidden("trying to delete a directory");
+// 		std::filesystem::remove(m_path);
+// 		return HttpResponse(200, "OK");
+// 	} catch (std::filesystem::filesystem_error& e) {
+// 		throw HttpException::internalServerError("unable to delete target " + m_path);
+// 	}
+// }
+
+void HttpHandler::handleDelete()
 {
 	try {
-		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden("trying to delete a directory");
 		std::filesystem::remove(m_path);
-		return HttpResponse(200, "OK");
+		m_path = "";
 	} catch (std::filesystem::filesystem_error& e) {
 		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
