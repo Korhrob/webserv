@@ -42,6 +42,7 @@ void	HttpResponse::setBody(const std::string& path)
 			}
 			else
 				m_type = TYPE_CHUNKED;
+
 		} catch (const std::filesystem::filesystem_error& e) {
 			if (e.code() == std::errc::no_such_file_or_directory)
 			{
@@ -70,9 +71,11 @@ std::string	HttpResponse::getBody(const std::string& path)
 	{
 		if (!std::filesystem::exists(path))
 			throw HttpException::notFound();
+
 		std::filesystem::perms perms = std::filesystem::status(path).permissions();
 		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
 			throw HttpException::forbidden("permission denied");
+
 		throw HttpException::internalServerError("filesystem error");
 	}
 
