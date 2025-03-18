@@ -14,6 +14,7 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 	m_code = 200;
 	m_msg = "OK";
 	m_redir = "";
+
 	HttpRequest request(client->fd());
 
     try {
@@ -35,16 +36,17 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				break;
 		}
     } catch (HttpException& e) {
-		if (e.code() != 0)
-        	return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
+		// if (!server) = exception is thrown before host is found
+		// should get default server with port to get error pages, else
+        return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
+		// how to differentiate between request timeout & remote closed connection?
     }
 
-	// if e.code() = 0
-	// return remoteClosedConnection(); // robert
+	// constructing response here when everything goes well
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection(), client->getTimeoutDuration());
 }
 
-std::string	HttpHandler::errorPage(int code)
+std::string	HttpHandler::ePage(int code)
 {
 	std::vector<std::string>	root;
 	std::string					errorPage;
@@ -53,6 +55,7 @@ std::string	HttpHandler::errorPage(int code)
 		m_server->tryGetDirective("root", root);
 
 	std::vector<std::string>	pages;
+
 	if (m_location->tryGetDirective("error_page", pages))
 	{
 		errorPage = m_location->findErrorPage(code);
@@ -61,16 +64,12 @@ std::string	HttpHandler::errorPage(int code)
 	{
 		errorPage = m_server->findErrorPage(code);
 	}
-	// errorPage = m_server->findErrorPage(code); // robert
 
 	// double check these
 	if (!root.empty() && !errorPage.empty())
 		return root.front() + errorPage;
 
-	if (!errorPage.empty())
-		return errorPage;
-
-	return EMPTY_STRING;
+	return errorPage;
 }
 
 void	HttpHandler::setLocation(HttpRequest& request, Config& config)
@@ -84,8 +83,10 @@ void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 
 	if (!redirect.empty())
 	{
+		// is this a config error?
+		// should it be checked during config parsing that return directive always has 2 values?
 		if (redirect.size() != 2)
-			throw HttpException::internalServerError("invalid redirect"); // config error?
+			throw HttpException::internalServerError("invalid redirect");
 		throw HttpException::temporaryRedirect(redirect[1]);
 	}
 }
@@ -333,13 +334,6 @@ void	HttpHandler::setMaxSize()
 // 	return HttpResponse(200, "OK", m_path, m_target);
 // }
 
-// HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
-// {
-// 	upload(multipartData);
-
-// 	return HttpResponse(303, "See Other", "", "index");
-// }
-
 void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
 	// if (m_cgi)
@@ -359,8 +353,10 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
 	if (uploadDir.empty())
-		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
+		throw HttpException::internalServerError("upload directory not defined");
+
 	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
 		throw HttpException::forbidden("permission denied");
 
@@ -386,18 +382,6 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 			upload(part.nestedData);
 	}
 }
-
-// HttpResponse HttpHandler::handleDelete()
-// {
-// 	try {
-// 		if (std::filesystem::is_directory(m_path))
-// 			throw HttpException::forbidden("trying to delete a directory");
-// 		std::filesystem::remove(m_path);
-// 		return HttpResponse(200, "OK");
-// 	} catch (std::filesystem::filesystem_error& e) {
-// 		throw HttpException::internalServerError("unable to delete target " + m_path);
-// 	}
-// }
 
 void HttpHandler::handleDelete()
 {

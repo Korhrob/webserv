@@ -38,7 +38,7 @@ class HttpHandler {
 		void handlePost(const std::vector<multipart>& multipartData);
         void handleDelete();
 
-		std::string	errorPage(int code);
+		std::string	ePage(int code);
 		static const HttpResponse&	remoteClosedConnection();
 		
     public:
