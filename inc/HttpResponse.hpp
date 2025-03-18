@@ -21,6 +21,7 @@ class HttpResponse {
 		e_type											m_type;
 		std::string										m_targetUrl;
 		bool											m_close;
+		t_ms											m_timeout;
 
 		std::string	getStatusLine();
 		std::string	getHeaders();
@@ -30,7 +31,7 @@ class HttpResponse {
 		void	setHeaders();
 		
 	public:
-		HttpResponse(int code, const std::string& msg, const std::string& path = "", const std::string& targetUrl = "", bool close = false);
+		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout);
 
 		~HttpResponse() = default;
 		HttpResponse&	operator=(const HttpResponse&) = default;
@@ -38,7 +39,7 @@ class HttpResponse {
 		HttpResponse() = delete;
 
 		// copy constructor is actually usefull now - robert
-		HttpResponse(const HttpResponse&); // = delete;
+		// HttpResponse(const HttpResponse&); // = delete;
 
 
 		std::string	getResponse();

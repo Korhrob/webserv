@@ -35,10 +35,6 @@ class HttpHandler {
 		void	setMaxSize();
 		void	upload(const std::vector<multipart>& multipartData);
 
-		// HttpResponse handleGet();
-		// HttpResponse handlePost(const std::vector<multipart>& multipartData);
-        // HttpResponse handleDelete();
-
 		void handlePost(const std::vector<multipart>& multipartData);
         void handleDelete();
 

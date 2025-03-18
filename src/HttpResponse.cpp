@@ -4,18 +4,18 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close)
-: m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout)
+: m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
 	setBody(path);
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const HttpResponse& src)
-: m_code(src.m_code), m_msg(src.m_msg), m_body(src.m_body), m_type(src.m_type), m_targetUrl(src.m_targetUrl), m_close(src.m_close)
-{
+// HttpResponse::HttpResponse(const HttpResponse& src)
+// : m_code(src.m_code), m_msg(src.m_msg), m_body(src.m_body), m_type(src.m_type), m_targetUrl(src.m_targetUrl), m_close(src.m_close)
+// {
 
-}
+// }
 
 void	HttpResponse::setBody(const std::string& path)
 {
@@ -95,8 +95,8 @@ void	HttpResponse::setHeaders()
 	else
 	{
 		m_headers.emplace("Connection", "keep-alive");
+		m_headers.emplace("Keep-Alive", "timeout=" + std::to_string(m_timeout.count() / 1000));
 		// how long?
-		// m_headers.emplace("Keep-Alive", "timeout=x");
 	}
 
 

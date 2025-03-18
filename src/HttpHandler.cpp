@@ -9,68 +9,6 @@
 
 HttpHandler::HttpHandler() : m_cgi(false) {}
 
-// HttpResponse HttpHandler::handleRequest(int fd, Config& config)
-// {
-// 	HttpRequest request(fd);
-
-//     try {
-// 		request.parseRequest();
-//         getLocation(request, config);
-// 		validateRequest(request);
-//         switch (m_method)
-// 		{
-//         	case GET:
-// 				// if (m_cgi)
-// 				// 	return handleCGI();
-//             	return handleGet();
-//         	case POST:
-// 				request.parseBody(m_maxSize);
-// 				// if (m_cgi)
-// 					// 	return handleCGI();
-//             	return handlePost(request.getMultipartData());
-//         	case DELETE:
-//             	return handleDelete();
-// 			default:
-// 				return HttpResponse(500, "FAIL", "", "", true); // robert
-// 		}
-//     } catch (HttpException& e) {
-// 		if (!m_server)
-// 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
-//         return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
-//     }
-// }
-
-// HttpResponse HttpHandler::handleRequest(int fd, Config& config)
-// {
-// 	HttpRequest request(fd);
-
-//     try {
-// 		request.parseRequest();
-//         getLocation(request, config);
-// 		validateRequest(request);
-//         switch (m_method)
-// 		{
-//         	case GET:
-// 				// if (m_cgi)
-// 				// 	return handleCGI();
-//             	return handleGet();
-//         	case POST:
-// 				request.parseBody(m_maxSize);
-// 				// if (m_cgi)
-// 					// 	return handleCGI();
-//             	return handlePost(request.getMultipartData());
-//         	case DELETE:
-//             	return handleDelete();
-// 			default:
-// 				return HttpResponse(500, "FAIL", "", "", true); // robert
-// 		}
-//     } catch (HttpException& e) {
-// 		if (!m_server)
-// 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
-//         return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
-//     }
-// }
-
 HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& config)
 {
 	m_code = 200;
@@ -98,12 +36,12 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		}
     } catch (HttpException& e) {
 		if (e.code() != 0)
-        	return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection());
+        	return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
     }
 
 	// if e.code() = 0
 	// return remoteClosedConnection(); // robert
-	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection());
+	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection(), client->getTimeoutDuration());
 }
 
 std::string	HttpHandler::errorPage(int code)
@@ -481,6 +419,6 @@ const std::string&	HttpHandler::getTarget()
 // so we can reuse the same instance multiple times
 const HttpResponse&	HttpHandler::remoteClosedConnection()
 {
-	static const HttpResponse instance(0, "remote closed connection", "", "", true);
+	static const HttpResponse instance(0, "remote closed connection", "", "", true, (t_ms)5000);
 	return instance;
 }
