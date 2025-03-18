@@ -40,17 +40,47 @@ HttpHandler::HttpHandler() : m_cgi(false) {}
 //     }
 // }
 
-HttpResponse HttpHandler::handleRequest(int fd, Config& config)
+// HttpResponse HttpHandler::handleRequest(int fd, Config& config)
+// {
+// 	HttpRequest request(fd);
+
+//     try {
+// 		request.parseRequest();
+//         getLocation(request, config);
+// 		validateRequest(request);
+//         switch (m_method)
+// 		{
+//         	case GET:
+// 				// if (m_cgi)
+// 				// 	return handleCGI();
+//             	return handleGet();
+//         	case POST:
+// 				request.parseBody(m_maxSize);
+// 				// if (m_cgi)
+// 					// 	return handleCGI();
+//             	return handlePost(request.getMultipartData());
+//         	case DELETE:
+//             	return handleDelete();
+// 			default:
+// 				return HttpResponse(500, "FAIL", "", "", true); // robert
+// 		}
+//     } catch (HttpException& e) {
+// 		if (!m_server)
+// 			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
+//         return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.target(), request.closeConnection());
+//     }
+// }
+
+HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& config)
 {
 	m_code = 200;
 	m_msg = "OK";
 	m_redir = "";
-
-	HttpRequest request(fd);
+	HttpRequest request(client->fd());
 
     try {
 		request.parseRequest();
-        getLocation(request, config);
+        setLocation(request, config);
 		validateRequest(request);
         switch (m_method)
 		{
@@ -67,11 +97,12 @@ HttpResponse HttpHandler::handleRequest(int fd, Config& config)
 				break;
 		}
     } catch (HttpException& e) {
-		if (!m_server)
-			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), true);
-        return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection());
+		if (e.code() != 0)
+        	return HttpResponse(e.code(), e.what(), errorPage(e.code()), e.redir(), request.closeConnection());
     }
 
+	// if e.code() = 0
+	// return remoteClosedConnection(); // robert
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection());
 }
 
@@ -86,13 +117,15 @@ std::string	HttpHandler::errorPage(int code)
 	std::vector<std::string>	pages;
 	if (m_location->tryGetDirective("error_page", pages))
 	{
-		errorPage = m_location->getErrorPage(code);
+		errorPage = m_location->findErrorPage(code);
 	}
 	else
 	{
-		errorPage = m_server->getErrorPage(code);
+		errorPage = m_server->findErrorPage(code);
 	}
+	// errorPage = m_server->findErrorPage(code); // robert
 
+	// double check these
 	if (!root.empty() && !errorPage.empty())
 		return root.front() + errorPage;
 
@@ -102,11 +135,11 @@ std::string	HttpHandler::errorPage(int code)
 	return EMPTY_STRING;
 }
 
-void	HttpHandler::getLocation(HttpRequest& request, Config& config)
+void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
     m_location = m_server->findClosestMatch(request.getTarget());
-	
+
 	std::vector<std::string>	redirect;
 
 	m_location->tryGetDirective("return", redirect);
@@ -123,7 +156,7 @@ void	HttpHandler::validateRequest(HttpRequest& request)
 {
 	validateMethod(request.getMethod());
 	validatePath(request.getTarget());
-	getMaxSize();
+	setMaxSize();
 }
 
 void    HttpHandler::validateMethod(const std::string& method)
@@ -226,11 +259,11 @@ void    HttpHandler::validatePath(const std::string& target)
 					std::vector<std::string> tmp;
 					if (m_location->tryGetDirective("error_page", tmp))
 					{
-						m_path = r + m_location->getErrorPage(e_code);
+						m_path = r + m_location->findErrorPage(e_code);
 					}
 					else
 					{
-						m_path = r + m_server->getErrorPage(e_code);
+						m_path = r + m_server->findErrorPage(e_code);
 					}
 
 					Logger::log(m_path);
@@ -325,7 +358,7 @@ void    HttpHandler::validateCgi(const std::string& target)
 		m_cgi = true;
 }
 
-void	HttpHandler::getMaxSize()
+void	HttpHandler::setMaxSize()
 {
 	std::vector<std::string> maxSize;
 
@@ -441,4 +474,13 @@ void HttpHandler::handleDelete()
 const std::string&	HttpHandler::getTarget()
 {
 	return m_path;
+}
+
+// singleton pattern
+// declared a constant response when client closed connection
+// so we can reuse the same instance multiple times
+const HttpResponse&	HttpHandler::remoteClosedConnection()
+{
+	static const HttpResponse instance(0, "remote closed connection", "", "", true);
+	return instance;
 }

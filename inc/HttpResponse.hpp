@@ -36,7 +36,9 @@ class HttpResponse {
 		HttpResponse&	operator=(const HttpResponse&) = default;
 
 		HttpResponse() = delete;
-		HttpResponse(const HttpResponse&) = delete;
+
+		// copy constructor is actually usefull now - robert
+		HttpResponse(const HttpResponse&); // = delete;
 
 
 		std::string	getResponse();

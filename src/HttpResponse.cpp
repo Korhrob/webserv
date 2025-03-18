@@ -11,6 +11,12 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 	setHeaders();
 }
 
+HttpResponse::HttpResponse(const HttpResponse& src)
+: m_code(src.m_code), m_msg(src.m_msg), m_body(src.m_body), m_type(src.m_type), m_targetUrl(src.m_targetUrl), m_close(src.m_close)
+{
+
+}
+
 void	HttpResponse::setBody(const std::string& path)
 {
 	if (!path.empty())
@@ -87,7 +93,11 @@ void	HttpResponse::setHeaders()
 	if (m_close)
 		m_headers.emplace("Connection", "close");
 	else
+	{
 		m_headers.emplace("Connection", "keep-alive");
+		// how long?
+		// m_headers.emplace("Keep-Alive", "timeout=x");
+	}
 
 
 	if (m_type == TYPE_SINGLE)

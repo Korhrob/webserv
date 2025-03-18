@@ -206,13 +206,21 @@ void	Server::addClient(int fd)
 	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
 	client->connect(client_fd, m_time);
 	m_clients[client_fd] = client;
+	
+	int port = m_port_map[fd];
+	auto node = m_config.findServerNode(":" + std::to_string(port));
 
+	std::vector<std::string> timeout = { "3" };
+	node->tryGetDirective("keepalive_timeout", timeout);
+	client->setTimeoutDuration(std::stoi(timeout.front()));
+	Logger::log("Set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
 void	Server::handleTimeouts()
 {
-	auto grace = m_time + std::chrono::seconds(2);
+	// hard coded grace period
+	//auto grace = m_time + std::chrono::seconds(2);
 
 	for (auto& [fd, client] : m_clients)
 	{
@@ -220,10 +228,16 @@ void	Server::handleTimeouts()
 		{
 			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
 			client->setClientState(ClientState::TIMEDOUT);
+
 			client->respond(RESPONSE_TIMEOUT);
 			client->respond(EMPTY_STRING);
-			client->setDisconnectTime(grace);
-			m_timeout_queue.push({grace, client});
+			if (checkResponseState(client))
+				continue;
+
+			// calculate timeout time per client
+			auto time = m_time + client->getTimeoutDuration() + std::chrono::seconds(2);
+			client->setDisconnectTime(time);
+			m_timeout_queue.push({time, client});
 			m_timeout_set.insert(client);
 		}
 	}
@@ -238,8 +252,6 @@ void	Server::handleTimeouts()
 		--max;
 	}
 
-	// could adjust epoll timeout rate
-
 }
 
 /// @brief Handle parsing request and sending response
@@ -253,8 +265,8 @@ void	Server::handleRequest(int fd)
 		return;
 	}
 
-	HttpResponse httpResponse = m_handler.handleRequest(fd, m_config);
 	std::shared_ptr<Client> client = m_clients.at(fd);
+	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
 	Logger::log(httpResponse.getResponse());
 
@@ -271,47 +283,28 @@ void	Server::handleRequest(int fd)
 
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
-		//Logger::log(httpResponse.getResponse());
 		client->respond(httpResponse.getResponse());
+		checkResponseState(client);
 	}
 	else if (httpResponse.getSendType() == TYPE_CHUNKED)
 	{
 		client->respond(httpResponse.getHeader());
-
-		std::ifstream file;
-		try
-		{
-			file = std::ifstream(m_handler.getTarget(), std::ios::binary);
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << e.what() << '\n';
-			return;
-		}
-		
-		char buffer[PACKET_SIZE];
-		while (true) {
-
-			file.read(buffer, PACKET_SIZE);
-			std::streamsize count = file.gcount();
-
-			if (count <= 0)
-				break;
-
-			if (count < PACKET_SIZE)
-				buffer[count] = '\0';
-
-			std::ostringstream	oss;
-			oss << std::hex << count << "\r\n";
-			oss.write(buffer, count);
-			oss << "\r\n";
-			client->respond(oss.str());
-			Logger::log("CHUNK");
-		}
-
-		client->respond("0\r\n\r\n");
-		Logger::log("END CHUNK");
+		client->respondChunked(m_handler.getTarget());
+		checkResponseState(client);
 	}
+
+}
+
+// checks clients previous send attept (or the first that failed)
+// returns true if client was disconnected
+bool	Server::checkResponseState(std::shared_ptr<Client> client)
+{
+	if (client->getClientState() <= 0)
+	{
+		removeClient(client);
+		return true;
+	}
+	return false;
 }
 
 /// @brief Server update logic
@@ -332,7 +325,6 @@ void	Server::update()
 
 	handleEvents(event_count);
 	handleTimeouts();
-
 }
 
 void	Server::removeClient(std::shared_ptr<Client> client)

@@ -31,6 +31,10 @@ class HttpException : public std::exception {
             return m_code;
         }
 
+        static HttpException    remoteClosedConnetion() {
+            return HttpException(0, "Remote Closed Connection");
+        }
+
 		static HttpException	temporaryRedirect(const std::string& targetUrl) {
 			return HttpException(307, "Temporary Redirect", targetUrl);
 		}

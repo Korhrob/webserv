@@ -25,6 +25,7 @@ class ConfigNode : public std::exception
 	DirectiveMap	m_directives;
 	NodeMap			m_children;
 	bool			m_autoindex;
+	bool			m_is_server;
 
 	std::vector<ErrorPage>	m_error_pages;
 
@@ -42,20 +43,19 @@ class ConfigNode : public std::exception
 
 public:
 	ConfigNode();
-	ConfigNode(const std::string& name);
+	ConfigNode(const std::string& name, bool is_server);
 	~ConfigNode();
 
 	void								addDirective(std::string key, std::vector<std::string>& value);
 	void								addErrorPage(std::vector<std::string>& value);
 	void								addChild(std::string key, std::shared_ptr<ConfigNode> node);
 	const std::vector<std::string>&		findDirective(const std::string& key);
-	// findDirectiveInChildren;
 	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
 	const std::shared_ptr<ConfigNode>	findClosestMatch(const std::string& key);
-	const std::string&					getErrorPage(int error_code);
+	const std::string&					findErrorPage(int error_code);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 	const std::string&					getName() { return m_name; };
-	void								emplaceCodes(ErrorPage& error_page, std::vector<std::string>& directives);
+	void								emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& codes);
 	bool								autoindexOn() { return m_autoindex; }
 
 };
