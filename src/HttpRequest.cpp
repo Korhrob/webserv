@@ -65,7 +65,10 @@ void	HttpRequest::readRequest()
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
+	{
+		perror("recv");
 		throw HttpException::internalServerError("failed to receive request"); // recv failed
+	}
 	if (bytes_read == 0)
 		throw HttpException::remoteClosedConnetion(); // received an empty request
 
