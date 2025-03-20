@@ -12,7 +12,7 @@ headers = {
 }
 
 # Start the HTTP request with the specified headers
-conn.request("POST", "/uploads", body=None, headers=headers)
+conn.request("POST", "/upload", body=None, headers=headers)
 
 # Get the connection's socket
 sock = conn.sock
