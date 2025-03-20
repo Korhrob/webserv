@@ -28,6 +28,7 @@ class HttpHandler {
 		size_t						m_maxSize;
 
         void	setLocation(HttpRequest& request, Config& config);
+		void	setTimeoutDuration(std::shared_ptr<Client> client);
 		void	validateRequest(HttpRequest& request);
         void	validateMethod(const std::string& method);
         void	validatePath(const std::string& target);

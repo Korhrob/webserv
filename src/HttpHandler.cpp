@@ -20,6 +20,7 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
     try {
 		request.parseRequest();
         setLocation(request, config);
+		setTimeoutDuration(client);
 		validateRequest(request);
         switch (m_method)
 		{
@@ -36,10 +37,14 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				break;
 		}
     } catch (HttpException& e) {
-		// if (!server) = exception is thrown before host is found
-		// should get default server with port to get error pages, else
-        return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
-		// how to differentiate between request timeout & remote closed connection?
+		 // received an empty request
+		if (!e.code())
+			return remoteClosedConnection();
+
+		// if (!server) it means an exception was thrown before host was found
+		// use default server with port from client
+
+		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
     }
 
 	// constructing response here when everything goes well
@@ -51,22 +56,22 @@ std::string	HttpHandler::ePage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	if (!m_location->tryGetDirective("root", root))
+	if (!m_location || !m_location->tryGetDirective("root", root))
 		m_server->tryGetDirective("root", root);
 
 	std::vector<std::string>	pages;
 
-	if (m_location->tryGetDirective("error_page", pages))
-	{
-		errorPage = m_location->findErrorPage(code);
-	}
-	else
+	if (!m_location || !m_location->tryGetDirective("error_page", pages))
 	{
 		errorPage = m_server->findErrorPage(code);
 	}
+	else
+	{
+		errorPage = m_location->findErrorPage(code);
+	}
 
 	// double check these
-	if (!root.empty() && !errorPage.empty())
+	if (!root.empty())
 		return root.front() + errorPage;
 
 	return errorPage;
@@ -88,6 +93,27 @@ void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 		if (redirect.size() != 2)
 			throw HttpException::internalServerError("invalid redirect");
 		throw HttpException::temporaryRedirect(redirect[1]);
+	}
+}
+
+void	HttpHandler::setTimeoutDuration(std::shared_ptr<Client> client)
+{
+	std::vector<std::string>	timeoutDuration;
+	size_t						idx;
+	int							timeout;
+
+	if (m_server->tryGetDirective("keepalive_timeout", timeoutDuration))
+	{
+		try {
+			timeout = std::stoi(timeoutDuration.front(), &idx);
+			if (idx != timeoutDuration.front().length())
+				throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+
+		} catch (std::exception& e) {
+			throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+		}
+
+		client->setTimeoutDuration(timeout);
 	}
 }
 
