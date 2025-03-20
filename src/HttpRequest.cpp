@@ -66,7 +66,7 @@ void	HttpRequest::readRequest()
 
 	if (bytes_read == -1)
 	{
-		perror("recv");
+		perror("recv"); // remember to delete this
 		throw HttpException::internalServerError("failed to receive request"); // recv failed
 	}
 	if (bytes_read == 0)
