@@ -136,7 +136,7 @@ int	Server::createListener(int port)
 	}
 
 	struct epoll_event event;
-	event.events = EPOLLIN;
+	event.events = EPOLLIN | EPOLLET;
 	event.data.fd = fd;
 
 	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
@@ -180,40 +180,45 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
-	t_sockaddr_in client_addr = { };
-	m_addr_len = sizeof(client_addr);
-	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
+	static std::vector<std::string> timeout = { "3" };
 
-	if (client_fd < 0)
+	while (true)
 	{
-		Logger::logError("error connecting client, accept");
-		return;
-	}
-
-	// setup non blocking
-
-	epoll_event	event;
-	event.events = EPOLLIN | EPOLLET;
-	event.data.fd = client_fd;
-
-	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
-	{
-		Logger::logError("error connecting client, epoll_ctl");
-		close(client_fd);
-		return;
-	}
-
-	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
-	client->connect(client_fd, m_time);
-	m_clients[client_fd] = client;
+		t_sockaddr_in client_addr = { };
+		m_addr_len = sizeof(client_addr);
+		int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
 	
-	int port = m_port_map[fd];
-	auto node = m_config.findServerNode(":" + std::to_string(port));
+		if (client_fd < 0)
+		{
+			Logger::logError("error connecting client, accept");
+			break;
+		}
+	
+		// setup non blocking
+	
+		epoll_event	event;
+		event.events = EPOLLIN | EPOLLET;
+		event.data.fd = client_fd;
+	
+		if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
+		{
+			Logger::logError("error connecting client, epoll_ctl");
+			close(client_fd);
+			return;
+		}
+	
+		std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+		client->connect(client_fd, m_time);
+		m_clients[client_fd] = client;
+		
+		int port = m_port_map[fd];
+		auto node = m_config.findServerNode(":" + std::to_string(port));
+	
+		node->tryGetDirective("keepalive_timeout", timeout);
+		client->setTimeoutDuration(std::stoi(timeout.front()));
+		Logger::log("Set timeout duration: " + timeout.front());
 
-	std::vector<std::string> timeout = { "3" };
-	node->tryGetDirective("keepalive_timeout", timeout);
-	client->setTimeoutDuration(std::stoi(timeout.front()));
-	Logger::log("Set timeout duration: " + timeout.front());
+	}
 }
 
 /// @brief Handle client timeouts
