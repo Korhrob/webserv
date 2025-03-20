@@ -41,8 +41,8 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		if (!e.code())
 			return remoteClosedConnection();
 
-		// if (!server) it means an exception was thrown before host was found
-		// use default server with port from client
+		// if (!m_server) it means an exception was thrown before host was found
+		// set m_server to default with port from client
 
 		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
     }
