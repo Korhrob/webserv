@@ -39,8 +39,7 @@ class HttpResponse {
 		HttpResponse() = delete;
 
 		// copy constructor is actually usefull now - robert
-		// HttpResponse(const HttpResponse&); // = delete;
-
+		HttpResponse(const HttpResponse&) = default;
 
 		std::string	getResponse();
 		std::string	getHeader();
