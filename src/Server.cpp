@@ -136,7 +136,7 @@ int	Server::createListener(int port)
 	}
 
 	struct epoll_event event;
-	event.events = EPOLLIN | EPOLLET;
+	event.events = EPOLLIN | EPOLLOUT;
 	event.data.fd = fd;
 
 	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
@@ -197,7 +197,7 @@ void	Server::addClient(int fd)
 		// setup non blocking
 	
 		epoll_event	event;
-		event.events = EPOLLIN | EPOLLET;
+		event.events = EPOLLIN | EPOLLOUT;
 		event.data.fd = client_fd;
 	
 		if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
