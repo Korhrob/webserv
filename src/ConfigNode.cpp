@@ -144,7 +144,7 @@ const	std::shared_ptr<ConfigNode>	ConfigNode::findClosestMatch(const std::string
 			b++;
 			count++;
 		}
-		if (count > highest)
+		if (a == index.end() && count > highest)
 		{
 			closest_match = child;
 			highest = count;
