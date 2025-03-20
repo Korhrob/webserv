@@ -41,8 +41,11 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		if (!e.code())
 			return remoteClosedConnection();
 
+		Logger::log("code: " + std::to_string(e.code()));
 		// if (!m_server) it means an exception was thrown before host was found
 		// set m_server to default with port from client
+		if (!m_server) // temporary so it doesn't segfault atm
+			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), request.closeConnection(), client->getTimeoutDuration());
 
 		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
     }
