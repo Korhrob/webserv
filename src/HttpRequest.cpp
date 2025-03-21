@@ -131,19 +131,13 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
+		// move checking empty keys and values to the cgi part
 		std::string key = line.substr(0, pos);
 		std::string value = line.substr(pos + 1);
 		if (key.empty() || value.empty())
 			throw HttpException::badRequest("malformed query string");
 		m_queryData[key].push_back(value);
-	}
-
-	std::cout << "QUERY STRING\n";
-	for (auto [key, value]: m_queryData) {
-		std::cout << key << "=";
-		for (auto v: value)
-			std::cout << v << " ";
-		std::cout << "\n";
+		// m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
