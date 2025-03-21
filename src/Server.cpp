@@ -259,7 +259,7 @@ void	Server::handleRequest(int fd)
 
 	Logger::log(httpResponse.getResponse());
 
-	if (httpResponse.closeConnection())
+	if (httpResponse.getCloseConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
