@@ -44,5 +44,5 @@ class HttpResponse {
 		std::string	getResponse();
 		std::string	getHeader();
 		e_type		getSendType();
-		bool		closeConnection();
+		bool		getCloseConnection();
 };

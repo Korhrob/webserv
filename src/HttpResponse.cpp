@@ -142,7 +142,7 @@ std::string HttpResponse::getHeader()
 	return getStatusLine() + getHeaders();
 }
 
-bool HttpResponse::closeConnection()
+bool HttpResponse::getCloseConnection()
 {
 	return m_close;
 }

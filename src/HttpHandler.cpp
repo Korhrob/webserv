@@ -45,13 +45,13 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		// if (!m_server) it means an exception was thrown before host was found
 		// set m_server to default with port from client
 		if (!m_server) // temporary so it doesn't segfault atm
-			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), request.closeConnection(), client->getTimeoutDuration());
+			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
 
-		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
+		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
     }
 
 	// constructing response here when everything goes well
-	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection(), client->getTimeoutDuration());
+	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
 }
 
 std::string	HttpHandler::ePage(int code)
@@ -328,7 +328,8 @@ void    HttpHandler::validateCgi(const std::string& target)
 
 void	HttpHandler::setMaxSize()
 {
-	std::vector<std::string> maxSize;
+	std::vector<std::string>	maxSize;
+	size_t						idx;
 
 	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
 		m_server->tryGetDirective("client_max_body_size", maxSize);
@@ -336,9 +337,12 @@ void	HttpHandler::setMaxSize()
 	if (!maxSize.empty())
 	{
 		try {
-			m_maxSize = std::stoul(maxSize.front());
+			m_maxSize = std::stoul(maxSize.front(), &idx);
+			if (idx != maxSize.front().length())
+				throw HttpException::internalServerError("invalid max body size value"); // config error
+
 		} catch (std::exception& e) {
-			throw HttpException::internalServerError("failed to get max body size");
+			throw HttpException::internalServerError("invalid max body size value"); // config error
 		}
 	}
 }

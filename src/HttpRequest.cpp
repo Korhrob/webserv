@@ -55,7 +55,7 @@ void	HttpRequest::getBodyType(size_t maxSize)
 			throw HttpException::payloadTooLarge();
 	}
 	else
-		throw HttpException::notImplemented();
+		throw HttpException::notImplemented("invalid content type");
 }
 
 void	HttpRequest::readRequest()
@@ -228,11 +228,19 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 }
 
 size_t	HttpRequest::getChunkSize(std::string& hex) {
+	size_t	size;
+	size_t	idx;
+
 	try {
-		return stoul(hex, nullptr, 16);
+		size = stoul(hex, &idx, 16);
+		if (idx != hex.length())
+			throw HttpException::badRequest("invalid chunk size");
+
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid chunk size");
 	}
+
+	return size;
 }
 
 void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
@@ -316,7 +324,7 @@ std::string		HttpRequest::uniqueId()
 
 	std::random_device	rd;
 	std::mt19937 gen(rd());
-	std::uniform_int_distribution<int> dist(100, 9999);
+	std::uniform_int_distribution<int> dist(1000, 9999);
 
 	return std::to_string(timestamp) + std::to_string(dist(gen));
 }
@@ -388,7 +396,7 @@ const std::vector<multipart>&	HttpRequest::getMultipartData()
 	return m_multipartData;
 }
 
-bool	HttpRequest::closeConnection()
+bool	HttpRequest::getCloseConnection()
 {
 	if (m_headers.find("connection") != m_headers.end())
 		return m_headers["connection"] == "close";
