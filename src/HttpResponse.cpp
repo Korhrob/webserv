@@ -82,7 +82,7 @@ std::string	HttpResponse::getBody(const std::string& path)
 void	HttpResponse::setHeaders()
 {
 	if (!m_close)
-		m_close = (m_code == 408) || (m_code == 413);
+		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
 	if (!m_targetUrl.empty())
 		m_headers.emplace("Location", m_targetUrl);
