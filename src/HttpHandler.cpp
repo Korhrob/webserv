@@ -343,26 +343,6 @@ void	HttpHandler::setMaxSize()
 	}
 }
 
-// HttpResponse HttpHandler::handleGet()
-// {
-// 	// if file validation for directory listing is handled ealier,
-// 	// we dont have to check if this is a directory
-// 	// could double check that file exists,
-// 	// but that seems to be handled earlier
-
-// 	// if (std::filesystem::is_directory(m_path))
-// 	// {
-// 	// 	if (m_location->autoindexOn()) // robert
-// 	// 	{
-// 	// 		Logger::log("autoindex: on; target is a directory: " + m_path + ":" + m_target);
-// 	// 		return HttpResponse(200, "OK", m_path, m_target);
-// 	// 	}
-// 	// 	throw HttpException::forbidden();
-// 	// }
-
-// 	return HttpResponse(200, "OK", m_path, m_target);
-// }
-
 void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
 	// if (m_cgi)

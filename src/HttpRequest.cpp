@@ -105,7 +105,8 @@ void	HttpRequest::parseURI()
 	parseQueryString();
 }
 
-void	HttpRequest::decodeURI() {
+void	HttpRequest::decodeURI()
+{
 	try {
 		while (m_target.find('%') != std::string::npos) {
 			size_t pos = m_target.find('%');
