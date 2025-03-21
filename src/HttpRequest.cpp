@@ -6,6 +6,7 @@
 #include <random>
 #include <chrono>
 #include <regex>
+#include <fcntl.h>
 
 HttpRequest::HttpRequest(int fd) : m_fd(fd), m_unchunked(-1) {}
 
@@ -130,7 +131,19 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
-		m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+		std::string key = line.substr(0, pos);
+		std::string value = line.substr(pos + 1);
+		if (key.empty() || value.empty())
+			throw HttpException::badRequest("malformed query string");
+		m_queryData[key].push_back(value);
+	}
+
+	std::cout << "QUERY STRING\n";
+	for (auto [key, value]: m_queryData) {
+		std::cout << key << "=";
+		for (auto v: value)
+			std::cout << v << " ";
+		std::cout << "\n";
 	}
 }
 
@@ -308,7 +321,7 @@ std::string		HttpRequest::uniqueId()
 
 	std::random_device	rd;
 	std::mt19937 gen(rd());
-	std::uniform_int_distribution<int> dist(100, 999);
+	std::uniform_int_distribution<int> dist(100, 9999);
 
 	return std::to_string(timestamp) + std::to_string(dist(gen));
 }
