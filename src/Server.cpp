@@ -8,7 +8,6 @@
 #include <algorithm> // min
 #include <sstream>
 #include <fstream>
-#include <fcntl.h>
 
 Server::Server() : m_events(EPOLL_POOL)
 {
@@ -83,7 +82,7 @@ bool	Server::startServer()
 
 int	Server::createListener(int port)
 {
-	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (fd <= 0)
 	{
 		Logger::logError("Server failed to open socket!");
@@ -98,21 +97,6 @@ int	Server::createListener(int port)
         close(fd);
         return false;
     }
-
-	// int flags = fcntl(fd, F_GETFL, 0);
-	// if (flags == -1)
-	// {
-	// 	Logger::logError("fctl get failed!");
-	// 	close(fd);
-	// 	return false;
-	// }
-
-	if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) // flags | 
-	{
-		Logger::logError("fcntl set failed!");
-		close(fd);
-		return false;
-	}
 
 	t_sockaddr_in socket_addr { };
 	socket_addr.sin_family = AF_INET;
@@ -170,7 +154,7 @@ void	Server::handleEvents(int event_count)
 
 		if (m_port_map.count(fd))
 			addClient(fd);
-		else
+		else if (m_events[i].events & EPOLLIN)
 			handleRequest(fd);
 	}
 
@@ -182,16 +166,16 @@ void	Server::addClient(int fd)
 {
 	static std::vector<std::string> timeout = { "3" };
 
-	while (true)
-	{
+	// while (true)
+	// {
 		t_sockaddr_in client_addr = { };
 		m_addr_len = sizeof(client_addr);
-		int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
+		int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK);
 	
 		if (client_fd < 0)
 		{
 			Logger::logError("error connecting client, accept");
-			break;
+			return;
 		}
 	
 		// setup non blocking
@@ -218,7 +202,7 @@ void	Server::addClient(int fd)
 		client->setTimeoutDuration(std::stoi(timeout.front()));
 		Logger::log("Set timeout duration: " + timeout.front());
 
-	}
+	// }
 }
 
 /// @brief Handle client timeouts

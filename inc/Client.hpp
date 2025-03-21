@@ -9,7 +9,6 @@
 
 #include <string.h> // strlen
 #include <poll.h> // pollfd
-#include <fcntl.h> // fnctl
 #include <chrono> // time
 #include <sstream>
 #include <unordered_map>
