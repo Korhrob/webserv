@@ -40,6 +40,7 @@ class ConfigNode : public std::exception
 	void	handleAutoIndex(std::vector<std::string>& d);
 	// ...
 	// handleKeepaliveTimeout - must have a valid int value
+	// handleMaxBodySize - must have a valid size_t value
 	// handleReturn - must have two values: 307 & targetUrl (for temporary redirect only)
 
 public:
