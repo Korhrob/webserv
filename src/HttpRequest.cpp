@@ -3,9 +3,12 @@
 
 #include <filesystem>
 #include <algorithm>
+#include <random>
+#include <chrono>
 #include <regex>
+#include <fcntl.h>
 
-HttpRequest::HttpRequest(int fd) : m_fd(fd) {}
+HttpRequest::HttpRequest(int fd) : m_fd(fd), m_unchunked(-1) {}
 
 void	HttpRequest::parseRequest()
 {
@@ -52,7 +55,7 @@ void	HttpRequest::getBodyType(size_t maxSize)
 			throw HttpException::payloadTooLarge();
 	}
 	else
-		throw HttpException::notImplemented();
+		throw HttpException::notImplemented("invalid content type");
 }
 
 void	HttpRequest::readRequest()
@@ -60,12 +63,17 @@ void	HttpRequest::readRequest()
 	char	buffer[PACKET_SIZE];
 	ssize_t	bytes_read = recv(m_fd, buffer, PACKET_SIZE, 0);
 
+	// loop recv while byte_read > 0
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
-		throw HttpException::badRequest("failed to receive request");
+	{
+		perror("recv"); // remember to delete this
+		throw HttpException::internalServerError("failed to receive request"); // recv failed
+	}
 	if (bytes_read == 0)
-		throw HttpException::requestTimeout();
+		throw HttpException::remoteClosedConnetion(); // received an empty request
+
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
 }
@@ -97,7 +105,8 @@ void	HttpRequest::parseURI()
 	parseQueryString();
 }
 
-void	HttpRequest::decodeURI() {
+void	HttpRequest::decodeURI()
+{
 	try {
 		while (m_target.find('%') != std::string::npos) {
 			size_t pos = m_target.find('%');
@@ -123,7 +132,13 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
-		m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+		// move checking empty keys and values to the cgi part
+		std::string key = line.substr(0, pos);
+		std::string value = line.substr(pos + 1);
+		if (key.empty() || value.empty())
+			throw HttpException::badRequest("malformed query string");
+		m_queryData[key].push_back(value);
+		// m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
@@ -150,11 +165,11 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 }
 
 void	HttpRequest::parseChunked(size_t maxSize) {
-	if (!m_unchunked.is_open())
+	if (m_unchunked == -1)
 	{
 		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
-		m_unchunked.open(unchunked, std::ios::binary | std::ios::app);
-		if (!m_unchunked.is_open())
+		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
 	}
 
@@ -169,46 +184,63 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 	while (true)
 	{
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
-		if (endOfSize == m_request.end()) {
-			Logger::log("INCOMPLETE CHUNK");
+		if (endOfSize == m_request.end())
+		{
+			// couldn't find end of chunk size: incomplete chunk
+			// erase what's already unchunked and return to read more 
 			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
+				m_request.erase(m_request.begin(), currentPos);
 			return;
 		}
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		chunkSize = getChunkSize(sizeString);
 		if (chunkSize == 0)
 		{
-			Logger::log("CHUNKED PARSING COMPLETE");
+			Logger::log("UNCHUNKING COMPLETE");
 			m_body = COMPLETE;
-			m_unchunked.close();
+			close(m_unchunked);
 			return;
 		}
+
 		endOfSize += 2;
 		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
-		if (endOfContent == m_request.end()) // incomplete chunk
+		if (endOfContent == m_request.end())
 		{
-			Logger::log("INCOMPLETE CHUNK");
+			// couldn't find end of chunk: incomplete chunk
+			// erase what's already unchunked and return to read more
 			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos); // erase what's already unchunked
+				m_request.erase(m_request.begin(), currentPos);
 			return;
 		}
 		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
 			throw HttpException::badRequest("invalid chunk size");
-		m_unchunked.write(&(*endOfSize), std::distance(endOfSize, endOfContent));
-		m_contentLength += chunkSize;\
+
+		int bytesWritten = write(m_unchunked, &(*endOfSize), std::distance(endOfSize, endOfContent));
+		if (bytesWritten == -1)
+			throw HttpException::internalServerError("error writing to a file");
+
+		m_contentLength += chunkSize;
 		if (m_contentLength > maxSize)
 			throw HttpException::payloadTooLarge();
+
 		currentPos = endOfContent + 2;
 	}
 }
 
 size_t	HttpRequest::getChunkSize(std::string& hex) {
+	size_t	size;
+	size_t	idx;
+
 	try {
-		return stoul(hex, nullptr, 16);
+		size = stoul(hex, &idx, 16);
+		if (idx != hex.length())
+			throw HttpException::badRequest("invalid chunk size");
+
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid chunk size");
 	}
+
+	return size;
 }
 
 void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
@@ -234,7 +266,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 			throw HttpException::badRequest("invalid multipart/form-data content");
 		multipart	part;
 		std::string	headers(currentPos, endOfHeaders);
-		ParseMultipartHeaders(headers, part);
+		parseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
 		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
@@ -245,12 +277,17 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 				part.content.insert(part.content.end(), currentPos, endOfContent - 2);
 			else
 			{
-				std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-				std::ofstream fileStream(tmpFile, std::ios::binary);
-				if (!fileStream)
-					throw HttpException::internalServerError("error opening file");
-				fileStream.write(&(*currentPos), std::distance(currentPos, endOfContent - 2));
-				fileStream.close();
+				std::string	tmpPath = std::filesystem::temp_directory_path() / part.filename;
+
+				int tmpFile = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+				if (tmpFile == -1)
+					throw HttpException::internalServerError("error opening a file");
+
+				int bytesWritten = write(tmpFile, &(*currentPos), std::distance(currentPos, endOfContent - 2));
+				if (bytesWritten == -1)
+					throw HttpException::internalServerError("error writing to a file");
+				
+				close(tmpFile);
 			}
 		}
 		multipartData.push_back(part);
@@ -280,7 +317,19 @@ std::string	HttpRequest::getBoundary(std::string& contentType)
 	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
-void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& part)
+std::string		HttpRequest::uniqueId()
+{
+	auto now = std::chrono::system_clock::now();
+	auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
+	std::random_device	rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<int> dist(1000, 9999);
+
+	return std::to_string(timestamp) + std::to_string(dist(gen));
+}
+
+void	HttpRequest::parseMultipartHeaders(std::string& headerString, multipart& part)
 {
 	std::istringstream	headers(headerString);
 	size_t				startPos;
@@ -308,7 +357,7 @@ void	HttpRequest::ParseMultipartHeaders(std::string& headerString, multipart& pa
 				endPos = line.find("\"", startPos);
 				if (endPos == std::string::npos)
 					throw HttpException::badRequest("invalid header for multipart/form-data");
-				part.filename = line.substr(startPos, endPos - startPos);
+				part.filename = uniqueId() + "_" + line.substr(startPos, endPos - startPos);
 				if (part.filename.find("../") != std::string::npos)	
 					throw HttpException::badRequest("forbidden traversal pattern in filename");
 			}
@@ -352,7 +401,7 @@ const queryMap&	HttpRequest::getQuery()
 	return m_queryData;
 }
 
-bool	HttpRequest::closeConnection()
+bool	HttpRequest::getCloseConnection()
 {
 	if (m_headers.find("connection") != m_headers.end())
 		return m_headers["connection"] == "close";

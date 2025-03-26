@@ -5,13 +5,13 @@
 
 class HttpException : public std::exception {
     private:
-        int         m_statusCode;
+        int         m_code;
         std::string m_msg;
-		std::string	m_targetUrl;
+		std::string	m_redir;
 
     public:
         HttpException(int code, std::string msg, std::string targetUrl = "")
-            : m_statusCode(code), m_msg(msg), m_targetUrl(targetUrl) {}
+            : m_code(code), m_msg(msg), m_redir(targetUrl) {}
 
 		~HttpException() = default;
 
@@ -23,52 +23,56 @@ class HttpException : public std::exception {
             return m_msg.c_str();
         }
 
-		const std::string	target() {
-			return m_targetUrl;
+		const std::string	redir() {
+			return m_redir;
 		}
 
         int code() const noexcept {
-            return m_statusCode;
+            return m_code;
+        }
+
+        static HttpException    remoteClosedConnetion() {
+            return HttpException(0, "Remote Closed Connection");
         }
 
 		static HttpException	temporaryRedirect(const std::string& targetUrl) {
 			return HttpException(307, "Temporary Redirect", targetUrl);
 		}
 
-        static HttpException    badRequest(std::string log) {
-            return HttpException(400, "Bad Request: " + log);
+        static HttpException    badRequest(std::string msg = "") {
+            return HttpException(400, "Bad Request " + msg);
         }
 
-        static HttpException    forbidden() {
-            return HttpException(403, "Forbidden");
+        static HttpException    forbidden(std::string msg = "") {
+            return HttpException(403, "Forbidden " + msg);
         }
 
-        static HttpException    notFound() {
-            return HttpException(404, "Not Found");
+        static HttpException    notFound(std::string msg = "") {
+            return HttpException(404, "Not Found " + msg);
         }
 
-		static HttpException	requestTimeout()
+		static HttpException	requestTimeout(std::string msg = "")
 		{
-			return HttpException(408, "Request Timeout");
+			return HttpException(408, "Request Timeout " + msg);
 		}
 
-		static HttpException	lengthRequired() {
-			return HttpException(411, "Length Required");
+		static HttpException	lengthRequired(std::string msg = "") {
+			return HttpException(411, "Length Required " + msg);
 		}
 
-		static HttpException	payloadTooLarge() {
-			return HttpException(413, "Payload Too Large");
+		static HttpException	payloadTooLarge(std::string msg = "") {
+			return HttpException(413, "Payload Too Large " + msg);
 		}
 
-        static HttpException    internalServerError(std::string log) {
-            return HttpException(500, "Internal Server Error: " + log);
+        static HttpException    internalServerError(std::string msg = "") {
+            return HttpException(500, "Internal Server Error " + msg);
         }
 
-        static HttpException    notImplemented() {
-            return HttpException(501, "Not Implemented");
+        static HttpException    notImplemented(std::string msg = "") {
+            return HttpException(501, "Not Implemented " + msg);
         }
 
-        static HttpException    httpVersionNotSupported() {
-            return HttpException(505, "HTTP Version Not Supported");
+        static HttpException    httpVersionNotSupported(std::string msg = "") {
+            return HttpException(505, "HTTP Version Not Supported " + msg);
         }
 };
