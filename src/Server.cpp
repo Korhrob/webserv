@@ -203,15 +203,31 @@ void	Server::addClient(int fd)
 		return;
 	}
 
+	int port = m_port_map[fd];
+
 	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
-	client->connect(client_fd, m_time);
+	client->connect(client_fd, m_time, port);
+	
+	// if we have too many concurrent users
+	int num_clients = 0;
+	int max_clients = 1;
+	if (num_clients >= max_clients)
+	{
+		// send 503 response and close connection
+		client->disconnect();
+	}
+
+	// count concurrect users up
 	m_clients[client_fd] = client;
 	
-	int port = m_port_map[fd];
 	auto node = m_config.findServerNode(":" + std::to_string(port));
 
-	std::vector<std::string> timeout = { "3" };
-	node->tryGetDirective("keepalive_timeout", timeout);
+	// hard coded value because we dont have a global config like NGINX does
+	std::vector<std::string> timeout;
+
+	if (!node->tryGetDirective("keepalive_timeout", timeout))
+		timeout = { "75" };
+	
 	client->setTimeoutDuration(std::stoi(timeout.front()));
 	Logger::log("Set timeout duration: " + timeout.front());
 }
@@ -268,7 +284,7 @@ void	Server::handleRequest(int fd)
 	std::shared_ptr<Client> client = m_clients.at(fd);
 	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	Logger::log(httpResponse.getResponse());
+	//Logger::log(httpResponse.getResponse());
 
 	if (httpResponse.closeConnection())
 	{

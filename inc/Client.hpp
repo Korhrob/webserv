@@ -49,6 +49,7 @@ class Client
 		ClientState		m_state;
 		int				m_last_response;
 		t_ms			m_timeout_duration;
+		int				m_port;
 
 	public:
 
@@ -61,13 +62,14 @@ class Client
 		int		fd() { return m_fd; }
 
 		// can handle all of these in constructor
-		bool	connect(int fd, t_time& time)
+		bool	connect(int fd, t_time& time, int port)
 		{
 			// technically not required, can remove
 			m_fd = fd;
 			m_last_activity = time;
 			m_state = ClientState::CONNECTED;
 			m_last_response = 0;
+			m_port = port;
 
 			Logger::log("Client id " + std::to_string(fd) + ", fd " + std::to_string(m_fd) + " connected!");
 
