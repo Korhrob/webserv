@@ -10,81 +10,142 @@
 
 HttpHandler::HttpHandler() : m_cgi(false) {}
 
-HttpResponse HttpHandler::handleRequest(int fd, Config& config)
+HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& config)
 {
-	HttpRequest request(fd);
+	m_code = 200;
+	m_msg = "OK";
+	m_redir = "";
+
+	HttpRequest request(client->fd());
 
     try {
 		request.parseRequest();
-        getLocation(request, config);
+        setLocation(request, config);
+		setTimeoutDuration(client);
 		validateRequest(request);
         switch (m_method)
 		{
         	case GET:
 				if (m_cgi)
-					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
-            	return handleGet();
+				{
+					m_cgi = false;
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
+					return HttpResponse("CGI success", body);
+				}
+				break;
         	case POST:
 				request.parseBody(m_maxSize);
 				if (m_cgi)
-					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
-            	return handlePost(request.getMultipartData());
+				{
+					m_cgi = false;
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
+					return HttpResponse("CGI success", body);
+				}
+				handlePost(request.getMultipartData());
+				break;
         	case DELETE:
-            	return handleDelete();
+            	handleDelete();
+				break;
 		}
     } catch (HttpException& e) {
-		if (!m_server)
-			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.target(), true);
-        return HttpResponse(e.code(), e.what(), getErrorPage(e.code()), e.target(), request.closeConnection());
+		 // received an empty request
+		if (!e.code())
+			return remoteClosedConnection();
+
+		Logger::log("code: " + std::to_string(e.code()));
+		// if (!m_server) it means an exception was thrown before host was found
+		// set m_server to default with port from client
+		if (!m_server) // temporary so it doesn't segfault atm
+			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
+
+		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
     }
 
-	return HttpResponse(500, "FAIL", "", "", true); // robert
+	// constructing response here when everything goes well
+	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
 }
 
-std::string	HttpHandler::getErrorPage(int code)
+std::string	HttpHandler::ePage(int code)
 {
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	if (!m_location->tryGetDirective("root", root))
+	if (!m_location || !m_location->tryGetDirective("root", root))
 		m_server->tryGetDirective("root", root);
-	errorPage = m_server->getErrorPage(code);
 
-	if (!root.empty() && !errorPage.empty())
+	std::vector<std::string>	pages;
+
+	if (!m_location || !m_location->tryGetDirective("error_page", pages))
+	{
+		root = m_server->findDirective("root");
+		errorPage = m_server->findErrorPage(code);
+	}
+	else
+	{
+		errorPage = m_location->findErrorPage(code);
+	}
+
+	// double check these
+	if (!root.empty())
 		return root.front() + errorPage;
-	if (!errorPage.empty())
-		return errorPage;
-	return EMPTY_STRING;
+
+	return errorPage;
 }
 
-void	HttpHandler::getLocation(HttpRequest& request, Config& config)
+void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 {
     m_server = config.findServerNode(request.getHost());
-
-	// technically should never happen, as findServerNode would never return null
-    // if (m_server == nullptr) // temp
-	// 	throw HttpException::badRequest("Server node is null");
-	
     m_location = m_server->findClosestMatch(request.getTarget());
-	
+
 	std::vector<std::string>	redirect;
+
 	m_location->tryGetDirective("return", redirect);
+
 	if (!redirect.empty())
-		throw HttpException::temporaryRedirect(redirect[1]); // is this safe? checked in config parsing?
+	{
+		// is this a config error?
+		// should it be checked during config parsing that return directive always has 2 values?
+		if (redirect.size() != 2)
+			throw HttpException::internalServerError("invalid redirect");
+		throw HttpException::temporaryRedirect(redirect[1]);
+	}
+}
+
+void	HttpHandler::setTimeoutDuration(std::shared_ptr<Client> client)
+{
+	std::vector<std::string>	timeoutDuration;
+	size_t						idx;
+	int							timeout;
+
+	if (m_server->tryGetDirective("keepalive_timeout", timeoutDuration))
+	{
+		try {
+			timeout = std::stoi(timeoutDuration.front(), &idx);
+			if (idx != timeoutDuration.front().length())
+				throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+
+		} catch (std::exception& e) {
+			throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+		}
+
+		client->setTimeoutDuration(timeout);
+	}
 }
 
 void	HttpHandler::validateRequest(HttpRequest& request)
 {
 	validateMethod(request.getMethod());
 	validatePath(request.getTarget());
-	getMaxSize();
+	setMaxSize();
 }
 
 void    HttpHandler::validateMethod(const std::string& method)
 {
     std::vector<std::string>    allowedMethods;
 
-    m_location->tryGetDirective("methods", allowedMethods);
+    if (!m_location->tryGetDirective("methods", allowedMethods))
+		m_server->tryGetDirective("methods", allowedMethods);
+
     if (std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
 	{
         throw HttpException::notImplemented();
@@ -178,11 +239,11 @@ void    HttpHandler::validatePath(const std::string& target)
 					std::vector<std::string> tmp;
 					if (m_location->tryGetDirective("error_page", tmp))
 					{
-						m_path = r + m_location->getErrorPage(e_code);
+						m_path = r + m_location->findErrorPage(e_code);
 					}
 					else
 					{
-						m_path = r + m_server->getErrorPage(e_code);
+						m_path = r + m_server->findErrorPage(e_code);
 					}
 
 					Logger::log(m_path);
@@ -233,7 +294,7 @@ void    HttpHandler::validatePath(const std::string& target)
 				if (!m_location->autoindexOn())
 				{
 					Logger::log("autoindex: off, but trying to access directory");
-					throw HttpException::forbidden();
+					throw HttpException::forbidden("autoindex: off, but trying to access directory");
 				}
 
 				// could setup some autoindexing settings here,
@@ -248,15 +309,18 @@ void    HttpHandler::validatePath(const std::string& target)
 
 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
-		if ((perms & std::filesystem::perms::others_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden();
+		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+			throw HttpException::forbidden("permission denied");
+
+	} catch (HttpException& e) {
+		if (e.code() == 403)
+			throw HttpException::forbidden(e.what());
+		else
+			throw HttpException::notFound();
 
 	} catch (std::exception& e) {
-
-		// shouldn't always throw not found!!
-		// what about forbidden?
-		throw HttpException::notFound();
-
+		// other possible exceptions thrown by stoi() / replace() / filesystem functions
+		throw HttpException::internalServerError(e.what());
 	}
 }
 
@@ -269,7 +333,8 @@ void    HttpHandler::validateCgi(const std::string& target)
 	std::string					extension(target.substr(target.find_last_of(".")));
 	std::vector<std::string>	cgi;
 
-    m_location->tryGetDirective("cgi", cgi);
+    if (!m_location->tryGetDirective("cgi", cgi))
+		m_server->tryGetDirective("cgi", cgi);
 
 	// for (const auto& str : cgi) {std::cout << str << std::endl;}
 
@@ -277,59 +342,58 @@ void    HttpHandler::validateCgi(const std::string& target)
 		m_cgi = true;
 }
 
-void	HttpHandler::getMaxSize()
+void	HttpHandler::setMaxSize()
 {
-	std::vector<std::string> maxSize;
-	m_server->tryGetDirective("client_max_body_size", maxSize);
+	std::vector<std::string>	maxSize;
+	size_t						idx;
 
-	if (!maxSize.empty()) // should a default value be set in a .hpp?
+	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
+		m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	if (!maxSize.empty())
 	{
 		try {
-			m_maxSize = std::stoul(maxSize.front());
+			m_maxSize = std::stoul(maxSize.front(), &idx);
+			if (idx != maxSize.front().length())
+				throw HttpException::internalServerError("invalid max body size value"); // config error
+
 		} catch (std::exception& e) {
-			throw HttpException::internalServerError("failed to get max body size");
+			throw HttpException::internalServerError("invalid max body size value"); // config error
 		}
 	}
 }
 
-HttpResponse HttpHandler::handleGet()
+void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
-	// if file validation for directory listing is handled ealier,
-	// we dont have to check if this is a directory
-	// could double check that file exists,
-	// but that seems to be handled earlier
-
-	// if (std::filesystem::is_directory(m_path))
-	// {
-	// 	if (m_location->autoindexOn()) // robert
-	// 	{
-	// 		Logger::log("autoindex: on; target is a directory: " + m_path + ":" + m_target);
-	// 		return HttpResponse(200, "OK", m_path, m_target);
-	// 	}
-	// 	throw HttpException::forbidden();
-	// }
-
-	return HttpResponse(200, "OK", m_path, m_target);
-}
-
-HttpResponse HttpHandler::handlePost(const std::vector<multipart>& multipartData)
-{
+	// if (m_cgi)
+	// 	handleCGI();
+	// else
 	upload(multipartData);
-	
-	return HttpResponse(200, "OK");
+
+	m_code = 303;
+	m_msg = "See Other";
+	m_redir = "index";
 }
 
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
-	m_location->tryGetDirective("uploadDir", uploadDir);
+	if (!m_location->tryGetDirective("uploadDir", uploadDir))
+		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	
 	if (uploadDir.empty())
-		throw HttpException::internalServerError("upload directory not defined"); // is this a config error?
-	std::filesystem::perms perms = std::filesystem::status(uploadDir[0]).permissions();
-	if ((perms & std::filesystem::perms::others_write) == std::filesystem::perms::none)
-		throw HttpException::forbidden();
+		throw HttpException::internalServerError("upload directory not defined");
+
+	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+
+	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
+		throw HttpException::forbidden("permission denied");
+
+	if (!std::filesystem::exists(uploadDir.front()))
+	{
+		if (!std::filesystem::create_directory(uploadDir.front()))
+			throw HttpException::internalServerError("unable to create upload directory");
+	}
 
 	for (multipart part: multipartData)
 	{
@@ -348,13 +412,11 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 	}
 }
 
-HttpResponse HttpHandler::handleDelete()
+void HttpHandler::handleDelete()
 {
 	try {
-		if (std::filesystem::is_directory(m_path))
-			throw HttpException::forbidden();
 		std::filesystem::remove(m_path);
-		return HttpResponse(200, "OK");
+		m_path = "";
 	} catch (std::filesystem::filesystem_error& e) {
 		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
@@ -363,4 +425,13 @@ HttpResponse HttpHandler::handleDelete()
 const std::string&	HttpHandler::getTarget()
 {
 	return m_path;
+}
+
+// singleton pattern
+// declared a constant response when client closed connection
+// so we can reuse the same instance multiple times
+const HttpResponse&	HttpHandler::remoteClosedConnection()
+{
+	static const HttpResponse instance(0, "remote closed connection", "", "", 2, (t_ms)5000);
+	return instance;
 }

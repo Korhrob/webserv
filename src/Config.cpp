@@ -69,8 +69,9 @@ bool	Config::parse(std::ifstream& stream)
 		{
 			node_name = line.substr(0, line.find('{'));
 			node_name = trim(node_name);
+			bool is_server = (node_name == "server");
 
-			if (node_name == "server")
+			if (is_server)
 			{
 				if (!tree.empty())
 				{
@@ -103,7 +104,7 @@ bool	Config::parse(std::ifstream& stream)
 				return false;
 			}
 
-			temp = std::make_shared<ConfigNode>(node_name);
+			temp = std::make_shared<ConfigNode>(node_name, is_server);
 
 			if (tree.size() > 0)
 				tree.back()->addChild(node_name, temp);

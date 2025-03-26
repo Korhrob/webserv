@@ -4,14 +4,15 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close)
-: m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout)
+: m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
+	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
 	setBody(path);
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(false)
+HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(0)
 {
 	if (body.empty())
 	{
@@ -40,13 +41,12 @@ void	HttpResponse::setBody(const std::string& path)
 			if (std::filesystem::is_directory(path))
 			{
 				m_body = listDirectory(path, m_targetUrl);
-				// could also check size of body after this
-				// to ensure we arent sending a massive directory listing
-				// (unlikely to ever happen)
+				if (m_body.length() > PACKET_SIZE)
+					m_type = TYPE_CHUNKED;
 				return;
 			}
 
-			size_t size = std::filesystem::file_size(path); // cant be used for directories
+			size_t size = std::filesystem::file_size(path);
 			if (size <= PACKET_SIZE)
 			{
 				try {
@@ -58,6 +58,7 @@ void	HttpResponse::setBody(const std::string& path)
 			}
 			else
 				m_type = TYPE_CHUNKED;
+
 		} catch (const std::filesystem::filesystem_error& e) {
 			if (e.code() == std::errc::no_such_file_or_directory)
 			{
@@ -86,9 +87,11 @@ std::string	HttpResponse::getBody(const std::string& path)
 	{
 		if (!std::filesystem::exists(path))
 			throw HttpException::notFound();
+
 		std::filesystem::perms perms = std::filesystem::status(path).permissions();
 		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden();
+			throw HttpException::forbidden("permission denied");
+
 		throw HttpException::internalServerError("filesystem error");
 	}
 
@@ -101,7 +104,7 @@ std::string	HttpResponse::getBody(const std::string& path)
 void	HttpResponse::setHeaders()
 {
 	if (!m_close)
-		m_close = (m_code == 408) || (m_code == 413);
+		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
 	if (!m_targetUrl.empty())
 		m_headers.emplace("Location", m_targetUrl);
@@ -109,7 +112,10 @@ void	HttpResponse::setHeaders()
 	if (m_close)
 		m_headers.emplace("Connection", "close");
 	else
+	{
 		m_headers.emplace("Connection", "keep-alive");
+		m_headers.emplace("Keep-Alive", "timeout=" + std::to_string(m_timeout.count() / 1000));
+	}
 
 
 	if (m_type == TYPE_SINGLE)
@@ -158,7 +164,7 @@ std::string HttpResponse::getHeader()
 	return getStatusLine() + getHeaders();
 }
 
-bool HttpResponse::closeConnection()
+int HttpResponse::getCloseConnection()
 {
 	return m_close;
 }

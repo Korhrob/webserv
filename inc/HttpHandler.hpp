@@ -18,25 +18,29 @@ class HttpHandler {
     private:
 		std::shared_ptr<ConfigNode> m_server;
         std::shared_ptr<ConfigNode> m_location;
+		int							m_code;
+		std::string					m_msg;
         std::string                 m_path;
-		std::string					m_target; // robert
+		std::string					m_redir;
+		std::string					m_target;
 		e_method					m_method;
         bool                        m_cgi;
 		size_t						m_maxSize;
 
-        void	getLocation(HttpRequest& request, Config& config);
+        void	setLocation(HttpRequest& request, Config& config);
+		void	setTimeoutDuration(std::shared_ptr<Client> client);
 		void	validateRequest(HttpRequest& request);
         void	validateMethod(const std::string& method);
         void	validatePath(const std::string& target);
         void	validateCgi(const std::string& target);
-		void	getMaxSize();
+		void	setMaxSize();
 		void	upload(const std::vector<multipart>& multipartData);
 
-        HttpResponse handleGet();
-		HttpResponse handlePost(const std::vector<multipart>& multipartData);
-        HttpResponse handleDelete();
+		void handlePost(const std::vector<multipart>& multipartData);
+        void handleDelete();
 
-		std::string	getErrorPage(int code);
+		std::string	ePage(int code);
+		static const HttpResponse&	remoteClosedConnection();
 		
     public:
         HttpHandler();
@@ -45,7 +49,7 @@ class HttpHandler {
 		HttpHandler(const HttpHandler&) = delete;
 		HttpHandler& operator=(const HttpHandler&) = delete;
 
-        HttpResponse	handleRequest(int fd, Config& config);
+        HttpResponse	handleRequest(std::shared_ptr<Client> client, Config& config);
 		
 		const std::string&	getTarget();
 };

@@ -30,6 +30,7 @@ fclean: clean
 	rm -rf obj
 	rm -rf cgi-bin/people.txt
 	touch cgi-bin/people.txt
+	rm -rf www/uploads/*
 
 re: fclean all
 

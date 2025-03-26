@@ -38,14 +38,6 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 		perror("dup2");
 		exit(EXIT_FAILURE);
 	}
-	// std::string postData = "first_name=John&last_name=Doe";
-	// int pipefd[2];
-	// pipe(pipefd);  // Create pipe
-	// write(pipefd[1], postData.c_str(), postData.size());  // Write POST data to pipe
-
-	// // Close write end since we're only using the read end for stdin
-	// close(pipefd[1]);
-
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
@@ -70,37 +62,6 @@ static void setCgiString(FILE *temp, int fdtemp, std::string& body)
 	body = string;
 }
 
-static void addLines(std::ifstream &file, int lines_to_read, std::string &temp)
-{
-	std::string line;
-	for (int i = 0; i < lines_to_read; ++i) 
-	{
-		std::getline(file, line);
-		temp += line + "\n";
-	}
-}
-
-static void createBody(std::string &body, std::string method)
-{
-	std::ifstream file("www/people.html");
-	if (!file) 
-	{
-		throw HttpException::internalServerError("Error opening the file!");
-		// std::cerr << "Error opening the file!" << std::endl; // use exception
-		// return ;
-	}
-	std::string temp;
-	addLines(file, 42, temp);
-	if (method == "POST")
-		temp += body;
-	addLines(file, 23, temp);
-	if (method == "GET")
-		temp += body;
-	addLines(file, 4, temp);
-	file.close();
-	body = temp;
-}
-
 static void addData(std::vector<multipart> data, std::vector<char*>& envPtrs)
 {
 	for (multipart part: data) {
@@ -119,13 +80,13 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 	}
 }
 
-HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
+std::string handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
 {
 	pid_t				pid;
 	int					status;
 	FILE				*temp = std::tmpfile();
 	int					fdtemp = fileno(temp);
-	int					timeoutTime = 10;
+	int					timeoutTime = 8;
 	std::vector<char*> 	envPtrs;
 	std::string			body;
 	createEnv(envPtrs, script);
@@ -154,7 +115,7 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 		else
 		{
 			kill(cgiPid, SIGKILL);
-			write(fdtemp, "Content-type: text/plain\r\n\r\nTIMEOUT", 35);
+			write(fdtemp, "TIMEOUT", 7);
 		}
 		wait(NULL);
 		exit(0);
@@ -163,9 +124,9 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 	{
 		waitpid(pid, &status, 0);
 		setCgiString(temp, fdtemp, body);
-		createBody(body, method);
 	}
-	// std::cout << body;
-	return HttpResponse("CGI success", body);
+	if (body == "TIMEOUT")
+		throw HttpException::internalServerError("Timeout");
+	return body;
 }
 
