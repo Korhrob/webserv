@@ -267,9 +267,9 @@ void	Server::handleRequest(int fd)
 	}
 
 	updateClient(client);
-
+	
 	Logger::log("== SEND RESPONSE ==");
-
+	
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
 		client->respond(httpResponse.getResponse());
@@ -281,7 +281,6 @@ void	Server::handleRequest(int fd)
 		client->respondChunked(m_handler.getTarget());
 		checkResponseState(client);
 	}
-
 }
 
 // checks clients previous send attept (or the first that failed)

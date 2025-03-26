@@ -10,4 +10,4 @@
 
 #include "HttpResponse.hpp"
 
-HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method);
+std::string handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method);

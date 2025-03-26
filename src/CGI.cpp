@@ -38,14 +38,6 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 		perror("dup2");
 		exit(EXIT_FAILURE);
 	}
-	// std::string postData = "first_name=John&last_name=Doe";
-	// int pipefd[2];
-	// pipe(pipefd);  // Create pipe
-	// write(pipefd[1], postData.c_str(), postData.size());  // Write POST data to pipe
-
-	// // Close write end since we're only using the read end for stdin
-	// close(pipefd[1]);
-
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
@@ -70,94 +62,6 @@ static void setCgiString(FILE *temp, int fdtemp, std::string& body)
 	body = string;
 }
 
-// static void addLines(std::ifstream &file, int lines_to_read, std::string &temp, int fd)
-// {
-// 	// std::string line;
-// 	// for (int i = 0; i < lines_to_read; ++i) 
-// 	// {
-// 	// 	std::getline(file, line);
-// 	// 	temp += line + "\n";
-// 	// }
-
-// 	(void)file;
-// 	char buffer[1024]; // A buffer to read the file content
-//     std::string line;
-//     int lines_read = 0;
-//     ssize_t bytesRead;
-
-// 	Logger::log("lines to read = " + std::to_string(lines_to_read) + "\n\n");
-
-//     while (lines_read <= lines_to_read) {
-//         bytesRead = read(fd, buffer, sizeof(buffer) - 1);  // Read data into buffer
-
-//         if (bytesRead == -1) {
-//             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-//                 // No data available yet (non-blocking mode), let’s wait a bit and try again.
-//                 continue;  // This will allow the loop to retry reading
-//             } else {
-//                 std::cerr << "Error reading file: " << strerror(errno) << std::endl;
-//                 break;
-//             }
-//         }
-
-// 		Logger::log("\n\n\nBYTES READ FOR CGI " + std::to_string(bytesRead) + "\n\n\n");
-		
-//         if (bytesRead == 0) {
-//             // End of file reached
-//             break;
-//         }
-
-//         // Null-terminate the buffer to treat it as a string
-//         buffer[bytesRead] = '\0';
-
-// 		Logger::log(buffer);
-
-//         // Process the data and accumulate lines
-//         for (ssize_t i = 0; i < bytesRead; ++i) {
-//             char c = buffer[i];
-//             if (c == '\n') {
-// 				Logger::log(line + "\n");
-//                 temp += line + "\n";  // Add completed line to temp
-//                 line.clear();  // Reset line
-//                 ++lines_read;
-//                 if (lines_read >= lines_to_read) {
-//                     break;
-//                 }
-//             } else {
-//                 line += c;  // Accumulate characters into a line
-//             }
-//         }
-//     }
-// }
-
-// static void createBody(std::string &body, std::string method)
-// {
-// 	const char* filename = "www/people.html";
-// 	int fd = open(filename, O_RDONLY | O_NONBLOCK);
-// 	if (fd == -1)
-// 		throw HttpException::internalServerError("Error opening the file!");
-	
-
-// 	std::ifstream file("www/people.html");
-// 	if (!file) 
-// 	{
-// 		throw HttpException::internalServerError("Error opening the file!");
-// 		// std::cerr << "Error opening the file!" << std::endl; // use exception
-// 		// return ;
-// 	}
-// 	std::string temp;
-// 	addLines(file, 42, temp, fd);
-// 	if (method == "POST")
-// 		temp += body;
-// 	addLines(file, 23, temp, fd);
-// 	if (method == "GET")
-// 		temp += body;
-// 	addLines(file, 4, temp, fd);
-// 	file.close();
-// 	close(fd);
-// 	body = temp;
-// }
-
 static void addData(std::vector<multipart> data, std::vector<char*>& envPtrs)
 {
 	for (multipart part: data) {
@@ -176,7 +80,7 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 	}
 }
 
-HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
+std::string handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
 {
 	pid_t				pid;
 	int					status;
@@ -220,10 +124,9 @@ HttpResponse handleCGI(std::vector<multipart> data, queryMap map, std::string sc
 	{
 		waitpid(pid, &status, 0);
 		setCgiString(temp, fdtemp, body);
-		// createBody(body, method);
 	}
 	if (body == "TIMEOUT")
 		throw HttpException::internalServerError("Timeout");
-	return HttpResponse("CGI success", body);
+	return body;
 }
 

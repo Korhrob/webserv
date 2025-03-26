@@ -7,6 +7,7 @@
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout)
 : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
+	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
 	setBody(path);
 	setHeaders();
 }
@@ -103,7 +104,7 @@ std::string	HttpResponse::getBody(const std::string& path)
 void	HttpResponse::setHeaders()
 {
 	if (!m_close)
-		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
+		m_close = (m_code == 408) || (m_code == 413); // Removed code 500 from here because it doesnt send the error url if the connection is closed before it could
 
 	if (!m_targetUrl.empty())
 		m_headers.emplace("Location", m_targetUrl);

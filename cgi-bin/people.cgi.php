@@ -3,14 +3,6 @@
 $filename = __DIR__ . '/people.txt';
 $status = 0;
 
-// echo "<br><br>";
-// print_r($_SERVER);
-// echo "<br><br>";
-// print_r(getenv());
-// echo "<br><br>";
-// print_r($_POST);
-// echo "<br><br>";
-
 echo "<!DOCTYPE html>";
 echo "<html lang=\"en\">";
 echo "<head>";

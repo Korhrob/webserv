@@ -29,7 +29,8 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				if (m_cgi)
 				{
 					m_cgi = false;
-					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
+					return HttpResponse("CGI success", body);
 				}
 				break;
         	case POST:
@@ -37,7 +38,8 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				if (m_cgi)
 				{
 					m_cgi = false;
-					return handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
+					return HttpResponse("CGI success", body);
 				}
 				handlePost(request.getMultipartData());
 				break;
@@ -75,6 +77,7 @@ std::string	HttpHandler::ePage(int code)
 
 	if (!m_location || !m_location->tryGetDirective("error_page", pages))
 	{
+		root = m_server->findDirective("root");
 		errorPage = m_server->findErrorPage(code);
 	}
 	else
