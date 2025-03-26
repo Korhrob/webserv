@@ -20,7 +20,7 @@ class HttpResponse {
 		std::string										m_body;
 		e_type											m_type;
 		std::string										m_targetUrl;
-		bool											m_close;
+		int												m_close;
 		t_ms											m_timeout;
 
 		std::string	getStatusLine();
@@ -31,7 +31,7 @@ class HttpResponse {
 		void	setHeaders();
 		
 	public:
-		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout);
+		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
 		HttpResponse(const std::string& msg, const std::string& body);
 
 		~HttpResponse() = default;
@@ -45,5 +45,5 @@ class HttpResponse {
 		std::string	getResponse();
 		std::string	getHeader();
 		e_type		getSendType();
-		bool		getCloseConnection();
+		int			getCloseConnection();
 };

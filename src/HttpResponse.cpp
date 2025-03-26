@@ -4,7 +4,7 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout)
 : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
 	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
@@ -12,7 +12,7 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(false)
+HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(0)
 {
 	if (body.empty())
 	{
@@ -104,7 +104,7 @@ std::string	HttpResponse::getBody(const std::string& path)
 void	HttpResponse::setHeaders()
 {
 	if (!m_close)
-		m_close = (m_code == 408) || (m_code == 413); // Removed code 500 from here because it doesnt send the error url if the connection is closed before it could
+		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
 	if (!m_targetUrl.empty())
 		m_headers.emplace("Location", m_targetUrl);
@@ -164,7 +164,7 @@ std::string HttpResponse::getHeader()
 	return getStatusLine() + getHeaders();
 }
 
-bool HttpResponse::getCloseConnection()
+int HttpResponse::getCloseConnection()
 {
 	return m_close;
 }

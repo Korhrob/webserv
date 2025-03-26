@@ -258,8 +258,8 @@ void	Server::handleRequest(int fd)
 	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
 	Logger::log(httpResponse.getResponse());
-
-	if (httpResponse.getCloseConnection())
+	
+	if (httpResponse.getCloseConnection() == 2)
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
@@ -280,6 +280,13 @@ void	Server::handleRequest(int fd)
 		client->respond(httpResponse.getHeader());
 		client->respondChunked(m_handler.getTarget());
 		checkResponseState(client);
+	}
+
+	if (httpResponse.getCloseConnection())
+	{
+		Logger::log("== CLOSE CONNECTION ==");
+		removeClient(client);
+		return ;
 	}
 }
 

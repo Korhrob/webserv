@@ -432,6 +432,6 @@ const std::string&	HttpHandler::getTarget()
 // so we can reuse the same instance multiple times
 const HttpResponse&	HttpHandler::remoteClosedConnection()
 {
-	static const HttpResponse instance(0, "remote closed connection", "", "", true, (t_ms)5000);
+	static const HttpResponse instance(0, "remote closed connection", "", "", 2, (t_ms)5000);
 	return instance;
 }

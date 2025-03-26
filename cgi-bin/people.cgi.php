@@ -3,6 +3,8 @@
 $filename = __DIR__ . '/people.txt';
 $status = 0;
 
+sleep(10);
+
 echo "<!DOCTYPE html>";
 echo "<html lang=\"en\">";
 echo "<head>";
