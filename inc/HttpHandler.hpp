@@ -27,20 +27,22 @@ class HttpHandler {
         bool                        m_cgi;
 		size_t						m_maxSize;
 
+		void	validateRequest(HttpRequest& request, std::shared_ptr<Client> client, Config& config);
         void	setLocation(HttpRequest& request, Config& config);
 		void	setTimeoutDuration(std::shared_ptr<Client> client);
-		void	validateRequest(HttpRequest& request);
-        void	validateMethod(const std::string& method);
-        void	validatePath(const std::string& target);
-        void	validateCgi(const std::string& target);
+        void	setMethod(const std::string& method);
+        void	setCgi();
+        void	setPath();
 		void	setMaxSize();
+
+		void	handlePost(const std::vector<multipart>& multipartData);
 		void	upload(const std::vector<multipart>& multipartData);
+        void	handleDelete();
+
 		void	initHandler();
 
-		void handlePost(const std::vector<multipart>& multipartData);
-        void handleDelete();
-
 		std::string	ePage(int code);
+
 		static const HttpResponse&	remoteClosedConnection();
 		
     public:
@@ -52,5 +54,5 @@ class HttpHandler {
 
         HttpResponse	handleRequest(std::shared_ptr<Client> client, Config& config);
 		
-		const std::string&	getTarget();
+		const std::string&	path();
 };
