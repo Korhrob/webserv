@@ -1,6 +1,7 @@
 #include "HttpHandler.hpp"
 #include "HttpException.hpp"
 #include "ConfigNode.hpp"
+#include "CGI.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -23,12 +24,22 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
         switch (m_method)
 		{
         	case GET:
-				// if (m_cgi)
-				// 	handleCGI();
+				if (m_cgi)
+				{
+					m_cgi = false;
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
+					return HttpResponse("CGI success", body);
+				}
 				break;
         	case POST:
 				request.parseBody(m_maxSize);
-            	handlePost(request.getMultipartData());
+				if (m_cgi)
+				{
+					m_cgi = false;
+					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
+					return HttpResponse("CGI success", body);
+				}
+				handlePost(request.getMultipartData());
 				break;
         	case DELETE:
             	handleDelete();
@@ -49,6 +60,33 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 
 	// constructing success response
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
+}
+
+std::string	HttpHandler::ePage(int code)
+{
+	std::vector<std::string>	root;
+	std::string					errorPage;
+
+	if (!m_location || !m_location->tryGetDirective("root", root))
+		m_server->tryGetDirective("root", root);
+
+	std::vector<std::string>	pages;
+
+	if (!m_location || !m_location->tryGetDirective("error_page", pages))
+	{
+		root = m_server->findDirective("root");
+		errorPage = m_server->findErrorPage(code);
+	}
+	else
+	{
+		errorPage = m_location->findErrorPage(code);
+	}
+
+	// double check these
+	if (!root.empty())
+		return root.front() + errorPage;
+
+	return errorPage;
 }
 
 void	HttpHandler::setLocation(HttpRequest& request, Config& config)
@@ -285,6 +323,8 @@ void    HttpHandler::validatePath(const std::string& target)
 
 void    HttpHandler::validateCgi(const std::string& target)
 {
+	// Logger::log("testing some stuff\n\n");
+	// std::cout << target << std::endl;
     if (target.find(".") == std::string::npos) return;
 
 	std::string					extension(target.substr(target.find_last_of(".")));
@@ -292,6 +332,8 @@ void    HttpHandler::validateCgi(const std::string& target)
 
     if (!m_location->tryGetDirective("cgi", cgi))
 		m_server->tryGetDirective("cgi", cgi);
+
+	// for (const auto& str : cgi) {std::cout << str << std::endl;}
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_cgi = true;
@@ -422,6 +464,6 @@ const std::string&	HttpHandler::getTarget()
 // so we can reuse the same instance multiple times
 const HttpResponse&	HttpHandler::remoteClosedConnection()
 {
-	static const HttpResponse instance(0, "remote closed connection", "", "", true, (t_ms)5000);
+	static const HttpResponse instance(0, "remote closed connection", "", "", 2, (t_ms)5000);
 	return instance;
 }

@@ -4,10 +4,32 @@
 
 #include <filesystem>
 
-HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, bool close, t_ms timeout)
+HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout)
 : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
+	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
 	setBody(path);
+	setHeaders();
+}
+
+HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(0)
+{
+	if (body.empty())
+	{
+		m_code = 404;
+		m_msg = "Not Found: CGI fail";
+		m_type = TYPE_SINGLE;
+	}
+	else
+	{
+		m_code = 200;
+		size_t size = body.size();
+		if (size <= PACKET_SIZE) {
+			m_body = body;
+			m_type = TYPE_SINGLE;
+		} else
+			m_type = TYPE_CHUNKED;
+	}
 	setHeaders();
 }
 
@@ -142,7 +164,7 @@ std::string HttpResponse::getHeader()
 	return getStatusLine() + getHeaders();
 }
 
-bool HttpResponse::getCloseConnection()
+int HttpResponse::getCloseConnection()
 {
 	return m_close;
 }

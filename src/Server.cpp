@@ -269,9 +269,9 @@ void	Server::handleRequest(int fd)
 	std::shared_ptr<Client> client = m_clients.at(fd);
 	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	//Logger::log(httpResponse.getResponse());
-
-	if (httpResponse.getCloseConnection())
+	Logger::log(httpResponse.getResponse());
+	
+	if (httpResponse.getCloseConnection() == 2)
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
@@ -279,9 +279,9 @@ void	Server::handleRequest(int fd)
 	}
 
 	updateClient(client);
-
+	
 	Logger::log("== SEND RESPONSE ==");
-
+	
 	if (httpResponse.getSendType() == TYPE_SINGLE)
 	{
 		client->respond(httpResponse.getResponse());
@@ -294,6 +294,12 @@ void	Server::handleRequest(int fd)
 		checkResponseState(client);
 	}
 
+	if (httpResponse.getCloseConnection())
+	{
+		Logger::log("== CLOSE CONNECTION ==");
+		removeClient(client);
+		return ;
+	}
 }
 
 // checks clients previous send attept (or the first that failed)

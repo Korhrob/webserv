@@ -396,6 +396,11 @@ const std::vector<multipart>&	HttpRequest::getMultipartData()
 	return m_multipartData;
 }
 
+const queryMap&	HttpRequest::getQuery()
+{
+	return m_queryData;
+}
+
 bool	HttpRequest::getCloseConnection()
 {
 	if (m_headers.find("connection") != m_headers.end())
