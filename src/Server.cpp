@@ -8,6 +8,7 @@
 #include <algorithm> // min
 #include <sstream>
 #include <fstream>
+#include <fcntl.h>
 
 Server::Server() : m_events(EPOLL_POOL)
 {
