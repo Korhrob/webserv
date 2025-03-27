@@ -51,11 +51,6 @@ class HttpException : public std::exception {
             return HttpException(404, "Not Found " + msg);
         }
 
-		static HttpException	requestTimeout(std::string msg = "")
-		{
-			return HttpException(408, "Request Timeout " + msg);
-		}
-
 		static HttpException	lengthRequired(std::string msg = "") {
 			return HttpException(411, "Length Required " + msg);
 		}
@@ -75,4 +70,20 @@ class HttpException : public std::exception {
         static HttpException    httpVersionNotSupported(std::string msg = "") {
             return HttpException(505, "HTTP Version Not Supported " + msg);
         }
+
+		static HttpException withCode(int code) {
+			switch (code) {
+				case 400: return badRequest();
+				case 403: return forbidden();
+				case 404: return notFound();
+				case 411: return lengthRequired();
+				case 413: return payloadTooLarge();
+				case 500: return internalServerError();
+				case 501: return notImplemented();
+				case 505: return httpVersionNotSupported();
+				default:
+					return HttpException(500, "Unknown Error Code"); 
+					// if in try_files =errorcode is none of the above, should be handled better
+        }
+    }
 };
