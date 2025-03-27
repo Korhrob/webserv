@@ -164,45 +164,56 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
-	static std::vector<std::string> timeout = { "3" };
+	t_sockaddr_in client_addr = { };
+	m_addr_len = sizeof(client_addr);
+	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
 
-	// while (true)
-	// {
-		t_sockaddr_in client_addr = { };
-		m_addr_len = sizeof(client_addr);
-		int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK);
-	
-		if (client_fd < 0)
-		{
-			Logger::logError("error connecting client, accept");
-			return;
-		}
-	
-		// setup non blocking
-	
-		epoll_event	event;
-		event.events = EPOLLIN | EPOLLOUT;
-		event.data.fd = client_fd;
-	
-		if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
-		{
-			Logger::logError("error connecting client, epoll_ctl");
-			close(client_fd);
-			return;
-		}
-	
-		std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
-		client->connect(client_fd, m_time);
-		m_clients[client_fd] = client;
-		
-		int port = m_port_map[fd];
-		auto node = m_config.findServerNode(":" + std::to_string(port));
-	
-		node->tryGetDirective("keepalive_timeout", timeout);
-		client->setTimeoutDuration(std::stoi(timeout.front()));
-		Logger::log("Set timeout duration: " + timeout.front());
+	if (client_fd < 0)
+	{
+		Logger::logError("error connecting client, accept");
+		return;
+	}
 
-	// }
+	// setup non blocking
+
+	epoll_event	event;
+	event.events = EPOLLIN | EPOLLET;
+	event.data.fd = client_fd;
+
+	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
+	{
+		Logger::logError("error connecting client, epoll_ctl");
+		close(client_fd);
+		return;
+	}
+
+	int port = m_port_map[fd];
+
+	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+	client->connect(client_fd, m_time, port);
+	
+	// if we have too many concurrent users
+	int num_clients = 0;
+	int max_clients = 1;
+	if (num_clients >= max_clients)
+	{
+		// send 503 response and close connection
+		client->disconnect();
+	}
+
+	// count concurrect users up
+	m_clients[client_fd] = client;
+	
+	auto node = m_config.findServerNode(":" + std::to_string(port));
+
+	// hard coded value because we dont have a global config like NGINX does
+	std::vector<std::string> timeout;
+
+	if (!node->tryGetDirective("keepalive_timeout", timeout))
+		timeout = { "75" };
+	
+	client->setTimeoutDuration(std::stoi(timeout.front()));
+	Logger::log("Set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
@@ -257,7 +268,7 @@ void	Server::handleRequest(int fd)
 	std::shared_ptr<Client> client = m_clients.at(fd);
 	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	Logger::log(httpResponse.getResponse());
+	//Logger::log(httpResponse.getResponse());
 
 	if (httpResponse.getCloseConnection())
 	{
