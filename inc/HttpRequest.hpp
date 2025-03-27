@@ -62,10 +62,10 @@ class HttpRequest {
 		void	parseRequest();
 		void	parseBody(size_t maxSize);
 
-		const std::string&				getHost();
-		const std::string&				getTarget();
-		const std::string&				getMethod();
-		const std::vector<multipart>&	getMultipartData();
-		const queryMap&					getQuery();
-		bool							getCloseConnection();
+		const std::string&				host();
+		const std::string&				target();
+		const std::string&				method();
+		const queryMap&					query();
+		const std::vector<multipart>&	multipartData();
+		bool							closeConnection();
 };
