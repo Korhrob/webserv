@@ -35,6 +35,7 @@ class HttpHandler {
         void	validateCgi(const std::string& target);
 		void	setMaxSize();
 		void	upload(const std::vector<multipart>& multipartData);
+		void	initHandler();
 
 		void handlePost(const std::vector<multipart>& multipartData);
         void handleDelete();
