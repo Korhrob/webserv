@@ -392,7 +392,7 @@ void	HttpRequest::parseMultipartHeaders(std::string& headerString, multipart& pa
 	}
 }
 
-const std::string&	HttpRequest::getHost()
+const std::string&	HttpRequest::host()
 {
 	if (m_headers.find("host") != m_headers.end())
 		return m_headers["host"];
@@ -400,27 +400,27 @@ const std::string&	HttpRequest::getHost()
 	return EMPTY_STRING;
 }
 
-const std::string&	HttpRequest::getTarget()
+const std::string&	HttpRequest::target()
 {
 	return m_target;
 }
 
-const std::string&	HttpRequest::getMethod()
+const std::string&	HttpRequest::method()
 {
 	return m_method;
 }
 
-const std::vector<multipart>&	HttpRequest::getMultipartData()
+const std::vector<multipart>&	HttpRequest::multipartData()
 {
 	return m_multipartData;
 }
 
-const queryMap&	HttpRequest::getQuery()
+const queryMap&	HttpRequest::query()
 {
 	return m_queryData;
 }
 
-bool	HttpRequest::getCloseConnection()
+bool	HttpRequest::closeConnection()
 {
 	if (m_headers.find("connection") != m_headers.end())
 		return m_headers["connection"] == "close";
