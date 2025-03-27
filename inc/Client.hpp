@@ -58,7 +58,9 @@ class Client
 		}
 		~Client() {}
 
-		int		fd() { return m_fd; }
+		int	fd() { return m_fd; }
+
+		int	port() { return m_port; }
 
 		// can handle all of these in constructor
 		bool	connect(int fd, t_time& time, int port)
