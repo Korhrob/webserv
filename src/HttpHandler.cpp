@@ -26,7 +26,7 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
         	case GET:
 				if (m_cgi)
 				{
-					m_cgi = false;
+					// m_cgi = false;
 					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
 					return HttpResponse("CGI success", body);
 				}
@@ -35,7 +35,7 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				request.parseBody(m_maxSize);
 				if (m_cgi)
 				{
-					m_cgi = false;
+					// m_cgi = false;
 					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
 					return HttpResponse("CGI success", body);
 				}
@@ -60,33 +60,6 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 
 	// constructing success response
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
-}
-
-std::string	HttpHandler::ePage(int code)
-{
-	std::vector<std::string>	root;
-	std::string					errorPage;
-
-	if (!m_location || !m_location->tryGetDirective("root", root))
-		m_server->tryGetDirective("root", root);
-
-	std::vector<std::string>	pages;
-
-	if (!m_location || !m_location->tryGetDirective("error_page", pages))
-	{
-		root = m_server->findDirective("root");
-		errorPage = m_server->findErrorPage(code);
-	}
-	else
-	{
-		errorPage = m_location->findErrorPage(code);
-	}
-
-	// double check these
-	if (!root.empty())
-		return root.front() + errorPage;
-
-	return errorPage;
 }
 
 void	HttpHandler::setLocation(HttpRequest& request, Config& config)
@@ -372,10 +345,11 @@ void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
+
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	if (uploadDir.empty())
+	if (uploadDir.empty()) // config error
 		throw HttpException::internalServerError("upload directory not defined");
 
 	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
@@ -433,25 +407,22 @@ std::string	HttpHandler::ePage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	if (!m_location || !m_location->tryGetDirective("root", root))
-		m_server->tryGetDirective("root", root);
-
-	std::vector<std::string>	pages;
-
-	if (!m_location || !m_location->tryGetDirective("error_page", pages))
-	{
-		errorPage = m_server->findErrorPage(code);
-	}
-	else
+	if (m_location)
 	{
 		errorPage = m_location->findErrorPage(code);
+		if (!errorPage.empty())
+		{
+			if (!m_location->tryGetDirective("root", root))
+				m_server->tryGetDirective("root", root);
+
+			return root.front() + errorPage;
+		}
 	}
 
-	// double check these
-	if (!root.empty())
-		return root.front() + errorPage;
+	errorPage = m_server->findErrorPage(code);
+	m_server->tryGetDirective("root", root);
 
-	return errorPage;
+	return root.front() + errorPage;
 }
 
 const std::string&	HttpHandler::getTarget()
