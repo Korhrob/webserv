@@ -46,16 +46,23 @@ void	HttpRequest::parseBody(size_t maxSize)
 
 void	HttpRequest::getBodyType(size_t maxSize)
 {
-	if (m_headers.find("transfer-encoding") != m_headers.end() && m_headers["transfer-encoding"] == "chunked")
+	auto it = m_headers.find("transfer-encoding");
+	if (it != m_headers.end() && it->second == "chunked")
+	{
 		m_body = CHUNKED;
-	else if (m_headers["content-type"].find("multipart") != std::string::npos)
+		return;
+	}
+
+	it = m_headers.find("content-type");
+	if (it != m_headers.end() && it->second.find("multipart") != std::string::npos)
 	{
 		m_body = MULTIPART;
 		if (getContentLength() > maxSize)
-			throw HttpException::payloadTooLarge();
+			throw HttpException::payloadTooLarge("max body size exceeded");
+		return;
 	}
-	else
-		throw HttpException::notImplemented("invalid content type");
+
+	throw HttpException::notImplemented("invalid content type");
 }
 
 void	HttpRequest::readRequest()
@@ -67,12 +74,10 @@ void	HttpRequest::readRequest()
 	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
-	{
-		perror("recv"); // remember to delete this
 		throw HttpException::internalServerError("failed to receive request"); // recv failed
-	}
+
 	if (bytes_read == 0)
-		throw HttpException::remoteClosedConnetion(); // received an empty request
+		throw HttpException::remoteClosedConnetion(); // received an empty request/ client closed connection
 
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
@@ -91,7 +96,7 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 		throw HttpException::badRequest("invalid request line");
 
 	if (version != "HTTP/1.1")
-		throw HttpException::httpVersionNotSupported();
+		throw HttpException::httpVersionNotSupported(version);
 
 	parseURI();
 }
@@ -199,6 +204,7 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 			Logger::log("UNCHUNKING COMPLETE");
 			m_body = COMPLETE;
 			close(m_unchunked);
+			m_unchunked = -1;
 			return;
 		}
 
@@ -221,7 +227,7 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 
 		m_contentLength += chunkSize;
 		if (m_contentLength > maxSize)
-			throw HttpException::payloadTooLarge();
+			throw HttpException::payloadTooLarge("max body size exceeded");
 
 		currentPos = endOfContent + 2;
 	}
@@ -285,8 +291,10 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 
 				int bytesWritten = write(tmpFile, &(*currentPos), std::distance(currentPos, endOfContent - 2));
 				if (bytesWritten == -1)
+				{
+					close(tmpFile);
 					throw HttpException::internalServerError("error writing to a file");
-				
+				}
 				close(tmpFile);
 			}
 		}
@@ -298,19 +306,29 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 
 size_t	HttpRequest::getContentLength()
 {
-	if (m_headers.find("content-length") == m_headers.end())
-		throw HttpException::lengthRequired();
+	auto	it = m_headers.find("content-length");
+
+	if (it == m_headers.end())
+		throw HttpException::lengthRequired("content-length header missing");
+
+	size_t	size;
+	size_t	idx;
 
 	try {
-		return std::stoul(m_headers["content-length"]);
+		size = std::stoul(it->second, &idx);
+		if (it->second.length() != idx)
+			throw HttpException::badRequest("invalid content length");
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid content length");
 	}
+
+	return size;
 }
 
 std::string	HttpRequest::getBoundary(std::string& contentType)
 {
 	size_t startOfBoundary = contentType.find("boundary=");
+
 	if (startOfBoundary == std::string::npos)
 		throw HttpException::badRequest("missing boundary for multipart/form-data");
 	
@@ -378,6 +396,7 @@ const std::string&	HttpRequest::getHost()
 {
 	if (m_headers.find("host") != m_headers.end())
 		return m_headers["host"];
+
 	return EMPTY_STRING;
 }
 
@@ -405,11 +424,15 @@ bool	HttpRequest::getCloseConnection()
 {
 	if (m_headers.find("connection") != m_headers.end())
 		return m_headers["connection"] == "close";
+
 	return false;
 }
 
 HttpRequest::~HttpRequest()
 {
+	if (m_unchunked != -1)
+		close(m_unchunked);
+
 	for (multipart part: m_multipartData)
 	{
 		if (!part.filename.empty())
