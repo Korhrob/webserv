@@ -269,9 +269,9 @@ void	Server::handleRequest(int fd)
 	std::shared_ptr<Client> client = m_clients.at(fd);
 	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	Logger::log(httpResponse.getResponse());
+	Logger::log(httpResponse.response());
 	
-	if (httpResponse.getCloseConnection() == 2)
+	if (httpResponse.closeConnection() == 2)
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
@@ -282,19 +282,19 @@ void	Server::handleRequest(int fd)
 	
 	Logger::log("== SEND RESPONSE ==");
 	
-	if (httpResponse.getSendType() == TYPE_SINGLE)
+	if (httpResponse.sendType() == TYPE_SINGLE)
 	{
-		client->respond(httpResponse.getResponse());
+		client->respond(httpResponse.response());
 		checkResponseState(client);
 	}
-	else if (httpResponse.getSendType() == TYPE_CHUNKED)
+	else if (httpResponse.sendType() == TYPE_CHUNKED)
 	{
-		client->respond(httpResponse.getHeader());
-		client->respondChunked(m_handler.getTarget());
+		client->respond(httpResponse.header());
+		client->respondChunked(m_handler.path());
 		checkResponseState(client);
 	}
 
-	if (httpResponse.getCloseConnection())
+	if (httpResponse.closeConnection())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
