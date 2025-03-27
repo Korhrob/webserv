@@ -7,13 +7,11 @@
 #include <unordered_map>
 #include <string>
 
-HttpHandler::HttpHandler() : m_cgi(false) {}
+HttpHandler::HttpHandler() {}
 
 HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& config)
 {
-	m_code = 200;
-	m_msg = "OK";
-	m_redir = "";
+	initHandler();
 
 	HttpRequest request(client->fd());
 
@@ -41,43 +39,16 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		if (!e.code())
 			return remoteClosedConnection();
 
-		Logger::log("code: " + std::to_string(e.code()));
-		// if (!m_server) it means an exception was thrown before host was found
-		// set m_server to default with port from client
-		if (!m_server) // temporary so it doesn't segfault atm
-			return HttpResponse(e.code(), e.what(), "www/error/400.html", e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
+		// an exception was thrown before host was found
+		if (!m_server)
+			m_server = config.findServerNode("127.0.0.1:" + std::to_string(client->port()));
 
+		// constructing error response
 		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
     }
 
-	// constructing response here when everything goes well
+	// constructing success response
 	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
-}
-
-std::string	HttpHandler::ePage(int code)
-{
-	std::vector<std::string>	root;
-	std::string					errorPage;
-
-	if (!m_location || !m_location->tryGetDirective("root", root))
-		m_server->tryGetDirective("root", root);
-
-	std::vector<std::string>	pages;
-
-	if (!m_location || !m_location->tryGetDirective("error_page", pages))
-	{
-		errorPage = m_server->findErrorPage(code);
-	}
-	else
-	{
-		errorPage = m_location->findErrorPage(code);
-	}
-
-	// double check these
-	if (!root.empty())
-		return root.front() + errorPage;
-
-	return errorPage;
 }
 
 void	HttpHandler::setLocation(HttpRequest& request, Config& config)
@@ -349,9 +320,6 @@ void	HttpHandler::setMaxSize()
 
 void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 {
-	// if (m_cgi)
-	// 	handleCGI();
-	// else
 	upload(multipartData);
 
 	m_code = 303;
@@ -404,6 +372,44 @@ void HttpHandler::handleDelete()
 	} catch (std::filesystem::filesystem_error& e) {
 		throw HttpException::internalServerError("unable to delete target " + m_path);
 	}
+}
+
+void HttpHandler::initHandler()
+{
+	m_server = nullptr;
+	m_location = nullptr;
+	m_code = 200;
+	m_msg = "OK";
+	m_path = "";
+	m_redir = "";
+	m_target = "";
+	m_cgi = false;
+}
+
+std::string	HttpHandler::ePage(int code)
+{
+	std::vector<std::string>	root;
+	std::string					errorPage;
+
+	if (!m_location || !m_location->tryGetDirective("root", root))
+		m_server->tryGetDirective("root", root);
+
+	std::vector<std::string>	pages;
+
+	if (!m_location || !m_location->tryGetDirective("error_page", pages))
+	{
+		errorPage = m_server->findErrorPage(code);
+	}
+	else
+	{
+		errorPage = m_location->findErrorPage(code);
+	}
+
+	// double check these
+	if (!root.empty())
+		return root.front() + errorPage;
+
+	return errorPage;
 }
 
 const std::string&	HttpHandler::getTarget()
