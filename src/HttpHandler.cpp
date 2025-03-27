@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <unordered_map>
 #include <string>
+#include <regex>
 
 HttpHandler::HttpHandler() {}
 
@@ -18,16 +19,13 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 
     try {
 		request.parseRequest();
-        setLocation(request, config);
-		setTimeoutDuration(client);
-		validateRequest(request);
+		validateRequest(request, client, config);
         switch (m_method)
 		{
         	case GET:
 				if (m_cgi)
 				{
-					// m_cgi = false;
-					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "GET");
+					std::string body = handleCGI(request.multipartData(), request.query(), request.target(), "GET");
 					return HttpResponse("CGI success", body);
 				}
 				break;
@@ -35,11 +33,10 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 				request.parseBody(m_maxSize);
 				if (m_cgi)
 				{
-					// m_cgi = false;
-					std::string body = handleCGI(request.getMultipartData(), request.getQuery(), request.getTarget(), "POST");
+					std::string body = handleCGI(request.multipartData(), request.query(), request.target(), "POST");
 					return HttpResponse("CGI success", body);
 				}
-				handlePost(request.getMultipartData());
+				handlePost(request.multipartData());
 				break;
         	case DELETE:
             	handleDelete();
@@ -55,17 +52,31 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 			m_server = config.findServerNode("127.0.0.1:" + std::to_string(client->port()));
 
 		// constructing error response
-		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.getCloseConnection(), client->getTimeoutDuration());
-    }
+		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
+    } catch (std::exception& e) {
+		return HttpResponse(500, "Internal Server Error: " + std::string(e.what()), ePage(500), "", true, client->getTimeoutDuration());
+	}
 
 	// constructing success response
-	return HttpResponse(m_code, m_msg, m_path, m_redir, request.getCloseConnection(), client->getTimeoutDuration());
+	return HttpResponse(m_code, m_msg, m_path, m_redir, request.closeConnection(), client->getTimeoutDuration());
+}
+
+void	HttpHandler::validateRequest(HttpRequest& request, std::shared_ptr<Client> client, Config& config)
+{
+	m_target = request.target();
+
+	setLocation(request, config);
+	setTimeoutDuration(client);
+	setMethod(request.method());
+	setCgi();
+	setPath();
+	setMaxSize();
 }
 
 void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 {
-    m_server = config.findServerNode(request.getHost());
-    m_location = m_server->findClosestMatch(request.getTarget());
+    m_server = config.findServerNode(request.host());
+    m_location = m_server->findClosestMatch(m_target);
 
 	std::vector<std::string>	redirect;
 
@@ -102,14 +113,7 @@ void	HttpHandler::setTimeoutDuration(std::shared_ptr<Client> client)
 	}
 }
 
-void	HttpHandler::validateRequest(HttpRequest& request)
-{
-	validateMethod(request.getMethod());
-	validatePath(request.getTarget());
-	setMaxSize();
-}
-
-void    HttpHandler::validateMethod(const std::string& method)
+void    HttpHandler::setMethod(const std::string& method)
 {
     std::vector<std::string>    allowedMethods;
 
@@ -134,173 +138,173 @@ void    HttpHandler::validateMethod(const std::string& method)
 		throw HttpException::notImplemented();
 }
 
-void    HttpHandler::validatePath(const std::string& target)
-{
-    validateCgi(target);
+// void    HttpHandler::setPath(const std::string& target)
+// {
+//     setCgi(target);
 
-    std::vector<std::string>    root;
+//     std::vector<std::string>    root;
 
-    if (!m_location->tryGetDirective("root", root))
-	{
-		// current location block doesn't have root directive
-		// get one from server block directly instead
-		m_server->tryGetDirective("root", root);
-	}
+//     if (!m_location->tryGetDirective("root", root))
+// 	{
+// 		// current location block doesn't have root directive
+// 		// get one from server block directly instead
+// 		m_server->tryGetDirective("root", root);
+// 	}
 
-	// saving target for later use(?)
-	std::string r = root.empty() ? "" : root.front();
-    m_path = r + target;
-	m_target = target;
+// 	// saving target for later use(?)
+// 	std::string r = root.empty() ? "" : root.front();
+//     m_path = r + target;
+// 	m_target = target;
 
-	Logger::log("root: " + r + ", target: " + target);
+// 	Logger::log("root: " + r + ", target: " + target);
 
-    try {
+//     // try {
 	
-		std::vector<std::string> directives;
+// 		std::vector<std::string> directives;
 
-		// this portion became pretty big, could try to cut it up into helper functions
-		if (!std::filesystem::exists(m_path))
-		{
+// 		// this portion became pretty big, could try to cut it up into helper functions
+// 		if (!std::filesystem::exists(m_path))
+// 		{
 
-			if (!m_location->tryGetDirective("try_files", directives))
-			{
-				// ditto root, read above
-				m_server->tryGetDirective("try_files", directives);
-			}
+// 			if (!m_location->tryGetDirective("try_files", directives))
+// 			{
+// 				// ditto root, read above
+// 				m_server->tryGetDirective("try_files", directives);
+// 			}
 
-			// first check if try_files directive exists,
-			// then loop through all the directives and test them
-			if (!directives.empty())
-			{
-				bool success = false;
+// 			// first check if try_files directive exists,
+// 			// then loop through all the directives and test them
+// 			if (!directives.empty())
+// 			{
+// 				bool success = false;
 
-				// not using reference cause we want copies of temp
-				for (std::string temp : directives) {
+// 				// not using reference cause we want copies of temp
+// 				for (std::string temp : directives) {
 
-					std::size_t pos = 0;
-					// search for $url and replace it with target
-					while ((pos = temp.find("$uri", pos)) != std::string::npos)
-					{
-						temp.replace(pos, 4, target);
-						pos += target.length();
-					}
+// 					std::size_t pos = 0;
+// 					// search for $url and replace it with target
+// 					while ((pos = temp.find("$uri", pos)) != std::string::npos)
+// 					{
+// 						temp.replace(pos, 4, target);
+// 						pos += target.length();
+// 					}
 
-					Logger::log("try_files: " + temp);
-					if (std::filesystem::exists(r + temp)) {
-						m_path = r + temp;
-						m_target = temp;
-						success = true;
-						break;
-					}
-				}
+// 					Logger::log("try_files: " + temp);
+// 					if (std::filesystem::exists(r + temp)) {
+// 						m_path = r + temp;
+// 						m_target = temp;
+// 						success = true;
+// 						break;
+// 					}
+// 				}
 
-				// if none of these passed, we have to check the try_files.back()
-				// and redirect to that error code
-				if (!success)
-				{
-					std::string str_code = directives.back();
-					int e_code = std::stoi(str_code.substr(1, str_code.length()));
+// 				// if none of these passed, we have to check the try_files.back()
+// 				// and redirect to that error code
+// 				if (!success)
+// 				{
+// 					std::string str_code = directives.back();
+// 					int e_code = std::stoi(str_code.substr(1, str_code.length()));
 
-					Logger::log("try_files failed use ecode: " + std::to_string(e_code));
+// 					Logger::log("try_files failed use ecode: " + std::to_string(e_code));
 
-					// redirect to error code page
-					// double check that this is safe
+// 					// redirect to error code page
+// 					// double check that this is safe
 
-					std::vector<std::string> tmp;
-					if (m_location->tryGetDirective("error_page", tmp))
-					{
-						m_path = r + m_location->findErrorPage(e_code);
-					}
-					else
-					{
-						m_path = r + m_server->findErrorPage(e_code);
-					}
+// 					std::vector<std::string> tmp;
+// 					if (m_location->tryGetDirective("error_page", tmp))
+// 					{
+// 						m_path = r + m_location->findErrorPage(e_code);
+// 					}
+// 					else
+// 					{
+// 						m_path = r + m_server->findErrorPage(e_code);
+// 					}
 
-					Logger::log(m_path);
-				}
-			}
-		}
+// 					Logger::log(m_path);
+// 				}
+// 			}
+// 		}
 
-		if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
-		{
-			if (!m_location->tryGetDirective("index", directives))
-			{
-				// ditto root, read above
-				m_server->tryGetDirective("index", directives);
-			}
+// 		if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
+// 		{
+// 			if (!m_location->tryGetDirective("index", directives))
+// 			{
+// 				// ditto root, read above
+// 				m_server->tryGetDirective("index", directives);
+// 			}
 
-			// we didnt have try_files directive or couldn't find a match,
-			// now try all index directives
-			// using reference cause we dont want a copy
-			for (std::string& index : directives) {
+// 			// we didnt have try_files directive or couldn't find a match,
+// 			// now try all index directives
+// 			// using reference cause we dont want a copy
+// 			for (std::string& index : directives) {
 
-				std::string temp = m_path;
+// 				std::string temp = m_path;
 
-				if (target.back() != '/')
-					temp += '/';
+// 				if (target.back() != '/')
+// 					temp += '/';
 
-				temp += index;
+// 				temp += index;
 
-				Logger::log("try index: " + temp);
-				if (std::filesystem::exists(temp))
-				{
-					Logger::log("target has index");
-					m_path = temp;
-					break;
-				}
-			}
+// 				Logger::log("try index: " + temp);
+// 				if (std::filesystem::exists(temp))
+// 				{
+// 					Logger::log("target has index");
+// 					m_path = temp;
+// 					break;
+// 				}
+// 			}
 
-			// if after indexing attempts its still a directory,
-			// handle it as such
-			if (std::filesystem::is_directory(m_path))
-			{
-				if (m_path.back() != '/')
-					m_path += "/";
+// 			// if after indexing attempts its still a directory,
+// 			// handle it as such
+// 			if (std::filesystem::is_directory(m_path))
+// 			{
+// 				if (m_path.back() != '/')
+// 					m_path += "/";
 
-				if (m_target.back() != '/')
-					m_target += "/";
+// 				if (m_target.back() != '/')
+// 					m_target += "/";
 
-				// if autoindexing is off, throw forbidden
-				if (!m_location->autoindexOn())
-				{
-					Logger::log("autoindex: off, but trying to access directory");
-					throw HttpException::forbidden("autoindex: off, but trying to access directory");
-				}
+// 				// if autoindexing is off, throw forbidden
+// 				if (!m_location->autoindexOn())
+// 				{
+// 					Logger::log("autoindex: off, but trying to access directory");
+// 					throw HttpException::forbidden("autoindex: off, but trying to access directory");
+// 				}
 
-				// could setup some autoindexing settings here,
-				// but I think its out of scope
-				// #autoindex_exact_size off; # optional, hide file size
-				// #autoindex_localtime on; #optional, shows file timestamps in local time
-			}
-		}
+// 				// could setup some autoindexing settings here,
+// 				// but I think its out of scope
+// 				// #autoindex_exact_size off; # optional, hide file size
+// 				// #autoindex_localtime on; #optional, shows file timestamps in local time
+// 			}
+// 		}
 
-		if (!std::filesystem::exists(m_path))
-			throw HttpException::notFound();
+// 		if (!std::filesystem::exists(m_path))
+// 			throw HttpException::notFound();
 
-		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
+// 		std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
-		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
-			throw HttpException::forbidden("permission denied");
+// 		if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+// 			throw HttpException::forbidden("permission denied");
 
-	} catch (HttpException& e) {
-		if (e.code() == 403)
-			throw HttpException::forbidden(e.what());
-		else
-			throw HttpException::notFound();
+// 	// } catch (HttpException& e) {
+// 	// 	if (e.code() == 403)
+// 	// 		throw HttpException::forbidden(e.what());
+// 	// 	else
+// 	// 		throw HttpException::notFound();
 
-	} catch (std::exception& e) {
-		// other possible exceptions thrown by stoi() / replace() / filesystem functions
-		throw HttpException::internalServerError(e.what());
-	}
-}
+// 	// } catch (std::exception& e) {
+// 	// 	// other possible exceptions thrown by stoi() / replace() / filesystem functions
+// 	// 	throw HttpException::internalServerError(e.what());
+// 	// }
+// }
 
-void    HttpHandler::validateCgi(const std::string& target)
+void    HttpHandler::setCgi()
 {
 	// Logger::log("testing some stuff\n\n");
 	// std::cout << target << std::endl;
-    if (target.find(".") == std::string::npos) return;
+    if (m_target.find(".") == std::string::npos) return;
 
-	std::string					extension(target.substr(target.find_last_of(".")));
+	std::string					extension(m_target.substr(m_target.find_last_of(".")));
 	std::vector<std::string>	cgi;
 
     if (!m_location->tryGetDirective("cgi", cgi))
@@ -312,6 +316,118 @@ void    HttpHandler::validateCgi(const std::string& target)
 		m_cgi = true;
 }
 
+void    HttpHandler::setPath()
+{
+	std::vector<std::string> directives;
+
+    if (!m_location->tryGetDirective("root", directives))
+		m_server->tryGetDirective("root", directives);
+
+	std::string root = directives.front();
+    m_path = root + m_target;
+
+	Logger::log("root: " + root + ", target: " + m_target);
+
+	if (!std::filesystem::exists(m_path))
+	{
+		if (!m_location->tryGetDirective("try_files", directives))
+			m_server->tryGetDirective("try_files", directives);
+
+		// first check if try_files directive exists,
+		// then loop through all the directives and test them
+		if (!directives.empty())
+		{
+			bool success = false;
+
+			for (std::string temp : directives) {
+
+				std::size_t pos = 0;
+				// search for $url and replace it with target
+				while ((pos = temp.find("$uri", pos)) != std::string::npos)
+				{
+					temp.replace(pos, 4, m_target);
+					pos += m_target.length();
+				}
+
+				Logger::log("try_files: " + temp);
+				if (std::filesystem::exists(root + temp)) {
+					m_path = root + temp;
+					m_target = temp;
+					success = true;
+					break;
+				}
+			}
+
+			// if none of these passed, we have to check the try_files.back()
+			// and redirect to that error code
+			if (!success)
+			{
+				std::regex error("^=\\d{3}$");
+
+				if (std::regex_match(directives.back(), error))
+				{
+					int code = std::stoi(directives.back().substr(1));
+
+					Logger::log("try_files failed use ecode: " + std::to_string(code));
+					throw HttpException::withCode(code);
+				}
+			}
+		}
+	}
+
+	if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
+	{
+		if (!m_location->tryGetDirective("index", directives))
+			m_server->tryGetDirective("index", directives);
+
+		// we didnt have try_files directive or couldn't find a match,
+		// now try all index directives
+		for (std::string& index : directives) {
+
+			std::string temp = m_path;
+
+			if (temp.back() != '/')
+				temp += '/';
+
+			temp += index;
+
+			Logger::log("try index: " + temp);
+			if (std::filesystem::exists(temp))
+			{
+				Logger::log("target has index");
+				m_path = temp;
+				break;
+			}
+		}
+
+		// if after indexing attempts its still a directory,
+		// handle it as such
+		if (std::filesystem::is_directory(m_path))
+		{
+			if (m_path.back() != '/')
+				m_path += "/";
+
+			if (m_target.back() != '/')
+				m_target += "/";
+
+			// if autoindexing is off, throw forbidden
+			if (!m_location->autoindexOn())
+			{
+				Logger::log("autoindex: off, but trying to access directory");
+				throw HttpException::forbidden("autoindex: off, but trying to access directory");
+			}
+		}
+	}
+
+	if (!std::filesystem::exists(m_path))
+		throw HttpException::notFound();
+
+	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
+
+	if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+		throw HttpException::forbidden("permission denied");
+}
+
 void	HttpHandler::setMaxSize()
 {
 	std::vector<std::string>	maxSize;
@@ -320,16 +436,11 @@ void	HttpHandler::setMaxSize()
 	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
 		m_server->tryGetDirective("client_max_body_size", maxSize);
 
-	if (!maxSize.empty())
+	if (!maxSize.empty()) // config error?
 	{
-		try {
-			m_maxSize = std::stoul(maxSize.front(), &idx);
-			if (idx != maxSize.front().length())
-				throw HttpException::internalServerError("invalid max body size value"); // config error
-
-		} catch (std::exception& e) {
+		m_maxSize = std::stoul(maxSize.front(), &idx);
+		if (idx != maxSize.front().length())
 			throw HttpException::internalServerError("invalid max body size value"); // config error
-		}
 	}
 }
 
@@ -369,11 +480,7 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 		{
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
 			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
-			try {
-				std::filesystem::copy_file(tmpFile, destination);
-			} catch (std::filesystem::filesystem_error& e) {
-				throw HttpException::internalServerError(e.what());
-			}
+			std::filesystem::copy_file(tmpFile, destination);
 		}
 		if (!part.nestedData.empty())
 			upload(part.nestedData);
@@ -382,12 +489,8 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 
 void HttpHandler::handleDelete()
 {
-	try {
-		std::filesystem::remove(m_path);
-		m_path = "";
-	} catch (std::filesystem::filesystem_error& e) {
-		throw HttpException::internalServerError("unable to delete target " + m_path);
-	}
+	std::filesystem::remove(m_path);
+	m_path = "";
 }
 
 void HttpHandler::initHandler()
@@ -425,7 +528,7 @@ std::string	HttpHandler::ePage(int code)
 	return root.front() + errorPage;
 }
 
-const std::string&	HttpHandler::getTarget()
+const std::string&	HttpHandler::path()
 {
 	return m_path;
 }
