@@ -31,7 +31,7 @@ void	HttpRequest::parseRequest()
 void	HttpRequest::parseBody(size_t maxSize)
 {
 	m_contentLength = 0;
-	getBodyType(maxSize);
+	setBodyType(maxSize);
 
 	while (m_body != COMPLETE)
 	{
@@ -44,7 +44,7 @@ void	HttpRequest::parseBody(size_t maxSize)
 	}
 }
 
-void	HttpRequest::getBodyType(size_t maxSize)
+void	HttpRequest::setBodyType(size_t maxSize)
 {
 	auto it = m_headers.find("transfer-encoding");
 	if (it != m_headers.end() && it->second == "chunked")
@@ -338,13 +338,9 @@ std::string	HttpRequest::getBoundary(std::string& contentType)
 std::string		HttpRequest::uniqueId()
 {
 	auto now = std::chrono::system_clock::now();
-	auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+	auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 
-	std::random_device	rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<int> dist(1000, 9999);
-
-	return std::to_string(timestamp) + std::to_string(dist(gen));
+	return std::to_string(timestamp) + "_" + std::to_string(m_fd);
 }
 
 void	HttpRequest::parseMultipartHeaders(std::string& headerString, multipart& part)
@@ -415,7 +411,7 @@ const std::vector<multipart>&	HttpRequest::multipartData()
 	return m_multipartData;
 }
 
-const queryMap&	HttpRequest::query()
+const queryMap&	HttpRequest::queryData()
 {
 	return m_queryData;
 }
