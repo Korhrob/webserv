@@ -118,7 +118,7 @@ void    HttpHandler::setMethod(const std::string& method)
 
     if (std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
 	{
-        throw HttpException::notImplemented();
+        throw HttpException::notImplemented("requested method not implemented");
 	}
 
 	static const std::unordered_map<std::string, e_method>	methodMap = {
@@ -131,7 +131,7 @@ void    HttpHandler::setMethod(const std::string& method)
 	if (it != methodMap.end())
 		m_method = it->second;
 	else
-		throw HttpException::notImplemented();
+		throw HttpException::notImplemented("requested method not implemented");
 }
 
 void    HttpHandler::setCgi()
@@ -174,12 +174,12 @@ void    HttpHandler::setPath()
 	}
 
 	if (!std::filesystem::exists(m_path))
-		throw HttpException::notFound();
+		throw HttpException::notFound("resource could not be found");
 
 	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
 	if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
-		throw HttpException::forbidden("permission denied for " + m_path);
+		throw HttpException::forbidden("permission denied for requested resource");
 }
 
 void	HttpHandler::tryTry_files()
@@ -310,16 +310,16 @@ void	HttpHandler::upload(const std::vector<mpData>& multipartData)
 	if (uploadDir.empty()) // config error
 		throw HttpException::internalServerError("upload directory not defined");
 
-	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
-
-	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
-		throw HttpException::forbidden("permission denied");
-
 	if (!std::filesystem::exists(uploadDir.front()))
 	{
 		if (!std::filesystem::create_directory(uploadDir.front()))
 			throw HttpException::internalServerError("unable to create upload directory");
 	}
+
+	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+
+	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
+		throw HttpException::forbidden("permission denied for upload directory");
 
 	for (mpData part: multipartData)
 	{

@@ -18,7 +18,7 @@ void	HttpRequest::parseRequest()
 	auto		endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
 
 	if (endOfHeaders == m_request.end())
-		throw HttpException::badRequest("invalid request");
+		throw HttpException::badRequest("invalidly-formatted or too large request");
 
 	std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
@@ -62,7 +62,7 @@ void	HttpRequest::setBodyType(size_t maxSize)
 		return;
 	}
 
-	throw HttpException::notImplemented("invalid content type");
+	throw HttpException::notImplemented("content type not implemented");
 }
 
 void	HttpRequest::readRequest()
@@ -239,12 +239,12 @@ size_t	HttpRequest::getChunkSize(std::string& hex) {
 
 	try {
 		size = stoul(hex, &idx, 16);
-		if (idx != hex.length())
-			throw HttpException::badRequest("invalid chunk size");
-
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid chunk size");
 	}
+
+	if (idx != hex.length())
+		throw HttpException::badRequest("invalid chunk size");
 
 	return size;
 }
@@ -316,11 +316,12 @@ size_t	HttpRequest::getContentLength()
 
 	try {
 		size = std::stoul(it->second, &idx);
-		if (it->second.length() != idx)
-			throw HttpException::badRequest("invalid content length");
 	} catch (std::exception& e) {
 		throw HttpException::badRequest("invalid content length");
 	}
+
+	if (it->second.length() != idx)
+		throw HttpException::badRequest("invalid content length");
 
 	return size;
 }

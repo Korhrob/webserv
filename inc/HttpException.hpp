@@ -40,35 +40,35 @@ class HttpException : public std::exception {
 		}
 
         static HttpException    badRequest(std::string msg = "") {
-            return HttpException(400, "Bad Request " + msg);
+            return HttpException(400, "Bad Request: " + msg);
         }
 
         static HttpException    forbidden(std::string msg = "") {
-            return HttpException(403, "Forbidden " + msg);
+            return HttpException(403, "Forbidden: " + msg);
         }
 
         static HttpException    notFound(std::string msg = "") {
-            return HttpException(404, "Not Found " + msg);
+            return HttpException(404, "Not Found: " + msg);
         }
 
 		static HttpException	lengthRequired(std::string msg = "") {
-			return HttpException(411, "Length Required " + msg);
+			return HttpException(411, "Length Required: " + msg);
 		}
 
 		static HttpException	payloadTooLarge(std::string msg = "") {
-			return HttpException(413, "Payload Too Large " + msg);
+			return HttpException(413, "Payload Too Large: " + msg);
 		}
 
         static HttpException    internalServerError(std::string msg = "") {
-            return HttpException(500, "Internal Server Error " + msg);
+            return HttpException(500, "Internal Server Error: " + msg);
         }
 
         static HttpException    notImplemented(std::string msg = "") {
-            return HttpException(501, "Not Implemented " + msg);
+            return HttpException(501, "Not Implemented: " + msg);
         }
 
         static HttpException    httpVersionNotSupported(std::string msg = "") {
-            return HttpException(505, "HTTP Version Not Supported " + msg);
+            return HttpException(505, "HTTP Version Not Supported: " + msg);
         }
 
 		static HttpException withCode(int code) {
@@ -82,7 +82,7 @@ class HttpException : public std::exception {
 				case 501: return notImplemented();
 				case 505: return httpVersionNotSupported();
 				default:
-					return HttpException(500, "unknown error occurred"); 
+					return internalServerError("unknown error occurred"); 
 					// if in try_files =errorcode is none of the above. Should be handled better?
         }
     }
