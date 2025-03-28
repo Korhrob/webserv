@@ -15,6 +15,7 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 {
 	initHandler();
 
+	t_ms		td = client->getTimeoutDuration();
 	HttpRequest request(client->fd());
 
     try {
@@ -24,19 +25,13 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 		{
         	case GET:
 				if (m_cgi)
-				{
-					std::string body = handleCGI(request.multipartData(), request.queryData(), request.target(), "GET");
-					return HttpResponse("CGI success", body);
-				}
+					return HttpResponse(handleCGI(request.multipart(), request.query(), request.target(), "GET"), td);
 				break;
         	case POST:
 				request.parseBody(m_maxSize);
 				if (m_cgi)
-				{
-					std::string body = handleCGI(request.multipartData(), request.queryData(), request.target(), "POST");
-					return HttpResponse("CGI success", body);
-				}
-				handlePost(request.multipartData());
+					return HttpResponse(handleCGI(request.multipart(), request.query(), request.target(), "POST"), td);
+				handlePost(request.multipart());
 				break;
         	case DELETE:
             	handleDelete();
@@ -52,10 +47,10 @@ HttpResponse HttpHandler::handleRequest(std::shared_ptr<Client> client, Config& 
 			m_server = config.findServerNode("127.0.0.1:" + std::to_string(client->port()));
 
 		// constructing error response
-		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), client->getTimeoutDuration());
+		return HttpResponse(e.code(), e.what(), ePage(e.code()), e.redir(), request.closeConnection(), td);
     } catch (...) {
 		// backup catch for any exception that might be thrown and isn't caught elsewhere
-		return HttpResponse(500, "Internal Server Error: unknown error occurred", ePage(500), "", true, client->getTimeoutDuration());
+		return HttpResponse(500, "Internal Server Error: unknown error occurred", ePage(500), "", true, td);
 	}
 
 	// constructing success response
@@ -85,7 +80,7 @@ void	HttpHandler::setLocation(HttpRequest& request, Config& config)
 
 	if (!redirect.empty())
 	{
-		// is this a config error?
+		// config error?
 		// should it be checked during config parsing that return directive always has 2 values?
 		if (redirect.size() != 2)
 			throw HttpException::internalServerError("invalid redirect");
@@ -104,10 +99,10 @@ void	HttpHandler::setTimeoutDuration(std::shared_ptr<Client> client)
 		try {
 			timeout = std::stoi(timeoutDuration.front(), &idx);
 			if (idx != timeoutDuration.front().length())
-				throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+				throw HttpException::internalServerError("invalid timeout value"); // config error?
 
 		} catch (std::exception& e) {
-			throw HttpException::internalServerError("invalid timeout value"); // should this be a config error?
+			throw HttpException::internalServerError("invalid timeout value"); // config error?
 		}
 
 		client->setTimeoutDuration(timeout);
@@ -141,8 +136,6 @@ void    HttpHandler::setMethod(const std::string& method)
 
 void    HttpHandler::setCgi()
 {
-	// Logger::log("testing some stuff\n\n");
-	// std::cout << target << std::endl;
     if (m_target.find(".") == std::string::npos) return;
 
 	std::string					extension(m_target.substr(m_target.find_last_of(".")));
@@ -150,8 +143,6 @@ void    HttpHandler::setCgi()
 
     if (!m_location->tryGetDirective("cgi", cgi))
 		m_server->tryGetDirective("cgi", cgi);
-
-	// for (const auto& str : cgi) {std::cout << str << std::endl;}
 
 	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
 		m_cgi = true;
@@ -300,7 +291,7 @@ void	HttpHandler::setMaxSize()
 	}
 }
 
-void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
+void HttpHandler::handlePost(const std::vector<mpData>& multipartData)
 {
 	upload(multipartData);
 
@@ -309,7 +300,7 @@ void HttpHandler::handlePost(const std::vector<multipart>& multipartData)
 	m_redir = "index";
 }
 
-void	HttpHandler::upload(const std::vector<multipart>& multipartData)
+void	HttpHandler::upload(const std::vector<mpData>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
 
@@ -330,7 +321,7 @@ void	HttpHandler::upload(const std::vector<multipart>& multipartData)
 			throw HttpException::internalServerError("unable to create upload directory");
 	}
 
-	for (multipart part: multipartData)
+	for (mpData part: multipartData)
 	{
 		if (!part.filename.empty())
 		{

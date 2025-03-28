@@ -77,7 +77,7 @@ void	HttpRequest::readRequest()
 		throw HttpException::internalServerError("failed to receive request"); // recv failed
 
 	if (bytes_read == 0)
-		throw HttpException::remoteClosedConnetion(); // received an empty request/ client closed connection
+		throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
 
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
 	Logger::getInstance().log(std::string(buffer, bytes_read));
@@ -149,7 +149,7 @@ void	HttpRequest::parseQueryString()
 
 void	HttpRequest::parseHeaders(std::istringstream& request)
 {
-	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.+$)");
+	std::regex	headerRegex(R"(^[!#$%&'*+.^_`|~A-Za-z0-9-]+:\s*.*$)");
 
 	for (std::string line; getline(request, line);)
 	{
@@ -249,7 +249,7 @@ size_t	HttpRequest::getChunkSize(std::string& hex) {
 	return size;
 }
 
-void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& multipartData)
+void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& multipartData)
 {
 	if (getContentLength() != m_request.size())
 		return;
@@ -270,7 +270,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<multipart>& m
 		auto endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
 		if (endOfHeaders == m_request.end())
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		multipart	part;
+		mpData	part;
 		std::string	headers(currentPos, endOfHeaders);
 		parseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
@@ -343,7 +343,7 @@ std::string		HttpRequest::uniqueId()
 	return std::to_string(timestamp) + "_" + std::to_string(m_fd);
 }
 
-void	HttpRequest::parseMultipartHeaders(std::string& headerString, multipart& part)
+void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
 {
 	std::istringstream	headers(headerString);
 	size_t				startPos;
@@ -406,12 +406,12 @@ const std::string&	HttpRequest::method()
 	return m_method;
 }
 
-const std::vector<multipart>&	HttpRequest::multipartData()
+const std::vector<mpData>&	HttpRequest::multipart()
 {
 	return m_multipartData;
 }
 
-const queryMap&	HttpRequest::queryData()
+const queryMap&	HttpRequest::query()
 {
 	return m_queryData;
 }
@@ -429,7 +429,7 @@ HttpRequest::~HttpRequest()
 	if (m_unchunked != -1)
 		close(m_unchunked);
 
-	for (multipart part: m_multipartData)
+	for (mpData part: m_multipartData)
 	{
 		if (!part.filename.empty())
 		{

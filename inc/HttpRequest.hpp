@@ -13,12 +13,12 @@ enum	e_body
 	COMPLETE
 };
 
-struct	multipart {
+struct	mpData {
 	std::string				name;
 	std::string				filename;
 	std::string				contentType;
 	std::vector<char>		content;
-	std::vector<multipart>	nestedData;
+	std::vector<mpData>	nestedData;
 };
 
 using queryMap = std::unordered_map<std::string, std::vector<std::string>>;
@@ -33,10 +33,10 @@ class HttpRequest {
 		queryMap										m_queryData;
 		std::unordered_map<std::string, std::string>	m_headers;
 		int												m_unchunked;
-		std::vector<multipart>							m_multipartData;
+		std::vector<mpData>								m_multipartData;
 		size_t											m_contentLength;
 
-		void			getBodyType(size_t maxSize);
+		void			setBodyType(size_t maxSize);
 		void			readRequest();
 		void			parseRequestLine(std::istringstream& request);
 		void			parseURI();
@@ -45,10 +45,10 @@ class HttpRequest {
 		void			parseHeaders(std::istringstream& request);
 		void			parseChunked(size_t maxSize);
 		size_t			getChunkSize(std::string& hex);
-		void			parseMultipart(std::string boundary, std::vector<multipart>& multipartData);
+		void			parseMultipart(std::string boundary, std::vector<mpData>& multipartData);
 		size_t			getContentLength();
 		std::string		getBoundary(std::string& contentType);
-		void			parseMultipartHeaders(std::string& headerString, multipart& part);
+		void			parseMultipartHeaders(std::string& headerString, mpData& part);
 		std::string		uniqueId();
 
 	public:
@@ -66,6 +66,6 @@ class HttpRequest {
 		const std::string&				target();
 		const std::string&				method();
 		const queryMap&					query();
-		const std::vector<multipart>&	multipartData();
+		const std::vector<mpData>&		multipart();
 		bool							closeConnection();
 };

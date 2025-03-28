@@ -82,8 +82,8 @@ class HttpException : public std::exception {
 				case 501: return notImplemented();
 				case 505: return httpVersionNotSupported();
 				default:
-					return HttpException(500, "Unknown Error Code"); 
-					// if in try_files =errorcode is none of the above, should be handled better
+					return HttpException(500, "unknown error occurred"); 
+					// if in try_files =errorcode is none of the above. Should be handled better?
         }
     }
 };

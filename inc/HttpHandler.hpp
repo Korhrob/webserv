@@ -20,6 +20,7 @@ class HttpHandler {
         std::shared_ptr<ConfigNode> m_location;
 		int							m_code;
 		std::string					m_msg;
+		std::string					m_root;
         std::string                 m_path;
 		std::string					m_redir;
 		std::string					m_target;
@@ -33,10 +34,13 @@ class HttpHandler {
         void	setMethod(const std::string& method);
         void	setCgi();
         void	setPath();
+		void	tryTry_files();
+		void	tryIndex();
+		void	tryAutoindex();
 		void	setMaxSize();
 
-		void	handlePost(const std::vector<multipart>& multipartData);
-		void	upload(const std::vector<multipart>& multipartData);
+		void	handlePost(const std::vector<mpData>& multipartData);
+		void	upload(const std::vector<mpData>& multipartData);
         void	handleDelete();
 
 		void	initHandler();

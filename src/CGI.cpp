@@ -62,9 +62,9 @@ static void setCgiString(FILE *temp, int fdtemp, std::string& body)
 	body = string;
 }
 
-static void addData(std::vector<multipart> data, std::vector<char*>& envPtrs)
+static void addData(std::vector<mpData> data, std::vector<char*>& envPtrs)
 {
-	for (multipart part: data) {
+	for (mpData part: data) {
 		std::string str(part.content.begin(), part.content.end());
 		setEnvValue(part.name, str, envPtrs);
 		if (!part.nestedData.empty())
@@ -80,7 +80,7 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 	}
 }
 
-std::string handleCGI(std::vector<multipart> data, queryMap map, std::string script, std::string method)
+std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script, std::string method)
 {
 	pid_t				pid;
 	int					status;
