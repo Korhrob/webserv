@@ -12,7 +12,7 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(0)
+HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_body(""), m_timeout(td), m_msg("CGI success"), m_close(0)
 {
 	if (body.empty())
 	{

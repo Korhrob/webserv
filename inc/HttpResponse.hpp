@@ -32,7 +32,7 @@ class HttpResponse {
 		
 	public:
 		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
-		HttpResponse(const std::string& msg, const std::string& body);
+		HttpResponse(const std::string& body, t_ms td);
 
 		~HttpResponse() = default;
 		HttpResponse&	operator=(const HttpResponse&) = default;
