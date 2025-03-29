@@ -14,6 +14,13 @@
 			height: 80vh;
         }
 
+		#content {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			width: 400px;
+		}
+
 		h2 {
             color: white;
         }
@@ -38,6 +45,9 @@
         .message {
             font-size: 18px;
             color: white;
+			min-height: 24px;
+			margin-top: 10px;
+			visibility: hidden;
         }
 
 		.button:hover {
@@ -70,41 +80,36 @@
 
             <button type="submit">Submit</button>
         </form>
+		<p id="responseMessage" class="message"></p>
     </div>
 
     <script>
-		// Javascript
         document.getElementById('myForm').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent the default form submission behavior
+		event.preventDefault();
 
-            // Optionally, send the data to a server (asynchronous example)
-            const formData = new FormData(event.target);
-            fetch('/submit-form', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Replace the form with a thank you message
-                    document.getElementById('content').innerHTML = `
-                        <div class="message">Thank you for your submission!</div>
-                    `;
-                } else {
-                    // Handle errors (optional)
-                    alert('Something went wrong. Please try again.');
-                }
-            })
-            .catch(error => {
-                console.error('Error submitting form:', error);
-                alert('Unable to submit form. Please try again.');
-            });
+		const formData = new FormData(event.target);
+		const responseMessage = document.getElementById('responseMessage');
 
-            // For demonstration purposes (if server interaction is not needed)
-            // Replace the form with a thank you message directly
-            // document.getElementById('content').innerHTML = `
-            //     <div class="message">Thank you for your submission!</div>
-            // `;
-        });
+		fetch('/form', {
+			method: 'POST',
+			body: formData
+		})
+		.then(response => {
+			if (response.ok) {
+				return response.text();
+			} else {
+				throw new Error(`Server error: ${response.status}`);
+			}
+		})
+		.then(data => {
+			responseMessage.innerText = "Submission successful!";
+			responseMessage.style.visibility = "visible";
+		})
+		.catch(error => {
+			responseMessage.innerText = "Something went wrong, please try again.";
+			responseMessage.style.visibility = "visible";
+		});
+	});
     </script>
 
 	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
