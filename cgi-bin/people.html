@@ -107,7 +107,7 @@
 
         <!-- Add Person Section -->
         <h2>Add Person</h2>
-        <form id="addPersonForm">
+        <form action="people.php" method="post" enctype="multipart/form-data">
             <label for="first_name">First Name:</label>
             <input type="text" id="first_name" name="first_name" required>
 
@@ -122,7 +122,7 @@
 
         <!-- Search for Person Section -->
         <h2>Search for Person</h2>
-        <form id="searchPersonForm">
+        <form action="people.php" method="get" enctype="multipart/form-data">
             <label for="search_name">First or Last Name:</label>
             <input type="text" id="search_name" name="search_name" required>
 
@@ -140,47 +140,5 @@
 
         <button class="buttonindex" onclick="window.location.href='/index'">Back to Index</button>
     </div>
-
-    <script>
-        document.getElementById('addPersonForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            
-            const formData = new FormData(event.target);
-            const responseMessage = document.getElementById('addPersonMessage');
-
-            fetch('/people.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.ok ? response.text() : Promise.reject(response.status))
-            .then(data => {
-                responseMessage.innerText = "Person added successfully!";
-                responseMessage.style.opacity = "1";
-            })
-            .catch(error => {
-                responseMessage.innerText = "Something went wrong, please try again.";
-                responseMessage.style.opacity = "1";
-            });
-        });
-
-        document.getElementById('searchPersonForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-
-            const responseMessage = document.getElementById('searchMessage');
-            const searchQuery = document.getElementById('search_name').value.trim();
-            const searchType = document.querySelector('input[name="search_type"]:checked').value;
-
-            fetch(`/people.php?search_name=${encodeURIComponent(searchQuery)}&search_type=${searchType}`)
-            .then(response => response.ok ? response.json() : Promise.reject(response.status))
-            .then(data => {
-                responseMessage.innerText = data.length > 0 ? "Person found!" : "No results found.";
-                responseMessage.style.opacity = "1";
-            })
-            .catch(error => {
-                responseMessage.innerText = "Error fetching data. Try again.";
-                responseMessage.style.opacity = "1";
-            });
-        });
-    </script>
 </body>
 </html>
