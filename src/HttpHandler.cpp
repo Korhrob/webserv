@@ -291,16 +291,7 @@ void	HttpHandler::setMaxSize()
 	}
 }
 
-void HttpHandler::handlePost(const std::vector<mpData>& multipartData)
-{
-	upload(multipartData);
-
-	m_code = 303;
-	m_msg = "See Other";
-	m_redir = "index";
-}
-
-void	HttpHandler::upload(const std::vector<mpData>& multipartData)
+void	HttpHandler::handlePost(const std::vector<mpData>& multipartData)
 {
 	std::vector<std::string>	uploadDir;
 
@@ -330,7 +321,7 @@ void	HttpHandler::upload(const std::vector<mpData>& multipartData)
 			std::filesystem::copy_file(tmpFile, destination);
 		}
 		if (!part.nestedData.empty())
-			upload(part.nestedData);
+			handlePost(part.nestedData);
 	}
 }
 
