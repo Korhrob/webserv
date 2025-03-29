@@ -101,6 +101,16 @@
 		const formData = new FormData(event.target);
 		const responseMessage = document.getElementById('responseMessage');
 
+		const file1 = document.getElementById('file1').files[0];
+    	const file2 = document.getElementById('file2').files[0];
+
+		if (!file1) {
+			formData.delete('file1');
+		}
+		if (!file2) {
+			formData.delete('file2');
+		}
+
 		fetch('/upload', {
 			method: 'POST',
 			body: formData
