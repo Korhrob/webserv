@@ -41,7 +41,7 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
-	exit(EXIT_FAILURE);
+	std::exit(0);
 }
 
 static void setCgiString(FILE *temp, int fdtemp, std::string& body)
@@ -76,8 +76,17 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 {
 	for (auto it = map.begin(); it != map.end(); ++it)
 	{
+		if(it->first.empty() || it->second.empty())
+			throw HttpException::badRequest("Invalid Query");
 		setEnvValue(it->first, it->second[0], envPtrs);
 	}
+}
+
+static void freeEnvPtrs(std::vector<char*>& envPtrs)
+{
+	for (size_t i = 0; i < envPtrs.size(); ++i) {
+        free(envPtrs[i]);
+    }
 }
 
 std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script, std::string method)
@@ -97,7 +106,10 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 		addQuery(map, envPtrs);
 	pid = fork();
 	if (pid < 0)
+	{
+		freeEnvPtrs(envPtrs);
 		throw HttpException::internalServerError("Fork fail");
+	}
 	if (pid == 0)
 	{
 		pid_t cgiPid = fork();
@@ -105,20 +117,19 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
 		if (timeoutPid == 0)
-		{
 			sleep(timeoutTime);
-			exit(0);
-		}
 		pid_t exitedPid = wait(NULL);
 		if (exitedPid == cgiPid)
+		{
 			kill(timeoutPid, SIGKILL);
+		}
 		else
 		{
 			kill(cgiPid, SIGKILL);
 			write(fdtemp, "TIMEOUT", 7);
 		}
 		wait(NULL);
-		exit(0);
+		std::exit(0);
 	}
 	else
 	{
@@ -126,7 +137,16 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 		setCgiString(temp, fdtemp, body);
 	}
 	if (body == "TIMEOUT")
+	{
+		freeEnvPtrs(envPtrs);
 		throw HttpException::internalServerError("Timeout");
+	}
+	if (body.empty())
+	{
+		freeEnvPtrs(envPtrs);
+		throw HttpException::internalServerError("Something went wrong with CGI");
+	}
+		freeEnvPtrs(envPtrs);
 	return body;
 }
 

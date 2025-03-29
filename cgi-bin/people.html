@@ -109,10 +109,10 @@
         <h2>Add Person</h2>
         <form action="people.php" method="post" enctype="multipart/form-data">
             <label for="first_name">First Name:</label>
-            <input type="text" id="first_name" name="first_name" required>
+            <input type="text" id="first_name" name="first_name" required maxlength="100">
 
             <label for="last_name">Last Name:</label>
-            <input type="text" id="last_name" name="last_name" required>
+            <input type="text" id="last_name" name="last_name" required maxlength="100">
 
             <button type="submit" class="peopleButton">Add Person</button>
             <p id="addPersonMessage" class="message"></p>
@@ -124,7 +124,7 @@
         <h2>Search for Person</h2>
         <form action="people.php" method="get" enctype="multipart/form-data">
             <label for="search_name">First or Last Name:</label>
-            <input type="text" id="search_name" name="search_name" required>
+            <input type="text" id="search_name" name="search_name" required maxlength="100">
 
             <div style="display: flex; flex-direction: column; margin: 10px 0;">
                 <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>

@@ -14,22 +14,14 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 
 HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_msg("CGI success"), m_body(""), m_close(0), m_timeout(td)
 {
-	if (body.empty())
-	{
-		m_code = 404;
-		m_msg = "Not Found: CGI fail";
+
+	m_code = 200;
+	size_t size = body.size();
+	if (size <= PACKET_SIZE) {
+		m_body = body;
 		m_type = TYPE_SINGLE;
-	}
-	else
-	{
-		m_code = 200;
-		size_t size = body.size();
-		if (size <= PACKET_SIZE) {
-			m_body = body;
-			m_type = TYPE_SINGLE;
-		} else
-			m_type = TYPE_CHUNKED;
-	}
+	} else
+		m_type = TYPE_CHUNKED;
 	setHeaders();
 }
 
