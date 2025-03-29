@@ -208,15 +208,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SERVER['search_name'], $_SER
                 }
             }
             fclose($file);
-            if (!empty($results))
-			{
-                echo "<h3>Search Results:</h3>";
-                echo "<ul>";
-                foreach ($results as $result) {
-                    echo "<li>" . htmlspecialchars($result) . "</li>";
-                }
-                echo "</ul>";
-            } else {echo "No results found.";}
+            if (!empty($results)) {
+				echo "<h3>Search Results:</h3>";
+				echo "<ul style='list-style-type: none; padding: 0; text-align: center; margin: 0 auto; width: fit-content;'>";
+				foreach ($results as $result) {
+					echo "<li>" . htmlspecialchars($result) . "</li>";
+				}
+				echo "</ul>";
+			} else {
+				echo "No results found.";
+			}
         } else {echo "Error reading the file.";}
     } else {echo "Please enter a name to search.";}
 }
