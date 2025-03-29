@@ -11,16 +11,44 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 80vh;
+            height: 100vh;
             margin: 0;
             color: white;
         }
 
+        #content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 350px;
+        }
+
         h2 {
-            color: white;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        label {
+            align-self: flex-start;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            font-size: 16px;
         }
 
         .button {
+            width: 100%;
             padding: 10px;
             font-size: 16px;
             background-color: #4CAF50;
@@ -28,14 +56,32 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin-top: 10px;
         }
 
-		.buttonindex:hover {
-			background-color: #45a049;
+        .button:hover {
+            background-color: #45a049;
+        }
+
+		#peopleButton {
+			background-color: white;
 		}
 
-        button:hover {
-            background-color: #bfc1bf;
+        .message {
+            font-size: 16px;
+            color: white;
+            margin-top: 10px;
+            min-height: 24px; /* Prevents layout jump */
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        hr {
+            width: 100%;
+            border: 0;
+            height: 1px;
+            background: white;
+            margin: 20px 0;
         }
 
         .buttonindex {
@@ -51,60 +97,90 @@
             font-size: 16px;
         }
 
-        .section {
-            margin-bottom: 20px;
-        }
-
-        .message {
-            font-size: 18px;
-            color: white;
+        .buttonindex:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
 <body>
     <div id="content">
 
-        <!-- Form to add new person -->
-        <div class="section">
-            <h2>Add Person</h2>
-            <form action="people.cgi.php" method="post" enctype="multipart/form-data">
-                <label for="first_name">First Name:</label>
-                <input type="text" id="first_name" name="first_name" required>
+        <!-- Add Person Section -->
+        <h2>Add Person</h2>
+        <form id="addPersonForm">
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name" required>
 
-                <label for="last_name">Last Name:</label>
-                <input type="text" id="last_name" name="last_name" required>
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name" required>
 
-                <button type="submit">Add Person</button>
-            </form>
-        </div>
-
-        <hr>
-
-        <!-- Form to search for person -->
-        <div class="section">
-            <h2>Search for Person</h2>
-            <form action="people.cgi.php" method="get" enctype="multipart/form-data">
-                <label for="search_name">Search by First or Last Name:</label>
-                <input type="text" id="search_name" name="search_name" required>
-
-                <div>
-                    <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
-                    <label for="first_name_search">First Name</label>
-
-                    <input type="radio" id="last_name_search" name="search_type" value="last_name">
-                    <label for="last_name_search">Last Name</label>
-                </div>
-
-                <button type="submit">Search</button>
-            </form>
-        </div>
+            <button type="submit" class="peopleButton">Add Person</button>
+            <p id="addPersonMessage" class="message"></p>
+        </form>
 
         <hr>
 
-        <!-- Section for displaying search results -->
-        <div id="search_results"></div>
+        <!-- Search for Person Section -->
+        <h2>Search for Person</h2>
+        <form id="searchPersonForm">
+            <label for="search_name">First or Last Name:</label>
+            <input type="text" id="search_name" name="search_name" required>
+
+            <div style="display: flex; flex-direction: column; margin: 10px 0;">
+                <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
+                <label for="first_name_search">First Name</label>
+
+                <input type="radio" id="last_name_search" name="search_type" value="last_name">
+                <label for="last_name_search">Last Name</label>
+            </div>
+
+            <button type="submit" class="peopleButton">Search</button>
+            <p id="searchMessage" class="message"></p>
+        </form>
 
         <button class="buttonindex" onclick="window.location.href='/index'">Back to Index</button>
     </div>
+
+    <script>
+        document.getElementById('addPersonForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const responseMessage = document.getElementById('addPersonMessage');
+
+            fetch('/people.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.ok ? response.text() : Promise.reject(response.status))
+            .then(data => {
+                responseMessage.innerText = "Person added successfully!";
+                responseMessage.style.opacity = "1";
+            })
+            .catch(error => {
+                responseMessage.innerText = "Something went wrong, please try again.";
+                responseMessage.style.opacity = "1";
+            });
+        });
+
+        document.getElementById('searchPersonForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const responseMessage = document.getElementById('searchMessage');
+            const searchQuery = document.getElementById('search_name').value.trim();
+            const searchType = document.querySelector('input[name="search_type"]:checked').value;
+
+            fetch(`/people.php?search_name=${encodeURIComponent(searchQuery)}&search_type=${searchType}`)
+            .then(response => response.ok ? response.json() : Promise.reject(response.status))
+            .then(data => {
+                responseMessage.innerText = data.length > 0 ? "Person found!" : "No results found.";
+                responseMessage.style.opacity = "1";
+            })
+            .catch(error => {
+                responseMessage.innerText = "Error fetching data. Try again.";
+                responseMessage.style.opacity = "1";
+            });
+        });
+    </script>
 </body>
 </html>

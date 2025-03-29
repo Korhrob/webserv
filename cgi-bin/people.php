@@ -3,8 +3,6 @@
 $filename = __DIR__ . '/people.txt';
 $status = 0;
 
-sleep(10);
-
 echo "<!DOCTYPE html>";
 echo "<html lang=\"en\">";
 echo "<head>";
@@ -31,7 +29,7 @@ echo "<body>";
 echo "    <h1>People Database</h1>";
 echo "    <!-- Form to add new people -->";
 echo "    <h2>Add Person</h2>";
-echo "    <form action=\"people.cgi.php\" method=\"post\" enctype=\"multipart/form-data\">";
+echo "    <form action=\"people.php\" method=\"post\" enctype=\"multipart/form-data\">";
 echo "        <label for=\"first_name\">First Name:</label>";
 echo "        <input type=\"text\" id=\"first_name\" name=\"first_name\" required><br>";
 echo "        <label for=\"last_name\">Last Name:</label>";
@@ -92,7 +90,7 @@ echo "    </div>";
 echo "    <hr>";
 echo "    <!-- Form to search people by first or last name -->";
 echo "    <h2>Search for Person</h2>";
-echo "    <form action=\"people.cgi.php\" method=\"get\" enctype=\"multipart/form-data\">";
+echo "    <form action=\"people.php\" method=\"get\" enctype=\"multipart/form-data\">";
 echo "        <label for=\"search_name\">Search by First or Last Name:</label>";
 echo "        <input type=\"text\" id=\"search_name\" name=\"search_name\" required><br>";
 echo "        <input type=\"radio\" id=\"first_name_search\" name=\"search_type\" value=\"first_name\" checked>";

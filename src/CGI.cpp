@@ -23,7 +23,7 @@ static void createEnv(std::vector<char*>& envPtrs, std::string script)
 	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
 	setEnvValue("DOCUMENT_ROOT", "/home/avegis/projects/wwebserver", envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
-	setEnvValue("REQUEST_URI", "/cgi-bin/people.cgi.php", envPtrs);
+	setEnvValue("REQUEST_URI", "/cgi-bin/people.php", envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
