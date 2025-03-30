@@ -23,11 +23,6 @@
             width: 350px;
         }
 
-        h2 {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
         form {
             display: flex;
             flex-direction: column;
@@ -59,21 +54,13 @@
             margin-top: 10px;
         }
 
-        .button:hover {
-            background-color: #45a049;
-        }
-
-		#peopleButton {
-			background-color: white;
-		}
 
         .message {
             font-size: 16px;
             color: white;
             margin-top: 10px;
-            min-height: 24px; /* Prevents layout jump */
-            opacity: 0; /* Initially hidden */
-            transition: opacity 0.3s ease-in-out;
+            min-height: 24px;
+            opacity: 0;
         }
 
         hr {
@@ -109,12 +96,12 @@
         <h2>Add Person</h2>
         <form action="people.php" method="post" enctype="multipart/form-data">
             <label for="first_name">First Name:</label>
-            <input type="text" id="first_name" name="first_name" required maxlength="100">
+            <input type="text" id="first_name" name="first_name" required maxlength="30">
 
             <label for="last_name">Last Name:</label>
-            <input type="text" id="last_name" name="last_name" required maxlength="100">
+            <input type="text" id="last_name" name="last_name" required maxlength="30">
 
-            <button type="submit" class="peopleButton">Add Person</button>
+            <button type="submit">Add Person</button>
             <p id="addPersonMessage" class="message"></p>
         </form>
 
@@ -124,7 +111,7 @@
         <h2>Search for Person</h2>
         <form action="people.php" method="get" enctype="multipart/form-data">
             <label for="search_name">First or Last Name:</label>
-            <input type="text" id="search_name" name="search_name" required maxlength="100">
+            <input type="text" id="search_name" name="search_name" required maxlength="30">
 
             <div style="display: flex; flex-direction: column; margin: 10px 0;">
                 <input type="radio" id="first_name_search" name="search_type" value="first_name" checked>
@@ -134,7 +121,7 @@
                 <label for="last_name_search">Last Name</label>
             </div>
 
-            <button type="submit" class="peopleButton">Search</button>
+            <button type="submit">Search</button>
             <p id="searchMessage" class="message"></p>
         </form>
 
@@ -142,3 +129,4 @@
     </div>
 </body>
 </html>
+ 
