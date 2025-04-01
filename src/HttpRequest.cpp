@@ -137,13 +137,7 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
-		// move checking empty keys and values to the cgi part
-		std::string key = line.substr(0, pos);
-		std::string value = line.substr(pos + 1);
-		if (key.empty() || value.empty())
-			throw HttpException::badRequest("malformed query string");
-		m_queryData[key].push_back(value);
-		// m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+		m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
@@ -381,7 +375,7 @@ void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
 		{
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
-			if (part.contentType.find("multipart") != std::string::npos) // parse nested multipart
+			if (part.contentType.find("multipart") != std::string::npos)
 				parseMultipart(getBoundary(part.contentType), part.nestedData);
 		}
 		else
@@ -442,9 +436,10 @@ HttpRequest::~HttpRequest()
 			}
 		}
 	}
-	// try {
-	// 	std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
-	// } catch (std::filesystem::filesystem_error& e) {
-	// 	Logger::log("error removing temporary file");
-	// }
+
+	try {
+		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
+	} catch (std::filesystem::filesystem_error& e) {
+		Logger::log("error removing temporary file");
+	}
 }
