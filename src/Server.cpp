@@ -2,7 +2,7 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Const.hpp"
-#include "HttpHandler.hpp"
+// #include "HttpHandler.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -267,38 +267,60 @@ void	Server::handleRequest(int fd)
 	}
 
 	std::shared_ptr<Client> client = m_clients.at(fd);
-	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	Logger::log(httpResponse.response());
-	
-	if (httpResponse.closeConnection() == 2)
+	std::vector<char>	vec;
+	char				buffer[PACKET_SIZE];
+	ssize_t				bytes_read;
+
+	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
 	{
-		Logger::log("== CLOSE CONNECTION ==");
-		removeClient(client);
-		return ;
+		Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
-	updateClient(client);
-	
-	Logger::log("== SEND RESPONSE ==");
-	
-	if (httpResponse.sendType() == TYPE_SINGLE)
-	{
-		client->respond(httpResponse.response());
-		checkResponseState(client);
-	}
-	else if (httpResponse.sendType() == TYPE_CHUNKED)
-	{
-		client->respond(httpResponse.header());
-		client->respondChunked(m_handler.path());
-		checkResponseState(client);
-	}
+	perror("recv");
 
-	if (httpResponse.closeConnection())
+	// if (bytes_read == 0)
+	// 	throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
+
+	Logger::log(std::string(vec.begin(), vec.end()));
+	Logger::log("-------------------------------------------------------------");
+
+	client->handleRequest(m_config, vec);
+
+	if (client->requestState() == COMPLETE)
 	{
-		Logger::log("== CLOSE CONNECTION ==");
-		removeClient(client);
-		return ;
+		if (client->closeConnection() == 2)
+		{
+			Logger::log("== CLOSE CONNECTION ==");
+			removeClient(client);
+			return ;
+		}
+
+		Logger::log(client->response());
+		
+		updateClient(client);
+
+		Logger::log("== SEND RESPONSE ==");
+		
+		if (client->sendType() == TYPE_SINGLE)
+		{
+			client->respond(client->response());
+			checkResponseState(client);
+		}
+		else if (client->sendType() == TYPE_CHUNKED)
+		{
+			client->respond(client->header());
+			client->respondChunked(client->path());
+			checkResponseState(client);
+		}
+
+		if (client->closeConnection())
+		{
+			Logger::log("== CLOSE CONNECTION ==");
+			removeClient(client);
+			return ;
+		}
 	}
 }
 

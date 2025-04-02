@@ -1,5 +1,8 @@
 #include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 #include "HttpException.hpp"
+#include "Client.hpp"
+#include "CGI.hpp"
 
 #include <filesystem>
 #include <algorithm>
@@ -8,79 +11,106 @@
 #include <regex>
 #include <fcntl.h>
 
-HttpRequest::HttpRequest(int fd) : m_fd(fd), m_unchunked(-1) {}
-
-void	HttpRequest::parseRequest()
+HttpRequest::HttpRequest()
 {
-	readRequest();
-
-	std::string	emptyLine = "\r\n\r\n";
-	auto		endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
-
-	if (endOfHeaders == m_request.end())
-		throw HttpException::badRequest("invalidly-formatted or too large request");
-
-	std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
-
-	parseRequestLine(request);
-	parseHeaders(request);
-
-	m_request.erase(m_request.begin(), endOfHeaders + 4);
-}
-
-void	HttpRequest::parseBody(size_t maxSize)
-{
+	m_state = HEADERS;
+	m_server = nullptr;
+	m_location = nullptr;
+	m_method = "";
+	m_target = "";
+	m_query = {};
+	m_headers = {};
+	m_root = "";
+	m_path = "";
+	m_cgi = false;
+	m_request = {};
+	m_unchunked = -1;
+	m_multipart = {};
 	m_contentLength = 0;
-	setBodyType(maxSize);
-
-	while (m_body != COMPLETE)
-	{
-		if (m_body == CHUNKED)
-			parseChunked(maxSize);
-		else if (m_body == MULTIPART)
-			parseMultipart(getBoundary(m_headers["content-type"]), m_multipartData);
-		if (m_body != COMPLETE)
-			readRequest();
-	}
 }
 
-void	HttpRequest::setBodyType(size_t maxSize)
+void	HttpRequest::appendRequest(std::vector<char>& request)
+{
+	m_request.insert(m_request.end(), request.begin(), request.end());
+}
+
+void	HttpRequest::parseRequest(Config& config)
+{
+	if (m_state == HEADERS)
+	{
+		std::string	emptyLine = "\r\n\r\n";
+		auto		endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
+
+		if (endOfHeaders == m_request.end())
+			return;
+
+		std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
+
+		parseRequestLine(request);
+		parseHeaders(request);
+		setLocation(config);
+		setCgi();
+		setPath();
+
+		if (m_method == "POST")
+		{
+			setMaxSize();
+			setBodyType();
+			m_request.erase(m_request.begin(), endOfHeaders + 4);
+		}
+		else
+		{
+			m_state = COMPLETE;
+		}
+	}
+
+	if (m_state == CHUNKED)
+		parseChunked();
+
+	if (m_state == MULTIPART)
+		parseMultipart(boundary(m_headers["content-type"]), m_multipart);
+}
+
+HttpResponse	HttpRequest::processRequest(t_ms timeout)
+{
+	switch (method())
+	{
+		case GET:
+			if (m_cgi)
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
+			break;
+		case POST:
+			if (m_cgi)
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
+			handlePost(m_multipart);
+			break;
+		case DELETE:
+			handleDelete();
+			break;
+	}
+
+	return HttpResponse(200, "OK", m_path, "", closeConnection(), timeout);
+}
+
+void	HttpRequest::setBodyType()
 {
 	auto it = m_headers.find("transfer-encoding");
 	if (it != m_headers.end() && it->second == "chunked")
 	{
-		m_body = CHUNKED;
+		m_state = CHUNKED;
 		return;
 	}
 
 	it = m_headers.find("content-type");
 	if (it != m_headers.end() && it->second.find("multipart") != std::string::npos)
 	{
-		m_body = MULTIPART;
-		if (getContentLength() > maxSize)
+		m_state = MULTIPART;
+		if (contentLength() > m_maxSize)
 			throw HttpException::payloadTooLarge("max body size exceeded");
 		return;
 	}
 
 	throw HttpException::notImplemented("content type not implemented");
-}
-
-void	HttpRequest::readRequest()
-{
-	char	buffer[PACKET_SIZE];
-	ssize_t	bytes_read = recv(m_fd, buffer, PACKET_SIZE, 0);
-
-	// loop recv while byte_read > 0
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
-
-	if (bytes_read == -1)
-		throw HttpException::internalServerError("failed to receive request"); // recv failed
-
-	if (bytes_read == 0)
-		throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
-
-	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	Logger::getInstance().log(std::string(buffer, bytes_read));
 }
 
 void	HttpRequest::parseRequestLine(std::istringstream& request)
@@ -137,7 +167,7 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
-		m_queryData[line.substr(0, pos)].push_back(line.substr(pos + 1));
+		m_query[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
 
@@ -163,14 +193,193 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 	}
 }
 
-void	HttpRequest::parseChunked(size_t maxSize) {
+void	HttpRequest::setLocation(Config& config)
+{
+    m_server = config.findServerNode(host());
+    m_location = m_server->findClosestMatch(m_target);
+
+	std::vector<std::string>	redirect;
+
+	m_location->tryGetDirective("return", redirect);
+
+	if (!redirect.empty())
+	{
+		// config error?
+		// should it be checked during config parsing that return directive always has 2 values?
+		if (redirect.size() != 2)
+			throw HttpException::internalServerError("invalid redirect");
+		throw HttpException::temporaryRedirect(redirect[1]);
+	}
+}
+
+void	HttpRequest::setMaxSize()
+{
+	std::vector<std::string>	maxSize;
+	size_t						idx;
+
+	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
+		m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	if (!maxSize.empty()) // config error?
+	{
+		m_maxSize = std::stoul(maxSize.front(), &idx);
+		if (idx != maxSize.front().length())
+			throw HttpException::internalServerError("invalid max body size value"); // config error
+	}
+}
+
+void    HttpRequest::setCgi()
+{
+    if (m_target.find(".") == std::string::npos) return;
+
+	std::string					extension(m_target.substr(m_target.find_last_of(".")));
+	std::vector<std::string>	cgi;
+
+    if (!m_location->tryGetDirective("cgi", cgi))
+		m_server->tryGetDirective("cgi", cgi);
+
+	if (std::find(cgi.begin(), cgi.end(), extension) != cgi.end())
+		m_cgi = true;
+}
+
+void    HttpRequest::setPath()
+{
+	std::vector<std::string> root;
+
+    if (!m_location->tryGetDirective("root", root))
+		m_server->tryGetDirective("root", root);
+
+	m_root = root.front();
+    m_path = m_root + m_target;
+
+	Logger::log("root: " + m_root + ", target: " + m_target);
+
+	if (!std::filesystem::exists(m_path))
+		tryTry_files();
+
+	if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
+	{
+		tryIndex();
+
+		// if after indexing attempts its still a directory,
+		// handle it as such
+		if (std::filesystem::is_directory(m_path))
+			tryAutoindex();
+	}
+
+	if (!std::filesystem::exists(m_path))
+		throw HttpException::notFound("resource could not be found");
+
+	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
+
+	if ((perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none)
+		throw HttpException::forbidden("permission denied for requested resource");
+}
+
+void	HttpRequest::tryTry_files()
+{
+	std::vector<std::string>	try_files;
+
+	if (!m_location->tryGetDirective("try_files", try_files))
+			m_server->tryGetDirective("try_files", try_files);
+
+		// first check if try_files directive exists,
+		// then loop through all the directives and test them
+		if (!try_files.empty())
+		{
+			bool success = false;
+
+			for (std::string temp : try_files) {
+
+				std::size_t pos = 0;
+				// search for $url and replace it with target
+				while ((pos = temp.find("$uri", pos)) != std::string::npos)
+				{
+					temp.replace(pos, 4, m_target);
+					pos += m_target.length();
+				}
+
+				Logger::log("try_files: " + temp);
+				if (std::filesystem::exists(m_root + temp)) {
+					m_path = m_root + temp;
+					m_target = temp;
+					success = true;
+					break;
+				}
+			}
+
+			// if none of these passed, we have to check the try_files.back()
+			// and redirect to that error code
+			if (!success)
+			{
+				std::regex errorValue("^=\\d{3}$");
+
+				if (std::regex_match(try_files.back(), errorValue))
+				{
+					int code = std::stoi(try_files.back().substr(1));
+
+					Logger::log("try_files failed use ecode: " + std::to_string(code));
+					throw HttpException::withCode(code);
+				}
+			}
+		}
+}
+
+void	HttpRequest::tryIndex()
+{
+	std::vector<std::string>	index;
+
+	if (!m_location->tryGetDirective("index", index))
+		m_server->tryGetDirective("index", index);
+
+	// we didnt have try_files directive or couldn't find a match,
+	// now try all index directives
+	for (std::string& index : index) {
+
+		std::string temp = m_path;
+
+		if (temp.back() != '/')
+			temp += '/';
+
+		temp += index;
+
+		Logger::log("try index: " + temp);
+		if (std::filesystem::exists(temp))
+		{
+			Logger::log("target has index");
+			m_path = temp;
+			return;
+		}
+	}
+}
+
+void	HttpRequest::tryAutoindex()
+{
+	if (m_path.back() != '/')
+		m_path += "/";
+
+	if (m_target.back() != '/')
+		m_target += "/";
+
+	// if autoindexing is off, throw forbidden
+	if (!m_location->autoindexOn())
+	{
+		Logger::log("autoindex: off, but trying to access directory");
+		throw HttpException::forbidden("autoindex: off, but trying to access directory");
+	}
+}
+
+void	HttpRequest::parseChunked() {
 	if (m_unchunked == -1)
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_fd) + "_unchunked");
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_id) + "_unchunked");
 		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
 		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
 	}
+
+	Logger::log("CHUNKED PARSING");
+	Logger::log("MAX SIZE:" + std::to_string(m_maxSize) + " SIZE: " + std::to_string(m_contentLength));
 
 	if (m_request.empty())
 		return;
@@ -192,11 +401,11 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 			return;
 		}
 		std::string	sizeString(currentPos, endOfSize);
-		size_t		chunkSize = getChunkSize(sizeString);
-		if (chunkSize == 0)
+		size_t		size = chunkSize(sizeString);
+		if (size == 0)
 		{
 			Logger::log("UNCHUNKING COMPLETE");
-			m_body = COMPLETE;
+			m_state = COMPLETE;
 			close(m_unchunked);
 			m_unchunked = -1;
 			return;
@@ -212,22 +421,22 @@ void	HttpRequest::parseChunked(size_t maxSize) {
 				m_request.erase(m_request.begin(), currentPos);
 			return;
 		}
-		if (static_cast<size_t>(endOfContent - endOfSize) != chunkSize)
+		if (static_cast<size_t>(endOfContent - endOfSize) != size)
 			throw HttpException::badRequest("invalid chunk size");
 
 		int bytesWritten = write(m_unchunked, &(*endOfSize), std::distance(endOfSize, endOfContent));
 		if (bytesWritten == -1)
 			throw HttpException::internalServerError("error writing to a file");
 
-		m_contentLength += chunkSize;
-		if (m_contentLength > maxSize)
+		m_contentLength += size;
+		if (m_contentLength > m_maxSize)
 			throw HttpException::payloadTooLarge("max body size exceeded");
 
 		currentPos = endOfContent + 2;
 	}
 }
 
-size_t	HttpRequest::getChunkSize(std::string& hex) {
+size_t	HttpRequest::chunkSize(std::string& hex) {
 	size_t	size;
 	size_t	idx;
 
@@ -243,9 +452,9 @@ size_t	HttpRequest::getChunkSize(std::string& hex) {
 	return size;
 }
 
-void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& multipartData)
+void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& multipart)
 {
-	if (getContentLength() != m_request.size())
+	if (contentLength() != m_request.size())
 		return;
 
 	std::string	emptyLine = "\r\n\r\n";
@@ -292,50 +501,10 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 				close(tmpFile);
 			}
 		}
-		multipartData.push_back(part);
+		multipart.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
-	m_body = COMPLETE;
-}
-
-size_t	HttpRequest::getContentLength()
-{
-	auto	it = m_headers.find("content-length");
-
-	if (it == m_headers.end())
-		throw HttpException::lengthRequired("content-length header missing");
-
-	size_t	size;
-	size_t	idx;
-
-	try {
-		size = std::stoul(it->second, &idx);
-	} catch (std::exception& e) {
-		throw HttpException::badRequest("invalid content length");
-	}
-
-	if (it->second.length() != idx)
-		throw HttpException::badRequest("invalid content length");
-
-	return size;
-}
-
-std::string	HttpRequest::getBoundary(std::string& contentType)
-{
-	size_t startOfBoundary = contentType.find("boundary=");
-
-	if (startOfBoundary == std::string::npos)
-		throw HttpException::badRequest("missing boundary for multipart/form-data");
-	
-	return "--" + contentType.substr(startOfBoundary + 9);
-}
-
-std::string		HttpRequest::uniqueId()
-{
-	auto now = std::chrono::system_clock::now();
-	auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-
-	return std::to_string(timestamp) + "_" + std::to_string(m_fd);
+	m_state = COMPLETE;
 }
 
 void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
@@ -376,39 +545,163 @@ void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
 			if (part.contentType.find("multipart") != std::string::npos)
-				parseMultipart(getBoundary(part.contentType), part.nestedData);
+				parseMultipart(boundary(part.contentType), part.nestedData);
 		}
 		else
 			throw HttpException::badRequest("invalid header for multipart/form-data");
 	}
 }
 
-const std::string&	HttpRequest::host()
+size_t	HttpRequest::contentLength()
 {
-	if (m_headers.find("host") != m_headers.end())
-		return m_headers["host"];
+	auto	it = m_headers.find("content-length");
 
-	return EMPTY_STRING;
+	if (it == m_headers.end())
+		throw HttpException::lengthRequired("content-length header missing");
+
+	size_t	size;
+	size_t	idx;
+
+	try {
+		size = std::stoul(it->second, &idx);
+	} catch (std::exception& e) {
+		throw HttpException::badRequest("invalid content length");
+	}
+
+	if (it->second.length() != idx)
+		throw HttpException::badRequest("invalid content length");
+
+	return size;
 }
 
-const std::string&	HttpRequest::target()
+std::string	HttpRequest::boundary(std::string& contentType)
 {
-	return m_target;
+	size_t startOfBoundary = contentType.find("boundary=");
+
+	if (startOfBoundary == std::string::npos)
+		throw HttpException::badRequest("missing boundary for multipart/form-data");
+	
+	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
-const std::string&	HttpRequest::method()
+std::string		HttpRequest::uniqueId()
 {
-	return m_method;
+	auto now = std::chrono::system_clock::now();
+	auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+
+	return std::to_string(timestamp) + "_" + std::to_string(m_id);
 }
 
-const std::vector<mpData>&	HttpRequest::multipart()
+void HttpRequest::handleDelete()
 {
-	return m_multipartData;
+	std::filesystem::remove(m_path);
+	m_path = "";
 }
 
-const queryMap&	HttpRequest::query()
+void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 {
-	return m_queryData;
+	std::vector<std::string>	uploadDir;
+
+	if (!m_location->tryGetDirective("uploadDir", uploadDir))
+		m_server->tryGetDirective("uploadDir", uploadDir);
+
+	if (uploadDir.empty()) // config error
+		throw HttpException::internalServerError("upload directory not defined");
+
+	if (!std::filesystem::exists(uploadDir.front()))
+	{
+		if (!std::filesystem::create_directory(uploadDir.front()))
+			throw HttpException::internalServerError("unable to create upload directory");
+	}
+
+	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+
+	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
+		throw HttpException::forbidden("permission denied for upload directory");
+
+	for (mpData part: multipart)
+	{
+		if (!part.filename.empty())
+		{
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
+			std::filesystem::copy_file(tmpFile, destination);
+		}
+		if (!part.nestedData.empty())
+			handlePost(part.nestedData);
+	}
+}
+
+e_method    HttpRequest::method()
+{
+    std::vector<std::string>    allowedMethods;
+
+    if (!m_location->tryGetDirective("methods", allowedMethods))
+		m_server->tryGetDirective("methods", allowedMethods);
+
+    if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
+	{
+        throw HttpException::notImplemented("requested method not implemented");
+	}
+
+	static const std::unordered_map<std::string, e_method>	methodMap = {
+		{"GET", GET},
+		{"POST", POST},
+		{"DELETE", DELETE},
+	};
+
+	auto it = methodMap.find(m_method);
+
+	if (it != methodMap.end())
+		return it->second;
+
+	throw HttpException::notImplemented("requested method not implemented");
+}
+
+std::string	HttpRequest::ePage(int code)
+{
+	std::vector<std::string>	root;
+	std::string					errorPage;
+
+	if (m_location)
+	{
+		errorPage = m_location->findErrorPage(code);
+		if (!errorPage.empty())
+		{
+			if (!m_location->tryGetDirective("root", root))
+				m_server->tryGetDirective("root", root);
+
+			return root.front() + errorPage;
+		}
+	}
+
+	errorPage = m_server->findErrorPage(code);
+	m_server->tryGetDirective("root", root);
+
+	return root.front() + errorPage;
+}
+
+int	HttpRequest::timeoutDuration()
+{
+	std::vector<std::string>	timeoutDuration;
+	size_t						idx;
+	int							timeout;
+
+	if (m_server->tryGetDirective("keepalive_timeout", timeoutDuration))
+	{
+		try {
+			timeout = std::stoi(timeoutDuration.front(), &idx);
+			if (idx != timeoutDuration.front().length())
+				throw HttpException::internalServerError("invalid timeout value"); // config error?
+
+		} catch (std::exception& e) {
+			throw HttpException::internalServerError("invalid timeout value"); // config error?
+		}
+
+		return timeout;
+	}
+
+	return 75;
 }
 
 bool	HttpRequest::closeConnection()
@@ -419,12 +712,55 @@ bool	HttpRequest::closeConnection()
 	return false;
 }
 
+const std::string&	HttpRequest::host()
+{
+	if (m_headers.find("host") != m_headers.end())
+		return m_headers["host"];
+
+	return EMPTY_STRING;
+}
+
+const std::vector<mpData>&	HttpRequest::multipart()
+{
+	return m_multipart;
+}
+
+const queryMap&	HttpRequest::query()
+{
+	return m_query;
+}
+
+std::string	HttpRequest::path()
+{
+	return m_path;
+}
+
+bool	HttpRequest::server()
+{
+	return m_server != nullptr;
+}
+
+e_state	HttpRequest::state()
+{
+	return m_state;
+}
+
+void	HttpRequest::setServer(std::shared_ptr<ConfigNode> server)
+{
+	m_server = server;
+}
+
+void	HttpRequest::setState(e_state state)
+{
+	m_state = state;
+}
+
 HttpRequest::~HttpRequest()
 {
 	if (m_unchunked != -1)
 		close(m_unchunked);
 
-	for (mpData part: m_multipartData)
+	for (mpData part: m_multipart)
 	{
 		if (!part.filename.empty())
 		{

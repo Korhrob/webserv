@@ -7,21 +7,22 @@
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout)
 : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
-	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
 	setBody(path);
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_msg("CGI success"), m_body(""), m_close(0), m_timeout(td)
+HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_code(200), m_msg("CGI success"), m_body(""), m_targetUrl(""), m_close(0), m_timeout(td)
 {
-
-	m_code = 200;
 	size_t size = body.size();
-	if (size <= PACKET_SIZE) {
+
+	if (size <= PACKET_SIZE)
+	{
 		m_body = body;
 		m_type = TYPE_SINGLE;
-	} else
+	}
+	else
 		m_type = TYPE_CHUNKED;
+
 	setHeaders();
 }
 
@@ -95,6 +96,8 @@ std::string	HttpResponse::readBody(const std::string& path)
 
 void	HttpResponse::setHeaders()
 {
+	m_headers = {};
+
 	if (!m_close)
 		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
