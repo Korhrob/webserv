@@ -22,7 +22,7 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 		m_request.setState(COMPLETE);
 
 		if (!m_request.server())
-			m_request.setServer(config.findServerNode("127.0.0.1:" + std::to_string(m_port)));
+			m_request.setServer(config.findServerNode(std::to_string(m_port)));
 
 		m_response = HttpResponse(e.code(), e.what(), m_request.ePage(e.code()), e.redir(), m_request.closeConnection(), getTimeoutDuration());
 
