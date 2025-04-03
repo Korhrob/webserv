@@ -205,7 +205,7 @@ bool	Config::parse(std::ifstream& stream)
 		node->addDefaultDirective("index", { "index.html", "index.htm", "index.php" });
 		node->addDefaultDirective("uploadDir", { "upload" });
 		node->addDefaultDirective("keepalive_timeout", { "60" });
-		node->addDefaultDirective("max_client_body_size", { "1048576" });
+		node->addDefaultDirective("client_max_body_size", { "1048576" });
 		node->addDefaultErrorPages();
 
 	}
