@@ -5,6 +5,13 @@
 #include <thread>
 #include <chrono>
 
+static void freeEnvPtrs(std::vector<char*>& envPtrs)
+{
+	for (size_t i = 0; i < envPtrs.size(); ++i) {
+		free(envPtrs[i]);
+	}
+}
+
 static void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs)
 {
 	std::string env = envp + "=" + value;
@@ -19,17 +26,18 @@ static void setEnvValue(std::string envp, std::string value, std::vector<char*>&
 
 static void createEnv(std::vector<char*>& envPtrs, std::string script)
 {
+	std::filesystem::path currentPath = std::filesystem::current_path();
 	setEnvValue("SERVER_NAME", "localhost", envPtrs);
 	setEnvValue("GATEWAY_INTERFACE", "CGI/1.1", envPtrs);
 	setEnvValue("SERVER_PORT", "8080", envPtrs);
 	setEnvValue("SERVER_PROTOCOL", "HTTP/1.1", envPtrs);
 	setEnvValue("REMOTE_ADDR", "127.0.0.1", envPtrs);
 	setEnvValue("SCRIPT_NAME", script, envPtrs);
-	setEnvValue("SCRIPT_FILENAME", "/home/avegis/projects/wwebserver/cgi-bin" + script, envPtrs);
+	setEnvValue("SCRIPT_FILENAME", currentPath.string() + "/cgi-bin" + script, envPtrs);
 	setEnvValue("QUERY_STRING", "", envPtrs);
 	setEnvValue("CONTENT_TYPE", "application/x-www-form-urlencoded", envPtrs);
 	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
-	setEnvValue("DOCUMENT_ROOT", "/home/avegis/projects/wwebserver", envPtrs);
+	setEnvValue("DOCUMENT_ROOT", currentPath.string(), envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
 	setEnvValue("REQUEST_URI", "/cgi-bin/people.php", envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
@@ -91,13 +99,6 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 		}
 		setEnvValue(it->first, it->second[0], envPtrs);
 	}
-}
-
-static void freeEnvPtrs(std::vector<char*>& envPtrs)
-{
-	for (size_t i = 0; i < envPtrs.size(); ++i) {
-        free(envPtrs[i]);
-    }
 }
 
 std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script, std::string method)
