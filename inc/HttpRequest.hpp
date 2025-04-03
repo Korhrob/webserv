@@ -97,7 +97,7 @@ class HttpRequest {
 		void							parseRequest(Config& config);
 		HttpResponse					processRequest(t_ms timeout);
 		bool							closeConnection();
-		int								timeoutDuration();
+		size_t							timeoutDuration();
 		void							setServer(std::shared_ptr<ConfigNode>);
 		void							setState(e_state state);
 		bool							server();
