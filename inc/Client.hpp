@@ -162,7 +162,7 @@ class Client
 			return ((now - m_last_activity) > m_timeout_duration);
 		}
 
-		void	setTimeoutDuration(int seconds)
+		void	setTimeoutDuration(unsigned long seconds)
 		{
 			m_timeout_duration = t_ms(seconds * 1000);
 		}
