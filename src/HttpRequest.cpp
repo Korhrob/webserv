@@ -588,7 +588,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	std::string	uploads = m_root + uploadDir.front();
+	std::string	uploads = m_root + "/" + uploadDir.front();
 
 	if (!std::filesystem::exists(uploads))
 	{
