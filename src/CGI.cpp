@@ -9,6 +9,11 @@ static void setEnvValue(std::string envp, std::string value, std::vector<char*>&
 {
 	std::string env = envp + "=" + value;
 	char* newEnv = strdup(env.c_str());
+	if (newEnv == nullptr)
+	{
+		freeEnvPtrs(envPtrs);
+		throw HttpException::internalServerError("Malloc fail");
+	}
 	envPtrs.push_back(newEnv);
 }
 
