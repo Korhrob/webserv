@@ -45,7 +45,6 @@ class HttpRequest {
 		e_state											m_state;
 		std::shared_ptr<ConfigNode>						m_server;
 		std::shared_ptr<ConfigNode>						m_location;
-		int												m_id;
 		std::string										m_method;
 		std::string										m_target;
 		queryMap										m_query;
@@ -93,6 +92,7 @@ class HttpRequest {
 		HttpRequest(const HttpRequest&) = delete;
 		HttpRequest&	operator=(const HttpRequest&) = default;
 
+		void							reset();
 		void							appendRequest(std::vector<char>& request);
 		void							parseRequest(Config& config);
 		HttpResponse					processRequest(t_ms timeout);
