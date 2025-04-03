@@ -25,6 +25,6 @@ const std::vector<int>			ERROR_CODES { 400, 401, 402, 403, 404, 500 };
 // because this list is growing quite large,
 // might be better to convert it to unordered_set
 const std::vector<std::string>	VALID_DIRECTIVES { "listen", "host", "server_name", "index", "root", "methods", "cgi", "uploadDir",
-													"max_client_body_size", "access_log", "error_log", "worker_connections",
+													"client_max_body_size", "access_log", "error_log", "worker_connections",
 													"error_page", "autoindex", "cgi_path", "cgi_ext", "return", "alias", "try_files",
 													"keepalive_timeout" };

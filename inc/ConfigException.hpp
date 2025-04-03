@@ -43,12 +43,12 @@ class ConfigException : public std::exception
 
 		static ConfigException	emptyDirective(const std::string& key)
 		{
-			return ConfigException("empty directive for key " + key);
+			return ConfigException("empty directive " + key);
 		}
 
 		static ConfigException	tooManyDirectives(const std::string& key)
 		{
-			return ConfigException("too many directives for key " + key);
+			return ConfigException("too many directives " + key);
 		}
 
 		static ConfigException	outOfRange(const std::string& value)
