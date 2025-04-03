@@ -38,13 +38,13 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgi.c_str(), nullptr};
 	if (dup2(fdtemp, STDOUT_FILENO) < 0)
 	{
-		perror("dup2");
+		write(fdtemp, "funcError", 9);
 		std::exit(EXIT_FAILURE);
 	}
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
-	perror("execve");
-	std::exit(EXIT_SUCCESS);
+	write(fdtemp, "funcError", 9);
+	std::exit(EXIT_FAILURE);
 }
 
 static void setCgiString(FILE *temp, int fdtemp, std::string& body)
@@ -115,12 +115,23 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 	if (pid == 0)
 	{
 		pid_t cgiPid = fork();
+		if (cgiPid < 0)
+		{
+			write(fdtemp, "funcError", 9);
+			std::exit(EXIT_FAILURE);
+		}
 		if (cgiPid == 0)
 			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
+		if (timeoutPid < 0)
+		{
+			write(fdtemp, "funcError", 9);
+			kill(cgiPid, SIGKILL);
+			std::exit(EXIT_FAILURE);
+		}
 		if (timeoutPid == 0)
-		std::this_thread::sleep_for(std::chrono::seconds(TIMEOUT_CGI));
-		pid_t exitedPid = wait(NULL);
+			std::this_thread::sleep_for(std::chrono::seconds(TIMEOUT_CGI));
+		pid_t exitedPid = waitpid(-1, NULL, 0);
 		if (exitedPid == cgiPid)
 		{
 			kill(timeoutPid, SIGKILL);
@@ -130,7 +141,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 			kill(cgiPid, SIGKILL);
 			write(fdtemp, "TIMEOUT", 7);
 		}
-		wait(NULL);
+		waitpid(-1, NULL, 0);
 		std::exit(EXIT_SUCCESS);
 	}
 	else
@@ -141,14 +152,14 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 	if (body == "TIMEOUT")
 	{
 		freeEnvPtrs(envPtrs);
-		throw HttpException::internalServerError("Timeout");
+		throw HttpException::internalServerError("CGI timeout");
 	}
-	if (body.empty())
+	if (body.empty() || body == "funcError")
 	{
 		freeEnvPtrs(envPtrs);
 		throw HttpException::internalServerError("Something went wrong with CGI");
 	}
-		freeEnvPtrs(envPtrs);
+	freeEnvPtrs(envPtrs);
 	return body;
 }
 
