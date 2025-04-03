@@ -6,6 +6,7 @@
 static const unsigned int BUFFER_SIZE = 1024;
 static const unsigned int PACKET_SIZE = 8192; // 8 KB
 static const unsigned int EPOLL_POOL = 128;
+static const unsigned int TIMEOUT_CGI = 8;
 
 #ifndef LOG_ENABLE
 # define LOG_ENABLE true

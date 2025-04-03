@@ -2,6 +2,9 @@
 #include "Client.hpp"
 #include "HttpException.hpp"
 
+#include <thread>
+#include <chrono>
+
 static void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs)
 {
 	std::string env = envp + "=" + value;
@@ -36,12 +39,12 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	if (dup2(fdtemp, STDOUT_FILENO) < 0)
 	{
 		perror("dup2");
-		exit(EXIT_FAILURE);
+		std::exit(EXIT_FAILURE);
 	}
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
 	perror("execve");
-	std::exit(0);
+	std::exit(EXIT_SUCCESS);
 }
 
 static void setCgiString(FILE *temp, int fdtemp, std::string& body)
@@ -95,7 +98,6 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 	int					status;
 	FILE				*temp = std::tmpfile();
 	int					fdtemp = fileno(temp);
-	int					timeoutTime = 8;
 	std::vector<char*> 	envPtrs;
 	std::string			body;
 	createEnv(envPtrs, script);
@@ -117,7 +119,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
 		if (timeoutPid == 0)
-			sleep(timeoutTime);
+		std::this_thread::sleep_for(std::chrono::seconds(TIMEOUT_CGI));
 		pid_t exitedPid = wait(NULL);
 		if (exitedPid == cgiPid)
 		{
@@ -129,7 +131,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 			write(fdtemp, "TIMEOUT", 7);
 		}
 		wait(NULL);
-		std::exit(0);
+		std::exit(EXIT_SUCCESS);
 	}
 	else
 	{
