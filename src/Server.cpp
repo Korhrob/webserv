@@ -212,7 +212,7 @@ void	Server::addClient(int fd)
 	std::vector<std::string> timeout;
 
 	node->tryGetDirective("keepalive_timeout", timeout);
-	client->setTimeoutDuration(std::stoi(timeout.front()));
+	client->setTimeoutDuration(std::stoul(timeout.front()));
 	Logger::log("set timeout duration: " + timeout.front());
 }
 
