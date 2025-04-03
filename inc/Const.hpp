@@ -20,6 +20,7 @@ const std::vector<std::string>	EMPTY_VECTOR;
 const std::vector<std::string>	MANDATORY_DIRECTIVES { "listen", "server_name" };
 const std::vector<std::string>	VALID_METHODS { "GET", "POST", "DELETE" };
 const std::string				RESPONSE_TIMEOUT = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
+const std::vector<int>			ERROR_CODES { 400, 401, 402, 403, 404, 500 };
 
 // because this list is growing quite large,
 // might be better to convert it to unordered_set

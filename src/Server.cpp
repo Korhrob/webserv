@@ -67,7 +67,8 @@ bool	Server::startServer()
 
 		if (!m_port_map.count(port))
 		{
-			createListener(port);
+			if (!createListener(port))
+				return false;
 			m_config.setDefault(port, node);
 		} 
 		else if (listen.back() == "default_server")
@@ -91,7 +92,7 @@ int	Server::createListener(int port)
 	}
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
 		Logger::logError("setsockopt failed!");
         perror("setsockopt failed");
@@ -210,9 +211,7 @@ void	Server::addClient(int fd)
 	// hard coded value because we dont have a global config like NGINX does
 	std::vector<std::string> timeout;
 
-	if (!node->tryGetDirective("keepalive_timeout", timeout))
-		timeout = { "75" };
-	
+	node->tryGetDirective("keepalive_timeout", timeout);
 	client->setTimeoutDuration(std::stoi(timeout.front()));
 	Logger::log("Set timeout duration: " + timeout.front());
 }

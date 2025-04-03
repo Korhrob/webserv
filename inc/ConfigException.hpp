@@ -51,4 +51,19 @@ class ConfigException : public std::exception
 			return ConfigException("too many directives for key " + key);
 		}
 
+		static ConfigException	outOfRange(const std::string& value)
+		{
+			return ConfigException("value out of range " + value);
+		}
+
+		static ConfigException	nonNumerical(const std::string& value)
+		{
+			return ConfigException("non numerical value " + value);
+		}
+
+		static ConfigException	invalidErrorPage()
+		{
+			return ConfigException("error_page missing code(s) or path");
+		}
+
 };
