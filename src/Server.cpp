@@ -23,8 +23,10 @@ Server::~Server()
 	}
 	for (auto& [fd, port] : m_port_map)
 	{
-		if (fd > 0)
+		if (fd > 0) {
+			shutdown(fd, SHUT_RDWR);
 			close(fd);
+		}
 	}
 }
 
