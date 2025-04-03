@@ -59,13 +59,7 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 		codes.insert(std::stoi(directives[i]));
 	}
 
-	unsigned int i = 0;
-	for (char& c : directives.back())
-	{
-		if (isdigit(c))
-			++i;
-	}
-	if (i == directives.back().length())
+	if (isNumerical(directives.back()))
 		throw ConfigException::invalidErrorPage();
 
 	for (auto& page : m_error_pages)
@@ -255,6 +249,27 @@ void	ConfigNode::handleTimeout(std::vector<std::string>& directives)
 	}
 }
 
+void	ConfigNode::handleReturn(std::vector<std::string>& directives)
+{
+	if (directives.size() > 2)
+		throw ConfigException::tooManyDirectives("return");
+	try
+	{
+		size_t			len;
+		unsigned int	size = std::stoul(directives.front(), &len);
+		(void)size;
+
+		if (len != directives.front().length())
+			throw ConfigException::nonNumerical(directives.front());
+		if (isNumerical(directives.back()))
+			throw ConfigException::expectPath(directives.back());
+	}
+	catch (std::exception& e)
+	{
+		throw ConfigException::outOfRange(directives.front());
+	}
+}
+
 void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& codes)
 {
 	for (auto& code : codes)
@@ -294,4 +309,15 @@ void	ConfigNode::addDefaultErrorPages()
 	emplaceCodes(error_page, temp);
 	error_page.m_page = "500.html";
 	m_error_pages.push_back(error_page);
+}
+
+bool	ConfigNode::isNumerical(const std::string& str)
+{
+	unsigned int i = 0;
+	for (const char& c : str)
+	{
+		if (isdigit(c))
+			++i;
+	}
+	return (i == str.length());
 }

@@ -34,7 +34,8 @@ class ConfigNode : public std::exception
 		{ "method", &ConfigNode::handleMethod },
 		{ "autoindex", &ConfigNode::handleAutoIndex },
 		{ "client_max_body_size", &ConfigNode::handleBodySize },
-		{ "keepalive_timeout", &ConfigNode::handleTimeout }
+		{ "keepalive_timeout", &ConfigNode::handleTimeout },
+		{ "return", &ConfigNode::handleReturn }
 	};
 
 	void	handleListen(std::vector<std::string>& d);
@@ -42,6 +43,7 @@ class ConfigNode : public std::exception
 	void	handleAutoIndex(std::vector<std::string>& d);
 	void	handleBodySize(std::vector<std::string>& d);
 	void	handleTimeout(std::vector<std::string>& d);
+	void	handleReturn(std::vector<std::string>& d);
 	// ...
 	// handleKeepaliveTimeout - must have a valid int value
 	// handleMaxBodySize - must have a valid size_t value
@@ -65,5 +67,6 @@ public:
 	const std::string&					getName() { return m_name; };
 	void								emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& codes);
 	bool								autoindexOn() { return m_autoindex; }
+	bool								isNumerical(const std::string& str);
 
 };
