@@ -11,23 +11,7 @@
 #include <regex>
 #include <fcntl.h>
 
-HttpRequest::HttpRequest()
-{
-	m_state = HEADERS;
-	m_server = nullptr;
-	m_location = nullptr;
-	m_method = "";
-	m_target = "";
-	m_query = {};
-	m_headers = {};
-	m_root = "";
-	m_path = "";
-	m_cgi = false;
-	m_request = {};
-	m_unchunked = -1;
-	m_multipart = {};
-	m_contentLength = 0;
-}
+HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_unchunked(-1), m_contentLength(0) {}
 
 void	HttpRequest::appendRequest(std::vector<char>& request)
 {
@@ -372,7 +356,7 @@ void	HttpRequest::tryAutoindex()
 void	HttpRequest::parseChunked() {
 	if (m_unchunked == -1)
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (std::to_string(m_id) + "_unchunked");
+		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (uniqueId() + "_unchunked");
 		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
 		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
@@ -589,7 +573,7 @@ std::string		HttpRequest::uniqueId()
 	auto now = std::chrono::system_clock::now();
 	auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 
-	return std::to_string(timestamp) + "_" + std::to_string(m_id);
+	return std::to_string(timestamp);
 }
 
 void HttpRequest::handleDelete()
@@ -775,9 +759,9 @@ HttpRequest::~HttpRequest()
 		}
 	}
 
-	try {
-		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
-	} catch (std::filesystem::filesystem_error& e) {
-		Logger::log("error removing temporary file");
-	}
+	// try {
+	// 	std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
+	// } catch (std::filesystem::filesystem_error& e) {
+	// 	Logger::log("error removing temporary file");
+	// }
 }
