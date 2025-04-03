@@ -196,7 +196,7 @@ void	Server::addClient(int fd)
 	
 	// if we have too many concurrent users
 	int num_clients = 0;
-	int max_clients = 1;
+	int max_clients = 1024;
 	if (num_clients >= max_clients)
 	{
 		// send 503 response and close connection
