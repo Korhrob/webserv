@@ -9,6 +9,7 @@ class HttpException : public std::exception {
         std::string m_msg;
 		std::string	m_redir;
 
+
     public:
         HttpException(int code, std::string msg, std::string targetUrl = "")
             : m_code(code), m_msg(msg), m_redir(targetUrl) {}
@@ -35,9 +36,9 @@ class HttpException : public std::exception {
             return HttpException(0, "Remote Closed Connection");
         }
 
-		static HttpException	temporaryRedirect(const std::string& targetUrl) {
-			return HttpException(307, "Temporary Redirect", targetUrl);
-		}
+		// static HttpException	temporaryRedirect(const std::string& targetUrl) {
+		// 	return HttpException(307, "Temporary Redirect", targetUrl);
+		// }
 
         static HttpException    badRequest(std::string msg = "") {
             return HttpException(400, "Bad Request: " + msg);
@@ -71,19 +72,38 @@ class HttpException : public std::exception {
             return HttpException(505, "HTTP Version Not Supported: " + msg);
         }
 
+		static HttpException	redirect(int code, const std::string& msg, const std::string& targetUrl) {
+			return HttpException(code, msg, targetUrl);
+		}
+
+		static const std::string	statusMessage(int code)
+		{
+			switch (code) {
+				case 307: return "Temporary Redirect";
+				case 400: return "Bad Request";
+				case 403: return "Forbidden";
+				case 404: return "Not Found";
+				case 411: return "Length Required";
+				case 413: return "Payload Too Large";
+				case 500: return "Internal Server Error";
+				case 501: return "Not Implemented";
+				case 505: return "Http Version Not Supported";
+				default:
+					return "";
+			}
+		}
+
 		static HttpException withCode(int code) {
 			switch (code) {
 				case 400: return badRequest();
 				case 403: return forbidden();
-				case 404: return notFound();
 				case 411: return lengthRequired();
 				case 413: return payloadTooLarge();
 				case 500: return internalServerError();
 				case 501: return notImplemented();
 				case 505: return httpVersionNotSupported();
 				default:
-					return internalServerError("unknown error occurred"); 
-					// if in try_files =errorcode is none of the above. Should be handled better?
+					return notFound();
         }
     }
 };

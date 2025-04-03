@@ -94,7 +94,7 @@ void	HttpRequest::setBodyType()
 		return;
 	}
 
-	throw HttpException::notImplemented("content type not implemented");
+	throw HttpException::notImplemented("unknown content type");
 }
 
 void	HttpRequest::parseRequestLine(std::istringstream& request)
@@ -188,28 +188,27 @@ void	HttpRequest::setLocation(Config& config)
 
 	if (!redirect.empty())
 	{
-		// config error?
-		// should it be checked during config parsing that return directive always has 2 values?
-		if (redirect.size() != 2)
-			throw HttpException::internalServerError("invalid redirect");
-		throw HttpException::temporaryRedirect(redirect[1]);
+		int 		code = std::stoi(redirect.front());
+		std::string msg = HttpException::statusMessage(code);
+
+		if (msg.empty())
+			throw HttpException::notImplemented("unknown status code");
+
+		if (redirect.size() == 2)
+			throw HttpException::redirect(code, msg, redirect[1]);
+		else
+			throw HttpException::withCode(code);
 	}
 }
 
 void	HttpRequest::setMaxSize()
 {
 	std::vector<std::string>	maxSize;
-	size_t						idx;
 
 	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
 		m_server->tryGetDirective("client_max_body_size", maxSize);
 
-	if (!maxSize.empty()) // config error?
-	{
-		m_maxSize = std::stoul(maxSize.front(), &idx);
-		if (idx != maxSize.front().length())
-			throw HttpException::internalServerError("invalid max body size value"); // config error
-	}
+	m_maxSize = std::stoul(maxSize.front());
 }
 
 void    HttpRequest::setCgi()
@@ -589,9 +588,6 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	// if (uploadDir.empty()) // config error
-	// 	throw HttpException::internalServerError("upload directory not defined");
-
 	std::string	uploads = m_root + uploadDir.front();
 
 	if (!std::filesystem::exists(uploads))
@@ -627,10 +623,10 @@ e_method    HttpRequest::method()
 
     if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
 	{
-        throw HttpException::notImplemented("requested method not implemented");
+        throw HttpException::notImplemented("unknown method");
 	}
 
-	static const std::unordered_map<std::string, e_method>	methodMap = {
+	std::unordered_map<std::string, e_method>	methodMap = {
 		{"GET", GET},
 		{"POST", POST},
 		{"DELETE", DELETE},
@@ -641,7 +637,7 @@ e_method    HttpRequest::method()
 	if (it != methodMap.end())
 		return it->second;
 
-	throw HttpException::notImplemented("requested method not implemented");
+	throw HttpException::notImplemented("unknown method");
 }
 
 std::string	HttpRequest::ePage(int code)
@@ -667,27 +663,15 @@ std::string	HttpRequest::ePage(int code)
 	return root.front() + errorPage;
 }
 
-int	HttpRequest::timeoutDuration()
+unsigned long	HttpRequest::timeoutDuration()
 {
 	std::vector<std::string>	timeoutDuration;
-	size_t						idx;
-	int							timeout;
+	unsigned long				timeout;
 
-	if (m_server->tryGetDirective("keepalive_timeout", timeoutDuration))
-	{
-		try {
-			timeout = std::stoi(timeoutDuration.front(), &idx);
-			if (idx != timeoutDuration.front().length())
-				throw HttpException::internalServerError("invalid timeout value"); // config error?
+	m_server->tryGetDirective("keepalive_timeout", timeoutDuration);
+	timeout = std::stoul(timeoutDuration.front());
 
-		} catch (std::exception& e) {
-			throw HttpException::internalServerError("invalid timeout value"); // config error?
-		}
-
-		return timeout;
-	}
-
-	return 75;
+	return timeout;
 }
 
 bool	HttpRequest::closeConnection()
@@ -759,9 +743,9 @@ HttpRequest::~HttpRequest()
 		}
 	}
 
-	// try {
-	// 	std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
-	// } catch (std::filesystem::filesystem_error& e) {
-	// 	Logger::log("error removing temporary file");
-	// }
+	try {
+		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
+	} catch (std::filesystem::filesystem_error& e) {
+		Logger::log("error removing temporary file");
+	}
 }
