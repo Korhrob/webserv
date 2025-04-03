@@ -80,7 +80,10 @@ static void addQuery(queryMap map, std::vector<char*>& envPtrs)
 	for (auto it = map.begin(); it != map.end(); ++it)
 	{
 		if(it->first.empty() || it->second.empty())
+		{
+			freeEnvPtrs(envPtrs);
 			throw HttpException::badRequest("Invalid Query");
+		}
 		setEnvValue(it->first, it->second[0], envPtrs);
 	}
 }
