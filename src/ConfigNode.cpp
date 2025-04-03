@@ -244,6 +244,7 @@ void	ConfigNode::handleTimeout(std::vector<std::string>& directives)
 	{
 		size_t			len;
 		unsigned int	size = std::stoul(directives.front(), &len);
+		(void)size;
 
 		if (len != directives.front().length())
 			throw ConfigException::nonNumerical(directives.front());

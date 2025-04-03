@@ -60,7 +60,7 @@ class Server
 
 	public:
 
-		Server(); // pass string for config name
+		Server(const std::string& path);
 		~Server();
 
 		bool	startServer();

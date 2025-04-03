@@ -38,7 +38,7 @@ class ConfigException : public std::exception
 
 		static ConfigException	unknownDirective(const std::string& key)
 		{
-			return ConfigException("uknown directive " + key);
+			return ConfigException("unknown directive " + key);
 		}
 
 		static ConfigException	emptyDirective(const std::string& key)

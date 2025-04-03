@@ -10,7 +10,7 @@
 #include <fstream>
 #include <fcntl.h>
 
-Server::Server() : m_events(EPOLL_POOL)
+Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 {
 }
 
@@ -32,7 +32,7 @@ bool	Server::startServer()
 {
 	if (!m_config.isValid())
 	{
-		Logger::logError("Error in config file");
+		Logger::logError("invalid config file");
 		return false;
 	}
 
@@ -63,7 +63,7 @@ bool	Server::startServer()
 
 		// port is already validated during config parsing
 		unsigned int port = std::stoul(listen.front());
-		Logger::log("Starting server on " + name + ":" + std::to_string(port) + "...");
+		Logger::log("starting server on " + name + ":" + std::to_string(port) + "...");
 
 		if (!m_port_map.count(port))
 		{
@@ -87,7 +87,7 @@ int	Server::createListener(int port)
 	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (fd <= 0)
 	{
-		Logger::logError("Server failed to open socket!");
+		Logger::logError("server failed to open socket!");
 		return false;
 	}
 
@@ -107,7 +107,7 @@ int	Server::createListener(int port)
 
 	if (bind(fd, (struct sockaddr*)&socket_addr, sizeof(socket_addr)) < 0)
 	{
-		Logger::logError("Bind " + std::to_string(port) + " failed!");
+		Logger::logError("bind " + std::to_string(port) + " failed!");
 		close(fd);
 		closeServer();
 		return false;
@@ -115,7 +115,7 @@ int	Server::createListener(int port)
 
 	if (listen(fd, SOMAXCONN) == -1)
 	{
-		Logger::logError("Listen " + std::to_string(port) + " failed");
+		Logger::logError("listen " + std::to_string(port) + " failed");
 		close(fd);
 		closeServer();
 		return false;
@@ -134,7 +134,7 @@ int	Server::createListener(int port)
 
 	m_port_map[fd] = port;
 
-	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(fd));
+	Logger::log("listen port " + std::to_string(port) + " fd " + std::to_string(fd));
 
 	return true;
 }
@@ -142,9 +142,9 @@ int	Server::createListener(int port)
 /// @brief Handle any logic before deconstruction
 void	Server::closeServer()
 {
-	Logger::log("Closing server...");
+	Logger::log("closing server...");
 	// ...
-	Logger::log("Server closed!");
+	Logger::log("server closed!");
 }
 
 /// @brief Handle epoll events
@@ -213,7 +213,7 @@ void	Server::addClient(int fd)
 
 	node->tryGetDirective("keepalive_timeout", timeout);
 	client->setTimeoutDuration(std::stoi(timeout.front()));
-	Logger::log("Set timeout duration: " + timeout.front());
+	Logger::log("set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
@@ -226,7 +226,7 @@ void	Server::handleTimeouts()
 	{
 		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
 		{
-			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
+			Logger::log("client " + std::to_string(client->fd()) + " timed out!");
 			client->setClientState(ClientState::TIMEDOUT);
 
 			client->respond(RESPONSE_TIMEOUT);
@@ -286,6 +286,7 @@ void	Server::handleRequest(int fd)
 	Logger::log("-------------------------------------------------------------");
 
 	client->handleRequest(m_config, vec);
+	updateClient(client);
 
 	if (client->requestState() == COMPLETE)
 	{
@@ -297,8 +298,6 @@ void	Server::handleRequest(int fd)
 		}
 
 		Logger::log(client->response());
-		
-		updateClient(client);
 
 		Logger::log("== SEND RESPONSE ==");
 		
