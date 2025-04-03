@@ -605,16 +605,18 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	if (uploadDir.empty()) // config error
-		throw HttpException::internalServerError("upload directory not defined");
+	// if (uploadDir.empty()) // config error
+	// 	throw HttpException::internalServerError("upload directory not defined");
 
-	if (!std::filesystem::exists(uploadDir.front()))
+	std::string	uploads = m_root + uploadDir.front();
+
+	if (!std::filesystem::exists(uploads))
 	{
-		if (!std::filesystem::create_directory(uploadDir.front()))
+		if (!std::filesystem::create_directory(uploads))
 			throw HttpException::internalServerError("unable to create upload directory");
 	}
 
-	std::filesystem::perms perms = std::filesystem::status(uploadDir.front()).permissions();
+	std::filesystem::perms perms = std::filesystem::status(uploads).permissions();
 
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
 		throw HttpException::forbidden("permission denied for upload directory");
@@ -624,7 +626,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 		if (!part.filename.empty())
 		{
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-			std::filesystem::path destination = uploadDir.front() + "/" + part.filename;
+			std::filesystem::path destination = uploads + "/" + part.filename;
 			std::filesystem::copy_file(tmpFile, destination);
 		}
 		if (!part.nestedData.empty())
