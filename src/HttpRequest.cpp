@@ -71,7 +71,7 @@ void	HttpRequest::readRequest()
 	ssize_t	bytes_read = recv(m_fd, buffer, PACKET_SIZE, 0);
 
 	// loop recv while byte_read > 0
-	Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+	Logger::log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 
 	if (bytes_read == -1)
 		throw HttpException::internalServerError("failed to receive request"); // recv failed
@@ -80,7 +80,7 @@ void	HttpRequest::readRequest()
 		throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
 
 	m_request.insert(m_request.end(), buffer, buffer + bytes_read);
-	Logger::getInstance().log(std::string(buffer, bytes_read));
+	Logger::log(std::string(buffer, bytes_read));
 }
 
 void	HttpRequest::parseRequestLine(std::istringstream& request)
