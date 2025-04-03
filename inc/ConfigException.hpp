@@ -38,17 +38,22 @@ class ConfigException : public std::exception
 
 		static ConfigException	unknownDirective(const std::string& key)
 		{
-			return ConfigException("uknown directive " + key);
+			return ConfigException("unknown directive " + key);
 		}
 
 		static ConfigException	emptyDirective(const std::string& key)
 		{
-			return ConfigException("empty directive for key " + key);
+			return ConfigException("empty directive " + key);
 		}
 
 		static ConfigException	tooManyDirectives(const std::string& key)
 		{
-			return ConfigException("too many directives for key " + key);
+			return ConfigException("too many directives " + key);
+		}
+
+		static ConfigException	tooFewDirectives(const std::string& key)
+		{
+			return ConfigException("too few directives " + key);
 		}
 
 		static ConfigException	outOfRange(const std::string& value)
@@ -59,6 +64,11 @@ class ConfigException : public std::exception
 		static ConfigException	nonNumerical(const std::string& value)
 		{
 			return ConfigException("non numerical value " + value);
+		}
+
+		static ConfigException	expectPath(const std::string& value)
+		{
+			return ConfigException("expecting path " + value);
 		}
 
 		static ConfigException	invalidErrorPage()

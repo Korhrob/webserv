@@ -7,6 +7,7 @@ SSRC		=	src/main.cpp			src/Server.cpp			 \
 				src/HttpResponse.cpp	src/HttpRequest.cpp		src/Directory.cpp	\
 				src/CGI.cpp				src/Client.cpp
 SOBJ		=	$(patsubst src/%.cpp, obj/%.o, $(SSRC)) # $(SSRC:.cpp=.o)
+CONST		=	inc/Const.hpp
 
 all: $(SNAME) 
 
@@ -14,8 +15,8 @@ $(SNAME): $(SOBJ)
 	$(CXX) $(CXXFLAGS) -o $(SNAME) $(SOBJ) $(LDFLAG)
 	@echo "Built $(SNAME)"
 
-obj/%.o: src/%.cpp | obj/
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+obj/%.o: src/%.cpp $(CONST) | obj/
+	$(CXX) $(CXXFLAGS)  -c $< -o $@
 
 obj/:
 	mkdir -p obj

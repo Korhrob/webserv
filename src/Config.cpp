@@ -12,15 +12,9 @@
 
 #include <utility> // std::pair
 
-Config::Config() : m_valid(false), m_server_count(0)
+Config::Config() : Config("config.conf")
 {
-	std::ifstream	file("config.conf");
-
-	if (!file.is_open() || !file.good())
-		return;
-
-	m_valid = parse(file);
-	file.close();
+	
 }
 
 Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
