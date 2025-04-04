@@ -36,10 +36,6 @@ class HttpException : public std::exception {
             return HttpException(0, "Remote Closed Connection");
         }
 
-		// static HttpException	temporaryRedirect(const std::string& targetUrl) {
-		// 	return HttpException(307, "Temporary Redirect", targetUrl);
-		// }
-
         static HttpException    badRequest(std::string msg = "") {
             return HttpException(400, "Bad Request: " + msg);
         }
@@ -103,7 +99,7 @@ class HttpException : public std::exception {
 				case 501: return notImplemented();
 				case 505: return httpVersionNotSupported();
 				default:
-					return notFound();
+					return notFound("requested resource could not be found");
         }
     }
 };
