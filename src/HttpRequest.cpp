@@ -6,10 +6,8 @@
 
 #include <filesystem>
 #include <algorithm>
-#include <random>
-#include <chrono>
-#include <regex>
 #include <fcntl.h>
+#include <regex>
 
 HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_unchunked(-1), m_contentLength(0) {}
 
@@ -43,9 +41,7 @@ void	HttpRequest::parseRequest(Config& config)
 			m_request.erase(m_request.begin(), endOfHeaders + 4);
 		}
 		else
-		{
 			m_state = COMPLETE;
-		}
 	}
 
 	if (m_state == CHUNKED)
@@ -74,27 +70,6 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 	}
 
 	return HttpResponse(200, "OK", m_path, "", closeConnection(), timeout);
-}
-
-void	HttpRequest::setBodyType()
-{
-	auto it = m_headers.find("transfer-encoding");
-	if (it != m_headers.end() && it->second == "chunked")
-	{
-		m_state = CHUNKED;
-		return;
-	}
-
-	it = m_headers.find("content-type");
-	if (it != m_headers.end() && it->second.find("multipart") != std::string::npos)
-	{
-		m_state = MULTIPART;
-		if (contentLength() > m_maxSize)
-			throw HttpException::payloadTooLarge("max body size exceeded");
-		return;
-	}
-
-	throw HttpException::notImplemented("unknown content type");
 }
 
 void	HttpRequest::parseRequestLine(std::istringstream& request)
@@ -151,6 +126,7 @@ void	HttpRequest::parseQueryString()
 		size_t pos = line.find('=');
 		if (pos == std::string::npos)
 			throw HttpException::badRequest("malformed query string");
+
 		m_query[line.substr(0, pos)].push_back(line.substr(pos + 1));
 	}
 }
@@ -163,16 +139,22 @@ void	HttpRequest::parseHeaders(std::istringstream& request)
 	{
 		if (line.back() == '\r')
 			line.pop_back();
+
     	if (!std::regex_match(line, headerRegex)) 
 			throw HttpException::badRequest("malformed header");
+
 		size_t pos = line.find(':');
+
 		std::string key = line.substr(0, pos);
 		std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+		
 		if (m_headers.find(key) != m_headers.end())
 			throw HttpException::badRequest("duplicate header");
+
 		std::string value = line.substr(pos + 1);
 		value.erase(0, value.find_first_not_of(" "));
 		value.erase(value.find_last_not_of(" ") + 1);
+
 		m_headers[key] = value;
 	}
 }
@@ -192,7 +174,7 @@ void	HttpRequest::setLocation(Config& config)
 		std::string msg = HttpException::statusMessage(code);
 
 		if (msg.empty())
-			throw HttpException::notImplemented("unknown status code");
+			throw HttpException::notImplemented("unknown status code in return directive"); // config?
 
 		if (redirect.size() == 2)
 			throw HttpException::redirect(code, msg, redirect[1]);
@@ -201,21 +183,14 @@ void	HttpRequest::setLocation(Config& config)
 	}
 }
 
-void	HttpRequest::setMaxSize()
-{
-	std::vector<std::string>	maxSize;
-
-	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
-		m_server->tryGetDirective("client_max_body_size", maxSize);
-
-	m_maxSize = std::stoul(maxSize.front());
-}
-
 void    HttpRequest::setCgi()
 {
-    if (m_target.find(".") == std::string::npos) return;
+	size_t	pos = m_target.find_last_of(".");
 
-	std::string					extension(m_target.substr(m_target.find_last_of(".")));
+	if (pos == std::string::npos)
+		return;
+
+	std::string					extension(m_target.substr(pos));
 	std::vector<std::string>	cgi;
 
     if (!m_location->tryGetDirective("cgi", cgi))
@@ -233,9 +208,10 @@ void    HttpRequest::setPath()
 		m_server->tryGetDirective("root", root);
 
 	m_root = root.front();
+	m_target = m_target.substr(m_location->getName().length());
     m_path = m_root + m_target;
 
-	Logger::log("root: " + m_root + ", target: " + m_target);
+	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
 
 	if (!std::filesystem::exists(m_path))
 		tryTry_files();
@@ -251,7 +227,7 @@ void    HttpRequest::setPath()
 	}
 
 	if (!std::filesystem::exists(m_path))
-		throw HttpException::notFound("resource could not be found");
+		throw HttpException::notFound("requested resource could not be found");
 
 	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
@@ -352,17 +328,48 @@ void	HttpRequest::tryAutoindex()
 	}
 }
 
+void	HttpRequest::setMaxSize()
+{
+	std::vector<std::string>	maxSize;
+
+	if (!m_location->tryGetDirective("client_max_body_size", maxSize))
+		m_server->tryGetDirective("client_max_body_size", maxSize);
+
+	m_maxSize = std::stoul(maxSize.front());
+}
+
+void	HttpRequest::setBodyType()
+{
+	auto it = m_headers.find("transfer-encoding");
+	if (it != m_headers.end() && it->second == "chunked")
+	{
+		m_state = CHUNKED;
+		return;
+	}
+
+	it = m_headers.find("content-type");
+	if (it != m_headers.end() && it->second.find("multipart") != std::string::npos)
+	{
+		m_state = MULTIPART;
+		
+		if (contentLength() > m_maxSize)
+			throw HttpException::payloadTooLarge("max body size exceeded");
+
+		return;
+	}
+
+	throw HttpException::notImplemented("unknown content type");
+}
+
 void	HttpRequest::parseChunked() {
 	if (m_unchunked == -1)
 	{
 		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (uniqueId() + "_unchunked");
 		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+
 		if (m_unchunked == -1)
 			throw HttpException::internalServerError("error opening a file");
 	}
-
-	Logger::log("CHUNKED PARSING");
-	Logger::log("MAX SIZE:" + std::to_string(m_maxSize) + " SIZE: " + std::to_string(m_contentLength));
 
 	if (m_request.empty())
 		return;
@@ -376,47 +383,47 @@ void	HttpRequest::parseChunked() {
 	{
 		endOfSize = std::search(currentPos, m_request.end(), delim.begin(), delim.end());
 		if (endOfSize == m_request.end())
-		{
-			// couldn't find end of chunk size: incomplete chunk
-			// erase what's already unchunked and return to read more 
-			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos);
-			return;
-		}
+			return eraseUnchunked(currentPos);
+
 		std::string	sizeString(currentPos, endOfSize);
 		size_t		size = chunkSize(sizeString);
+
 		if (size == 0)
 		{
 			Logger::log("UNCHUNKING COMPLETE");
 			m_state = COMPLETE;
+
 			close(m_unchunked);
 			m_unchunked = -1;
 			return;
 		}
 
-		endOfSize += 2;
-		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
-		if (endOfContent == m_request.end())
-		{
-			// couldn't find end of chunk: incomplete chunk
-			// erase what's already unchunked and return to read more
-			if (currentPos > m_request.begin())
-				m_request.erase(m_request.begin(), currentPos);
-			return;
-		}
-		if (static_cast<size_t>(endOfContent - endOfSize) != size)
-			throw HttpException::badRequest("invalid chunk size");
-
-		int bytesWritten = write(m_unchunked, &(*endOfSize), std::distance(endOfSize, endOfContent));
-		if (bytesWritten == -1)
-			throw HttpException::internalServerError("error writing to a file");
-
 		m_contentLength += size;
+		// Logger::log("MAX SIZE:" + std::to_string(m_maxSize) + " SIZE: " + std::to_string(m_contentLength));
 		if (m_contentLength > m_maxSize)
 			throw HttpException::payloadTooLarge("max body size exceeded");
 
+		endOfSize += 2;
+
+		endOfContent = std::search(endOfSize, m_request.end(), delim.begin(), delim.end());
+		if (endOfContent == m_request.end())
+			return eraseUnchunked(currentPos);
+
+		if (static_cast<size_t>(endOfContent - endOfSize) != size)
+			throw HttpException::badRequest("invalid chunk size");
+
+		int bytesWritten = write(m_unchunked, &(*endOfSize), size);
+		if (bytesWritten == -1)
+			throw HttpException::internalServerError("error writing to a file");
+
 		currentPos = endOfContent + 2;
 	}
+}
+
+void	HttpRequest::eraseUnchunked(std::vector<char>::iterator	currentPos)
+{
+	if (currentPos > m_request.begin())
+		m_request.erase(m_request.begin(), currentPos);
 }
 
 size_t	HttpRequest::chunkSize(std::string& hex) {
@@ -440,11 +447,11 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 	if (contentLength() != m_request.size())
 		return;
 
-	std::string	emptyLine = "\r\n\r\n";
 	std::string end = "--\r\n";
+	std::string	emptyLine = "\r\n\r\n";
 	size_t		boundaryLen = boundary.length();
 
-	auto firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
+	auto	firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
 	if (firstBoundary != m_request.begin())
 		throw HttpException::badRequest("invalid multipart/form-data content");
 	
@@ -453,16 +460,21 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 	while (!std::equal(currentPos, m_request.end(), end.begin(), end.end()))
 	{
 		currentPos += 2;
-		auto endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
+
+		auto	endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
 		if (endOfHeaders == m_request.end())
 			throw HttpException::badRequest("invalid multipart/form-data content");
-		mpData	part;
+
+		mpData		part;
 		std::string	headers(currentPos, endOfHeaders);
+
 		parseMultipartHeaders(headers, part);
 		currentPos = endOfHeaders + 4;
-		auto endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
+
+		auto	endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
 			throw HttpException::badRequest("invalid multipart/form-data content");
+
 		if (currentPos != endOfContent)
 		{
 			if (part.filename.empty())
@@ -476,17 +488,17 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 					throw HttpException::internalServerError("error opening a file");
 
 				int bytesWritten = write(tmpFile, &(*currentPos), std::distance(currentPos, endOfContent - 2));
-				if (bytesWritten == -1)
-				{
-					close(tmpFile);
-					throw HttpException::internalServerError("error writing to a file");
-				}
 				close(tmpFile);
+
+				if (bytesWritten == -1)
+					throw HttpException::internalServerError("error writing to a file");
 			}
 		}
+
 		multipart.push_back(part);
 		currentPos = endOfContent + boundaryLen;
 	}
+
 	m_state = COMPLETE;
 }
 
@@ -500,25 +512,34 @@ void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
 	{
 		if (line.back() == '\r')
 			line.pop_back();
+
 		std::transform(line.begin(), line.end(), line.begin(), ::tolower);
+
 		if (line.find("content-disposition: form-data") != std::string::npos)
 		{
 			startPos = line.find("name=\"");
 			if (startPos == std::string::npos)
 				throw HttpException::badRequest("invalid header for multipart/form-data");
+
 			startPos += 6;
+
 			endPos = line.find("\"", startPos);
 			if (endPos == std::string::npos)
 				throw HttpException::badRequest("invalid header for multipart/form-data");
+
 			part.name = line.substr(startPos, endPos - startPos);
+
 			startPos = line.find("filename=\"");
 			if (startPos != std::string::npos)
 			{
 				startPos += 10;
+
 				endPos = line.find("\"", startPos);
 				if (endPos == std::string::npos)
 					throw HttpException::badRequest("invalid header for multipart/form-data");
+
 				part.filename = uniqueId() + "_" + line.substr(startPos, endPos - startPos);
+
 				if (part.filename.find("../") != std::string::npos)	
 					throw HttpException::badRequest("forbidden traversal pattern in filename");
 			}
@@ -527,6 +548,7 @@ void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
 		{
 			startPos = line.find("content-type: ") + 14;
 			part.contentType = line.substr(startPos);
+
 			if (part.contentType.find("multipart") != std::string::npos)
 				parseMultipart(boundary(part.contentType), part.nestedData);
 		}
@@ -588,7 +610,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
 		m_server->tryGetDirective("uploadDir", uploadDir);
 
-	std::string	uploads = m_root + "/" + uploadDir.front();
+	std::string	uploads = uploadDir.front();
 
 	if (!std::filesystem::exists(uploads))
 	{
