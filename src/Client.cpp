@@ -7,16 +7,15 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 	if (m_request.state() == COMPLETE)
 		m_request = {};
 
-	appendRequest(vec);
-
 	try {
+		m_request.appendRequest(vec);
 		m_request.parseRequest(config);
 
-		if (m_request.state() == COMPLETE)
-		{
+		if (m_request.state() != HEADERS) // kinda dumb in chunked/multipart sets this multiple times
 			setTimeoutDuration(m_request.timeoutDuration());
+
+		if (m_request.state() == COMPLETE)
 			m_response = m_request.processRequest(getTimeoutDuration());
-		}
 
 	} catch (HttpException& e) {
 		m_request.setState(COMPLETE);
@@ -26,16 +25,12 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 
 		m_response = HttpResponse(e.code(), e.what(), m_request.ePage(e.code()), e.redir(), m_request.closeConnection(), getTimeoutDuration());
 
-    } catch (...) {
+    } catch (std::exception& e) {
 		m_request.setState(COMPLETE);
 
+		Logger::log(e.what());
 		m_response = HttpResponse(500, "Internal Server Error: unknown error occurred", m_request.ePage(500), "", true, getTimeoutDuration());
 	}
-}
-
-void	Client::appendRequest(std::vector<char>& request)
-{
-	m_request.appendRequest(request);
 }
 
 const HttpResponse&	Client::remoteClosedConnection()
