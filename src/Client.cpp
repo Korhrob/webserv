@@ -4,10 +4,10 @@
 
 void	Client::handleRequest(Config& config, std::vector<char>& vec)
 {
-	if (m_request.state() == COMPLETE)
-		m_request = {};
-
 	try {
+		if (m_request.state() == COMPLETE)
+			m_request = {};
+
 		m_request.appendRequest(vec);
 		m_request.parseRequest(config);
 
@@ -28,7 +28,6 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
     } catch (std::exception& e) {
 		m_request.setState(COMPLETE);
 
-		Logger::log(e.what());
 		m_response = HttpResponse(500, "Internal Server Error: unknown error occurred", m_request.ePage(500), "", true, getTimeoutDuration());
 	}
 }
