@@ -56,6 +56,10 @@ class HttpException : public std::exception {
 			return HttpException(413, "Payload Too Large: " + msg);
 		}
 
+		static HttpException	URITooLong(std::string msg = "") {
+			return HttpException(414, "URI Too Long: " + msg);
+		}
+
         static HttpException    internalServerError(std::string msg = "") {
             return HttpException(500, "Internal Server Error: " + msg);
         }
