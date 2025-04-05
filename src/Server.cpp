@@ -2,7 +2,6 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Const.hpp"
-// #include "HttpHandler.hpp"
 
 #include <string>
 #include <algorithm> // min
