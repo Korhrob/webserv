@@ -26,6 +26,9 @@ void	HttpRequest::parseRequest(Config& config)
 		if (endOfHeaders == m_request.end())
 			return;
 
+		if (std::distance(m_request.begin(), endOfHeaders) > HEADERS_MAX)
+			throw HttpException::badRequest("Headers too large");
+
 		std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
 		parseRequestLine(request);
@@ -79,6 +82,10 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 	std::string	version;
 
 	getline(request, line);
+
+	if (line.length() > URI_MAX)
+		throw HttpException::URITooLong("requested URI too long");
+
 	std::istringstream	requestLine(line);
 
 	if (!(requestLine >> m_method >> m_target >> version) || requestLine >> excess)
