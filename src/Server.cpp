@@ -298,7 +298,7 @@ void	Server::handleRequest(int fd)
 			return ;
 		}
 
-		Logger::log(client->response());
+		Logger::log(client->header());
 
 		Logger::log("== SEND RESPONSE ==");
 		

@@ -215,7 +215,8 @@ void    HttpRequest::setPath()
 		m_server->tryGetDirective("root", root);
 
 	m_root = root.front();
-	m_target = m_target.substr(m_location->getName().length());
+	if (m_location->getName().length() > 1)
+		m_target = m_target.substr(m_location->getName().length());
 	// if (m_target.front() != '/') // annika check this
 	// 	m_target = '/' + m_target;
     m_path = m_root + m_target;
@@ -235,6 +236,17 @@ void    HttpRequest::setPath()
 		// handle it as such
 		if (std::filesystem::is_directory(m_path))
 			tryAutoindex();
+	}
+
+	const std::vector<std::string> ext = { ".html", ".htm", ".php"};
+	for (auto& it : ext)
+	{
+		if (std::filesystem::exists(m_path + it))
+		{
+			m_path += it;
+			Logger::log("new path: " + m_path);
+			break;
+		}
 	}
 
 	if (!std::filesystem::exists(m_path))
