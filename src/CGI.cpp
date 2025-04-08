@@ -50,13 +50,9 @@ static void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
 	cgi = currentPath.string() + "/cgi-bin" + cgi;
 	char	*arg[3] = {(char *)interpreter.c_str(), (char *)cgi.c_str(), nullptr};
 	if (dup2(fdtemp, STDOUT_FILENO) < 0)
-	{
-		write(fdtemp, "funcError", 9);
 		std::exit(EXIT_FAILURE);
-	}
 	envPtrs.push_back(nullptr);
 	execve((char *)interpreter.c_str(), arg, envPtrs.data());
-	write(fdtemp, "funcError", 9);
 	std::exit(EXIT_FAILURE);
 }
 
@@ -109,6 +105,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 	int					fdtemp = fileno(temp);
 	std::vector<char*> 	envPtrs;
 	std::string			body;
+
 	createEnv(envPtrs, script);
 	setEnvValue("REQUEST_METHOD", method, envPtrs);
 	if (!data.empty())
@@ -125,16 +122,12 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 	{
 		pid_t cgiPid = fork();
 		if (cgiPid < 0)
-		{
-			write(fdtemp, "funcError", 9);
 			std::exit(EXIT_FAILURE);
-		}
 		if (cgiPid == 0)
 			run(script, fdtemp, envPtrs);
 		pid_t timeoutPid = fork();
 		if (timeoutPid < 0)
 		{
-			write(fdtemp, "funcError", 9);
 			kill(cgiPid, SIGKILL);
 			std::exit(EXIT_FAILURE);
 		}
@@ -142,14 +135,9 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 			std::this_thread::sleep_for(std::chrono::seconds(TIMEOUT_CGI));
 		pid_t exitedPid = waitpid(-1, NULL, 0);
 		if (exitedPid == cgiPid)
-		{
 			kill(timeoutPid, SIGKILL);
-		}
 		else if (exitedPid == timeoutPid)
-		{
 			kill(cgiPid, SIGKILL);
-			write(fdtemp, "TIMEOUT", 7);
-		}
 		waitpid(-1, NULL, 0);
 		std::exit(EXIT_SUCCESS);
 	}
@@ -158,12 +146,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 		waitpid(pid, &status, 0);
 		setCgiString(temp, fdtemp, body);
 	}
-	if (body == "TIMEOUT")
-	{
-		freeEnvPtrs(envPtrs);
-		throw HttpException::internalServerError("CGI timeout");
-	}
-	if (body.empty() || body == "funcError")
+	if (body.empty())
 	{
 		freeEnvPtrs(envPtrs);
 		throw HttpException::internalServerError("Something went wrong with CGI");
