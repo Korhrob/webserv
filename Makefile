@@ -31,7 +31,7 @@ fclean: clean
 	rm -f $(SNAME)
 	rm -rf obj
 	rm -rf cgi-bin/people.txt
-	rm -rf www/uploads/*
+	rm -rf www/upload/*
 
 re: fclean all
 
