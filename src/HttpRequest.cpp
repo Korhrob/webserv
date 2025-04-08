@@ -56,15 +56,17 @@ void	HttpRequest::parseRequest(Config& config)
 
 HttpResponse	HttpRequest::processRequest(t_ms timeout)
 {
+	Logger::log(m_target + "\n\n\n\n\n");
+
 	switch (method())
 	{
 		case GET:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "GET"), timeout);
 			break;
 		case POST:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "POST"), timeout);
 			handlePost(m_multipart);
 			break;
 		case DELETE:
