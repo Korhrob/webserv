@@ -46,7 +46,6 @@ class Client
 	private:
 		int				m_fd;
 		t_time			m_last_activity;
-		//bool			m_close_connection = false;
 		t_time			m_disconnect_time;
 		ClientState		m_state;
 		int				m_last_response;

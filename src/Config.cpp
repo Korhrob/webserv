@@ -94,8 +94,6 @@ bool	Config::parse(std::ifstream& stream)
 				node_name = trim(node_name);
 			}
 
-			// TODO: route
-
 			// Test this
 			if (!m_tree.empty() && m_tree.back()->findNode(node_name) != nullptr)
 			{
@@ -190,15 +188,11 @@ bool	Config::parse(std::ifstream& stream)
 			}
 		}
 
-		// create default directives
-
 		node->addDefaultDirective("root", { "www/html" });
 		node->addDefaultDirective("index", { "index.html", "index.htm", "index.php" });
 		node->addDefaultDirective("uploadDir", { "upload" });
 		node->addDefaultDirective("keepalive_timeout", { "60" });
 		node->addDefaultDirective("client_max_body_size", { "1048576" });
-		// max clients?
-		// cgi timeout?
 		node->addDefaultErrorPages();
 
 	}
@@ -222,7 +216,6 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 		line = line.substr(0, line.length() - 1);
 	}
 
-	// split
 	for (char& ch : line)
 	{
 		if (WHITESPACE.find(ch) != std::string::npos)

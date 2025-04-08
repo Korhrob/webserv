@@ -35,7 +35,7 @@ class ConfigNode : public std::exception
 		{ "autoindex", &ConfigNode::handleAutoIndex },
 		{ "client_max_body_size", &ConfigNode::handleBodySize },
 		{ "keepalive_timeout", &ConfigNode::handleTimeout },
-		{ "return", &ConfigNode::handleReturn }
+		{ "return", &ConfigNode::handleReturn },
 	};
 
 	void	handleListen(std::vector<std::string>& d);
@@ -44,6 +44,7 @@ class ConfigNode : public std::exception
 	void	handleBodySize(std::vector<std::string>& d);
 	void	handleTimeout(std::vector<std::string>& d);
 	void	handleReturn(std::vector<std::string>& d);
+	// ...
 
 public:
 	ConfigNode();
