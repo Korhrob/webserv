@@ -75,27 +75,26 @@ bool	Config::parse(std::ifstream& stream)
 				node_name += "_" + std::to_string(m_server_count++);
 			}
 
-			// if node name starts with "location", we treat node as the path
-			// ex. "location /" becomes just "/"
-
-			// TODO:
-			// should only allow certain name(s) like location or route
-			// also improve search for cases like 'qwertyu /location/location'
-
-
-			// check if position of location is at the start of the string
+			if (node_name.empty())
+			{
+				Logger::logError("unnamed block on line " + std::to_string(line_nbr) + ":");
+				Logger::logError(line);
+				return false;
+			}
+			
 			if (node_name.find("location") != std::string::npos)
 			{
-				node_name = node_name.substr(9);
-				node_name = trim(node_name);
-				//Logger::log("location node = [" + node_name + "]");
-				if (node_name.empty())
+				if (node_name.size() < 9)
 				{
 					Logger::logError("unnamed location block on line " + std::to_string(line_nbr) + ":");
 					Logger::logError(line);
 					return false;
 				}
+				node_name = node_name.substr(9);
+				node_name = trim(node_name);
 			}
+
+			// TODO: route
 
 			// Test this
 			if (!m_tree.empty() && m_tree.back()->findNode(node_name) != nullptr)
@@ -143,8 +142,6 @@ bool	Config::parse(std::ifstream& stream)
 			Logger::logError(line);
 			return false;
 		}
-
-		// should while loop until ';'
 
 		std::vector<std::string> directives = parseDirective(line, line_nbr);
 
@@ -200,11 +197,11 @@ bool	Config::parse(std::ifstream& stream)
 		node->addDefaultDirective("uploadDir", { "upload" });
 		node->addDefaultDirective("keepalive_timeout", { "60" });
 		node->addDefaultDirective("client_max_body_size", { "1048576" });
+		// max clients?
+		// cgi timeout?
 		node->addDefaultErrorPages();
 
 	}
-
-	// create default error rules for each server
 
 	return true;
 }
