@@ -260,8 +260,6 @@ void    HttpRequest::setPath()
 	m_root = root.front();
     m_path = m_root + m_target;
 
-	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
-
 	if (!std::filesystem::exists(m_path))
 		tryTry_files();
 
@@ -302,7 +300,6 @@ void	HttpRequest::tryTry_files()
 					pos += m_target.length();
 				}
 
-				Logger::log("try_files: " + temp);
 				if (std::filesystem::exists(m_root + temp)) {
 					m_path = m_root + temp;
 					m_target = temp;
@@ -319,7 +316,6 @@ void	HttpRequest::tryTry_files()
 				{
 					int code = std::stoi(try_files.back().substr(1));
 
-					Logger::log("try_files failed use ecode: " + std::to_string(code));
 					throw HttpException::withCode(code);
 				}
 			}
@@ -342,10 +338,8 @@ void	HttpRequest::tryIndex()
 
 		temp += index;
 
-		Logger::log("try index: " + temp);
 		if (std::filesystem::exists(temp))
 		{
-			Logger::log("target has index");
 			m_path = temp;
 			return;
 		}
@@ -361,10 +355,7 @@ void	HttpRequest::tryAutoindex()
 		m_target += "/";
 
 	if (!m_location->autoindexOn())
-	{
-		Logger::log("autoindex: off, but trying to access directory");
 		throw HttpException::forbidden("autoindex: off, but trying to access directory");
-	}
 }
 
 void	HttpRequest::setMaxSize()
@@ -640,7 +631,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	std::vector<std::string>	uploadDir;
 
 	if (!m_location->tryGetDirective("uploadDir", uploadDir))
-		m_server->tryGetDirective("uploadDir", uploadDir);
+		m_server->tryGetDirective("uploadDir", uploadDir); // fix
 
 	std::string	uploads = uploadDir.front();
 

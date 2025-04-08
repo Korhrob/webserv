@@ -21,7 +21,7 @@ using DirectiveMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class ConfigNode : public std::exception
 {
-	std::string		m_name; // technically not required
+	std::string		m_name;
 	DirectiveMap	m_directives;
 	NodeMap			m_children;
 	bool			m_autoindex;
@@ -44,10 +44,6 @@ class ConfigNode : public std::exception
 	void	handleBodySize(std::vector<std::string>& d);
 	void	handleTimeout(std::vector<std::string>& d);
 	void	handleReturn(std::vector<std::string>& d);
-	// ...
-	// handleKeepaliveTimeout - must have a valid int value
-	// handleMaxBodySize - must have a valid size_t value
-	// handleReturn - must have two values: 307 & targetUrl (for temporary redirect only)
 
 public:
 	ConfigNode();

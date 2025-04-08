@@ -1,19 +1,19 @@
 #pragma once
 
-#include <string> // std::string
-#include <iostream> // std::cout
-#include <sys/socket.h> // socket
-#include <unistd.h> // close
-#include <netinet/in.h> // sockaddr_in
-#include <arpa/inet.h> // For inet_ntoa and struct in_addr
+#include <string>
+#include <iostream>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <sstream>
-#include <chrono> // time
-#include <vector> // vector
-#include <memory> // shared_ptr
+#include <chrono>
+#include <vector>
+#include <memory>
 #include <unordered_map>
-#include <sys/epoll.h> // epoll
-#include <queue> // priority_queue
+#include <sys/epoll.h>
+#include <queue>
 #include <unordered_set>
 
 #include "Logger.hpp"
@@ -45,14 +45,12 @@ class Server
 	private:
 		Config							m_config;
 		unsigned int					m_addr_len = sizeof(t_sockaddr_in);
-		//int								m_max_backlog = 128; // check config for override
 
 		t_time							m_time;
 
-		// new stuff
 		int								m_epoll_fd;
 		std::vector<epoll_event>		m_events;
-		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
+		std::unordered_map<int, int>	m_port_map;
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
 		Set								m_timeout_set;

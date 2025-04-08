@@ -4,7 +4,7 @@
 #include <vector>
 
 static const unsigned int BUFFER_SIZE = 1024;
-static const unsigned int PACKET_SIZE = 8192; // 8 KB
+static const unsigned int PACKET_SIZE = 8192;
 static const unsigned int EPOLL_POOL = 128;
 static const unsigned int URI_MAX = 8192;
 static const unsigned int HEADERS_MAX = 32000;
@@ -23,9 +23,6 @@ const std::vector<std::string>	MANDATORY_DIRECTIVES { "listen", "server_name" };
 const std::vector<std::string>	VALID_METHODS { "GET", "POST", "DELETE" };
 const std::string				RESPONSE_TIMEOUT = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
 const std::vector<int>			ERROR_CODES { 307, 400, 403, 404, 411, 413, 500, 501, 505 };
-
-// because this list is growing quite large,
-// might be better to convert it to unordered_set
 const std::vector<std::string>	VALID_DIRECTIVES { "listen", "host", "server_name", "index", "root", "methods", "cgi", "uploadDir",
 													"client_max_body_size", "error_page", "autoindex", "return", "try_files",
 													"keepalive_timeout" };
