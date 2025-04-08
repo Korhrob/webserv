@@ -237,11 +237,13 @@ void	ConfigNode::handleTimeout(std::vector<std::string>& directives)
 	try
 	{
 		size_t			len;
-		unsigned int	size = std::stoul(directives.front(), &len);
+		unsigned long	size = std::stoul(directives.front(), &len);
 		(void)size;
 
 		if (len != directives.front().length())
 			throw ConfigException::nonNumerical(directives.front());
+		if (size > std::numeric_limits<int>::max())
+			throw ConfigException::outOfRange("keepalive_timeout");
 	}
 	catch (std::exception& e)
 	{
@@ -256,7 +258,7 @@ void	ConfigNode::handleReturn(std::vector<std::string>& directives)
 	try
 	{
 		size_t			len;
-		unsigned int	size = std::stoul(directives.front(), &len);
+		unsigned long	size = std::stoul(directives.front(), &len);
 		(void)size;
 
 		if (len != directives.front().length())

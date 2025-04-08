@@ -60,11 +60,11 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 	{
 		case GET:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "GET"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
 			break;
 		case POST:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "POST"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
 			handlePost(m_multipart);
 			break;
 		case DELETE:
@@ -215,7 +215,6 @@ void    HttpRequest::setPath()
 		m_server->tryGetDirective("root", root);
 
 	m_root = root.front();
-	m_target = m_target.substr(m_location->getName().length());
     m_path = m_root + m_target;
 
 	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
@@ -231,6 +230,17 @@ void    HttpRequest::setPath()
 		// handle it as such
 		if (std::filesystem::is_directory(m_path))
 			tryAutoindex();
+	}
+
+	const std::vector<std::string> ext = { ".html", ".htm", ".php"};
+	for (auto& it : ext)
+	{
+		if (std::filesystem::exists(m_path + it))
+		{
+			m_path += it;
+			Logger::log("new path: " + m_path);
+			break;
+		}
 	}
 
 	if (!std::filesystem::exists(m_path))
