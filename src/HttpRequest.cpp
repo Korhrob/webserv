@@ -70,7 +70,7 @@ void	HttpRequest::parseRequest(Config& config)
 			return;
 
 		if (std::distance(m_request.begin(), endOfHeaders) > HEADERS_MAX)
-			throw HttpException::badRequest("Headers too large");
+			throw HttpException::badRequest("Headers too long");
 
 		std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
@@ -629,19 +629,29 @@ void HttpRequest::handleDelete()
 void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 {
 	std::vector<std::string>	uploadDir;
+	std::string					directory;
 
-	if (!m_location->tryGetDirective("uploadDir", uploadDir))
-		m_server->tryGetDirective("uploadDir", uploadDir); // fix
-
-	std::string	uploads = uploadDir.front();
-
-	if (!std::filesystem::exists(uploads))
+	if (m_location->tryGetDirective("uploadDir", uploadDir))
 	{
-		if (!std::filesystem::create_directory(uploads))
+		directory = m_root + '/' + uploadDir.front();
+	}
+	else
+	{
+		std::vector<std::string> root;
+
+		m_server->tryGetDirective("uploadDir", uploadDir);
+		m_server->tryGetDirective("root", root);
+
+		directory = root.front() + '/' + uploadDir.front();
+	}
+
+	if (!std::filesystem::exists(directory))
+	{
+		if (!std::filesystem::create_directory(directory))
 			throw HttpException::internalServerError("unable to create upload directory");
 	}
 
-	std::filesystem::perms perms = std::filesystem::status(uploads).permissions();
+	std::filesystem::perms perms = std::filesystem::status(directory).permissions();
 
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
 		throw HttpException::forbidden("permission denied for upload directory");
@@ -651,7 +661,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 		if (!part.filename.empty())
 		{
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-			std::filesystem::path destination = uploads + "/" + part.filename;
+			std::filesystem::path destination = directory + "/" + part.filename;
 			std::filesystem::copy_file(tmpFile, destination);
 		}
 		if (!part.nestedData.empty())
