@@ -277,34 +277,20 @@ void	Server::handleRequest(int fd)
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
-	if (bytes_read == 0)
+	if (bytes_read == 0 && vec.empty())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
 		return ;
 	}
 
-	if (bytes_read == -1)
-		return;
-
-	if (bytes_read == -1)
-		return;
-
-	Logger::log(std::string(vec.begin(), vec.end()));
-	Logger::log("-------------------------------------------------------------");
+	if (bytes_read == -1) {}
 
 	client->handleRequest(m_config, vec);
 	updateClient(client);
 
 	if (client->requestState() == COMPLETE)
 	{
-		if (client->closeConnection() == 2)
-		{
-			Logger::log("== CLOSE CONNECTION ==");
-			removeClient(client);
-			return ;
-		}
-
 		Logger::log(client->header());
 
 		Logger::log("== SEND RESPONSE ==");
