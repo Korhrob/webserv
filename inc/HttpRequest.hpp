@@ -53,7 +53,8 @@ class HttpRequest {
 		bool											m_cgi;
 		size_t											m_maxSize;
 		std::vector<char>								m_request;
-		int												m_unchunked;
+		std::string										m_unchunkedData;
+		std::ofstream									m_unchunked;
 		std::vector<mpData>								m_multipart;
 		size_t											m_contentLength;
 
@@ -90,8 +91,9 @@ class HttpRequest {
 		~HttpRequest();
 
 		HttpRequest(const HttpRequest&) = delete;
-		HttpRequest&	operator=(const HttpRequest&) = default;
+		HttpRequest&	operator=(const HttpRequest&) = delete;
 
+		void							reset();
 		void							appendRequest(std::vector<char>& request);
 		void							parseRequest(Config& config);
 		HttpResponse					processRequest(t_ms timeout);
