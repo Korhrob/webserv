@@ -96,7 +96,7 @@ int	Server::createListener(int port)
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
 		Logger::logError("setsockopt failed!");
-        perror("setsockopt failed"); // remember to delete
+        //perror("setsockopt failed"); // remember to delete
         close(fd);
         return false;
     }
@@ -278,7 +278,7 @@ void	Server::handleRequest(int fd)
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
-	perror("recv"); // remember to delete
+	//perror("recv"); // remember to delete
 
 	// if (bytes_read == 0)
 	// 	throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
