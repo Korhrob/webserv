@@ -13,6 +13,7 @@ all: $(SNAME)
 
 $(SNAME): $(SOBJ)
 	$(CXX) $(CXXFLAGS) -o $(SNAME) $(SOBJ) $(LDFLAG)
+	touch cgi-bin/people.txt
 	@echo "Built $(SNAME)"
 
 obj/%.o: src/%.cpp $(CONST) | obj/
@@ -30,7 +31,6 @@ fclean: clean
 	rm -f $(SNAME)
 	rm -rf obj
 	rm -rf cgi-bin/people.txt
-	touch cgi-bin/people.txt
 	rm -rf www/uploads/*
 
 re: fclean all
