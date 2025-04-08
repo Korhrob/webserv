@@ -274,7 +274,7 @@ void	Server::handleRequest(int fd)
 
 	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
 	{
-		Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		Logger::log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 

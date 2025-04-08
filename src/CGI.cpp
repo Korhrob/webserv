@@ -145,7 +145,7 @@ std::string handleCGI(std::vector<mpData> data, queryMap map, std::string script
 		{
 			kill(timeoutPid, SIGKILL);
 		}
-		else
+		else if (exitedPid == timeoutPid)
 		{
 			kill(cgiPid, SIGKILL);
 			write(fdtemp, "TIMEOUT", 7);
