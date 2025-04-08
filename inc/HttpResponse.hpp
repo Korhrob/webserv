@@ -23,27 +23,24 @@ class HttpResponse {
 		int												m_close;
 		t_ms											m_timeout;
 
-		std::string	getStatusLine();
-		std::string	getHeaders();
-		std::string	getBody(const std::string& path);
-		
-		void	setBody(const std::string& path);
-		void	setHeaders();
+		void		setBody(const std::string& path);
+		void		setHeaders();
+		std::string	readBody(const std::string& path);
+		std::string	statusLine();
+		std::string	headers();
 		
 	public:
 		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
-		HttpResponse(const std::string& msg, const std::string& body);
+		HttpResponse(const std::string& body, t_ms td);
 
+		HttpResponse() = default;
 		~HttpResponse() = default;
+
 		HttpResponse&	operator=(const HttpResponse&) = default;
-
-		HttpResponse() = delete;
-
-		// copy constructor is actually usefull now - robert
 		HttpResponse(const HttpResponse&) = default;
 
-		std::string	getResponse();
-		std::string	getHeader();
-		e_type		getSendType();
-		int			getCloseConnection();
+		std::string	response();
+		std::string	header();
+		e_type		sendType();
+		int			closeConnection();
 };

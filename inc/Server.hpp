@@ -20,7 +20,6 @@
 #include "Client.hpp"
 #include "Const.hpp"
 #include "Config.hpp"
-#include "HttpHandler.hpp"
 
 using t_sockaddr_in = struct sockaddr_in;
 using t_time = std::chrono::steady_clock::time_point;
@@ -57,12 +56,11 @@ class Server
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
 		Set								m_timeout_set;
-		HttpHandler						m_handler;
 
 
 	public:
 
-		Server(); // pass string for config name
+		Server(const std::string& path);
 		~Server();
 
 		bool	startServer();

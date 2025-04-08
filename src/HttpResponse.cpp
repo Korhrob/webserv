@@ -7,79 +7,72 @@
 HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout)
 : m_code(code), m_msg(msg), m_body(""), m_type(TYPE_SINGLE), m_targetUrl(targetUrl), m_close(close), m_timeout(timeout)
 {
-	Logger::log(path + "     " + std::to_string(code) + "        " + targetUrl);
 	setBody(path);
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& msg, const std::string& body) : m_msg(msg), m_body(""), m_close(0)
+HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_code(200), m_msg("CGI success"), m_body(""), m_targetUrl(""), m_close(0), m_timeout(td)
 {
-	if (body.empty())
+	size_t size = body.size();
+
+	if (size <= PACKET_SIZE)
 	{
-		m_code = 404;
-		m_msg = "Not Found: CGI fail";
+		m_body = body;
 		m_type = TYPE_SINGLE;
 	}
 	else
-	{
-		m_code = 200;
-		size_t size = body.size();
-		if (size <= PACKET_SIZE) {
-			m_body = body;
-			m_type = TYPE_SINGLE;
-		} else
-			m_type = TYPE_CHUNKED;
-	}
+		m_type = TYPE_CHUNKED;
+
 	setHeaders();
 }
 
 void	HttpResponse::setBody(const std::string& path)
 {
-	if (!path.empty())
-	{
-		try {
-			if (std::filesystem::is_directory(path))
-			{
-				m_body = listDirectory(path, m_targetUrl);
-				if (m_body.length() > PACKET_SIZE)
-					m_type = TYPE_CHUNKED;
-				return;
-			}
+	if (path.empty())
+		return;
 
-			size_t size = std::filesystem::file_size(path);
-			if (size <= PACKET_SIZE)
-			{
-				try {
-					m_body = getBody(path);
-				} catch (HttpException& e) {
-					m_code = e.code();
-					m_msg = e.what();
-				}
-			}
-			else
+	try {
+		if (std::filesystem::is_directory(path))
+		{
+			m_body = listDirectory(path, m_targetUrl);
+			if (m_body.length() > PACKET_SIZE)
 				m_type = TYPE_CHUNKED;
+			return;
+		}
 
-		} catch (const std::filesystem::filesystem_error& e) {
-			if (e.code() == std::errc::no_such_file_or_directory)
-			{
-				m_code = 404;
-				m_msg = "Not Found";
+		size_t size = std::filesystem::file_size(path);
+		if (size <= PACKET_SIZE)
+		{
+			try {
+				m_body = readBody(path);
+			} catch (HttpException& e) {
+				m_code = e.code();
+				m_msg = e.what();
 			}
-			else if (e.code() == std::errc::permission_denied)
-			{
-				m_code = 403;
-				m_msg = "Forbidden";
-			}
-			else
-			{
-				m_code = 500;
-				m_msg = "Internal Server Error: filesystem error";
-			}
+		}
+		else
+			m_type = TYPE_CHUNKED;
+
+	} catch (const std::filesystem::filesystem_error& e) {
+		if (e.code() == std::errc::no_such_file_or_directory)
+		{
+			m_code = 404;
+			m_msg = "Not Found";
+		}
+		else if (e.code() == std::errc::permission_denied)
+		{
+			m_code = 403;
+			m_msg = "Forbidden";
+		}
+		else
+		{
+			m_code = 500;
+			m_msg = "Internal Server Error: filesystem error";
 		}
 	}
 }
 
-std::string	HttpResponse::getBody(const std::string& path)
+std::string	HttpResponse::readBody(const std::string& path)
 {
 	std::ifstream file(path, std::ios::binary);
 
@@ -103,6 +96,8 @@ std::string	HttpResponse::getBody(const std::string& path)
 
 void	HttpResponse::setHeaders()
 {
+	m_headers = {};
+
 	if (!m_close)
 		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
@@ -117,30 +112,29 @@ void	HttpResponse::setHeaders()
 		m_headers.emplace("Keep-Alive", "timeout=" + std::to_string(m_timeout.count() / 1000));
 	}
 
-
 	if (m_type == TYPE_SINGLE)
 		m_headers.emplace("Content-Length", std::to_string(m_body.size()));
 	else
 		m_headers.emplace("Transfer-Encoding", "chunked");
 }
 
-std::string HttpResponse::getResponse()
+std::string HttpResponse::response()
 {
     std::string response;
 
-    response = getStatusLine();
-    response += getHeaders();
+    response = statusLine();
+    response += headers();
     response += m_body;
 
     return response;
 }
 
-std::string HttpResponse::getStatusLine()
+std::string HttpResponse::statusLine()
 {
     return "HTTP/1.1 " + std::to_string(m_code) + " " + m_msg + "\r\n";
 }
 
-std::string HttpResponse::getHeaders()
+std::string HttpResponse::headers()
 {
     std::string headers;
 
@@ -154,17 +148,17 @@ std::string HttpResponse::getHeaders()
     return headers;
 }
 
-e_type  HttpResponse::getSendType()
+e_type  HttpResponse::sendType()
 {
     return m_type;
 }
 
-std::string HttpResponse::getHeader()
+std::string HttpResponse::header()
 {
-	return getStatusLine() + getHeaders();
+	return statusLine() + headers();
 }
 
-int HttpResponse::getCloseConnection()
+int HttpResponse::closeConnection()
 {
 	return m_close;
 }

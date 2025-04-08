@@ -4,19 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delete File</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			background-color: #232020;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 80vh;
+		}
+
+		#content {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			width: 400px;
+		}
+
+		h2 {
+			color: white;
+		}
+
+		form {
+			display: flex;
+			flex-direction: column;
+			max-width: 300px;
+		}
+
+		label {
+			color: white;
+			font-size: 16px;
+		}
+
+		input {
+			margin-bottom: 10px;
+			padding: 8px;
+			font-size: 16px;
+		}
+
+		form button {
+			margin-bottom: 10px;
+			padding: 8px;
+			font-size:  18px;
+		}
+
+		.message {
+			font-size: 18px;
+			color: white;
+			min-height: 24px;
+			margin-top: 10px;
+			visibility: hidden;
+		}
+
+		.button:hover {
+			background-color: #45a049;
+		}
+
+		.button {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			font-size: 16px;
+		}
+	</style>
 </head>
 <body>
-    <h2>Delete a File</h2>
-    <form id="delete">
-        <label for="filename">Enter file name:</label>
-        <input type="text" id="filename" name="filename" required>
-        <button type="submit">Delete</button>
-    </form>
-    <p id="responseMessage"></p>
+	<div id="content">
+		<h2>Delete File</h2>
+		<form id="delete">
+			<label for="filename">Filename:</label>
+			<input type="text" id="filename" name="filename" required>
+			<button type="submit">Delete</button>
+		</form>
+		<p id="responseMessage" class="message"></p>
+	</div>
 
     <script>
         document.getElementById("delete").addEventListener("submit", function(event) {
-            event.preventDefault(); // Prevent form from submitting traditionally
+            event.preventDefault();
 
             let filename = document.getElementById("filename").value.trim();
             if (filename === "") {
@@ -24,7 +95,7 @@
                 return;
             }
 
-            let filePath = "/uploads/" + encodeURIComponent(filename);
+            let filePath = "/upload/" + encodeURIComponent(filename);
 
             fetch(filePath, {
                 method: "DELETE",
@@ -37,12 +108,16 @@
                 }
             })
             .then(data => {
-                document.getElementById("responseMessage").innerText = "File deleted successfully!";
+				responseMessage.innerText = "Deletion successful!";
+				responseMessage.style.visibility = "visible";
             })
             .catch(error => {
-                document.getElementById("responseMessage").innerText = "Error: " + error.message;
+                responseMessage.innerText = "Something went wrong, please try again.";
+				responseMessage.style.visibility = "visible";
             });
         });
     </script>
+
+	<button class="button" onclick="window.location.href='/'">Back to Index</button>
 </body>
 </html>

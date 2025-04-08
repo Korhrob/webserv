@@ -7,6 +7,8 @@
 #include <exception>
 #include <string>
 #include <algorithm>
+#include <limits>
+#include <cctype>
 
 ConfigNode::ConfigNode() {};
 ConfigNode::ConfigNode(const std::string& name, bool is_server) : m_name(name), m_is_server(is_server)
@@ -48,17 +50,17 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directi
 void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 {
 	if (directives.size() < 2)
-	{
-		Logger::logError("error_page missing code(s) or path");
-		return;
-	}
+		throw ConfigException::invalidErrorPage();
 
 	std::unordered_set<int>	codes;
 	for (std::size_t i = 0; i < (directives.size() - 1); i++)
 	{
-		// validate stoi in try block
+		// stoi is caught from earlier try block
 		codes.insert(std::stoi(directives[i]));
 	}
+
+	if (isNumerical(directives.back()))
+		throw ConfigException::invalidErrorPage();
 
 	for (auto& page : m_error_pages)
 	{
@@ -172,10 +174,14 @@ const std::string&	ConfigNode::findErrorPage(int error_code)
 
 void	ConfigNode::handleListen(std::vector<std::string>& directives)
 {
-	try {
-		int	port = std::stoul(directives.front());
+	try
+	{
+		size_t			len;
+		unsigned long	port = std::stoul(directives.front(), &len);
 
-		if (port < 0 || port > 65535)
+		if (len != directives.front().length())
+			throw ConfigException::nonNumerical(directives.front());
+		if (port > 65535)
 			throw ConfigException::portRange(directives.front());
 	}
 	catch (std::exception& e)
@@ -204,6 +210,66 @@ void	ConfigNode::handleAutoIndex(std::vector<std::string>& directives)
 		throw ConfigException::emptyDirective("autoindex");
 }
 
+void	ConfigNode::handleBodySize(std::vector<std::string>& directives)
+{
+	if (directives.size() > 1)
+		throw ConfigException::tooManyDirectives("client_max_body_size");
+	try
+	{
+		size_t			len;
+		unsigned long	size = std::stoul(directives.front(), &len);
+
+		if (len != directives.front().length())
+			throw ConfigException::nonNumerical(directives.front());
+		if (size > std::numeric_limits<size_t>::max())
+			throw ConfigException::outOfRange(directives.front());
+	}
+	catch (std::exception& e)
+	{
+		throw ConfigException::outOfRange(directives.front());
+	}
+}
+
+void	ConfigNode::handleTimeout(std::vector<std::string>& directives)
+{
+	if (directives.size() > 1)
+		throw ConfigException::tooManyDirectives("keepalive_timeout");
+	try
+	{
+		size_t			len;
+		unsigned int	size = std::stoul(directives.front(), &len);
+		(void)size;
+
+		if (len != directives.front().length())
+			throw ConfigException::nonNumerical(directives.front());
+	}
+	catch (std::exception& e)
+	{
+		throw ConfigException::outOfRange(directives.front());
+	}
+}
+
+void	ConfigNode::handleReturn(std::vector<std::string>& directives)
+{
+	if (directives.size() > 2)
+		throw ConfigException::tooManyDirectives("return");
+	try
+	{
+		size_t			len;
+		unsigned int	size = std::stoul(directives.front(), &len);
+		(void)size;
+
+		if (len != directives.front().length())
+			throw ConfigException::nonNumerical(directives.front());
+		if (isNumerical(directives.back()))
+			throw ConfigException::expectPath(directives.back());
+	}
+	catch (std::exception& e)
+	{
+		throw ConfigException::outOfRange(directives.front());
+	}
+}
+
 void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& codes)
 {
 	for (auto& code : codes)
@@ -215,4 +281,43 @@ void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& co
 			return;
 		}
 	}
+}
+
+void	ConfigNode::addDefaultDirective(const std::string& key, std::vector<std::string> directives)
+{
+	std::vector<std::string> temp;
+
+	if (tryGetDirective(key, temp))
+		return;
+
+	addDirective(key, directives);
+	Logger::log("added default directive " + key);
+}
+
+void	ConfigNode::addDefaultErrorPages()
+{
+	std::unordered_set<int> temp;
+	for (auto& ecode : ERROR_CODES)
+	{
+		if (findErrorPage(ecode) != EMPTY_STRING)
+			return;
+		temp.insert(ecode);
+	}
+
+	ErrorPage error_page;
+
+	emplaceCodes(error_page, temp);
+	error_page.m_page = "500.html";
+	m_error_pages.push_back(error_page);
+}
+
+bool	ConfigNode::isNumerical(const std::string& str)
+{
+	unsigned int i = 0;
+	for (const char& c : str)
+	{
+		if (isdigit(c))
+			++i;
+	}
+	return (i == str.length());
 }
