@@ -55,8 +55,10 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 	std::unordered_set<int>	codes;
 	for (std::size_t i = 0; i < (directives.size() - 1); i++)
 	{
-		// stoi is caught from earlier try block
-		codes.insert(std::stoi(directives[i]));
+		int j = std::stoi(directives[i]);
+		if (j < 0)
+			throw ConfigException::outOfRange("error_page");
+		codes.insert(j);
 	}
 
 	if (isNumerical(directives.back()))
@@ -238,7 +240,6 @@ void	ConfigNode::handleTimeout(std::vector<std::string>& directives)
 	{
 		size_t			len;
 		unsigned long	size = std::stoul(directives.front(), &len);
-		(void)size;
 
 		if (len != directives.front().length())
 			throw ConfigException::nonNumerical(directives.front());
@@ -259,12 +260,9 @@ void	ConfigNode::handleReturn(std::vector<std::string>& directives)
 	{
 		size_t			len;
 		unsigned long	size = std::stoul(directives.front(), &len);
-		(void)size;
 
-		if (len != directives.front().length())
+		if (len != directives.front().length() && size > std::numeric_limits<int>::max())
 			throw ConfigException::nonNumerical(directives.front());
-		if (isNumerical(directives.back()))
-			throw ConfigException::expectPath(directives.back());
 	}
 	catch (std::exception& e)
 	{
