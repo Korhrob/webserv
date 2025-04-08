@@ -6,10 +6,53 @@
 
 #include <filesystem>
 #include <algorithm>
-#include <fcntl.h>
 #include <regex>
 
-HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_unchunked(-1), m_contentLength(0) {}
+HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_contentLength(0) {}
+
+void	HttpRequest::reset()
+{
+	if (m_unchunked.is_open())
+		m_unchunked.close();
+
+	if (!m_unchunkedData.empty())
+	{
+		try {
+			std::filesystem::remove(m_unchunkedData);
+		} catch (std::filesystem::filesystem_error& e) {
+			Logger::log("error removing unchunked data");
+		}
+	}
+
+	for (mpData part: m_multipart)
+	{
+		if (!part.filename.empty())
+		{
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+
+			try {
+				std::filesystem::remove(tmpFile);
+			} catch (std::filesystem::filesystem_error& e) {
+				Logger::log("error removing multipart data");
+			}
+		}
+	}
+
+	m_state = HEADERS;
+	m_server = nullptr;
+	m_location = nullptr;
+	m_method = EMPTY_STRING;
+	m_target = EMPTY_STRING;
+	m_query = {};
+	m_headers = {};
+	m_root = EMPTY_STRING;;
+	m_path = EMPTY_STRING;;
+	m_cgi = false;
+	m_request = {};
+	m_unchunkedData = EMPTY_STRING;
+	m_multipart = {};
+	m_contentLength = 0;
+}
 
 void	HttpRequest::appendRequest(std::vector<char>& request)
 {
@@ -60,11 +103,11 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 	{
 		case GET:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "GET"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
 			break;
 		case POST:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "POST"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
 			handlePost(m_multipart);
 			break;
 		case DELETE:
@@ -72,7 +115,7 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 			break;
 	}
 
-	return HttpResponse(200, "OK", m_path, "", closeConnection(), timeout);
+	return HttpResponse(200, "OK", m_path, m_target, closeConnection(), timeout);
 }
 
 void	HttpRequest::parseRequestLine(std::istringstream& request)
@@ -181,7 +224,7 @@ void	HttpRequest::setLocation(Config& config)
 		std::string msg = HttpException::statusMessage(code);
 
 		if (msg.empty())
-			throw HttpException::notImplemented("unknown status code in return directive"); // config?
+			throw HttpException::notImplemented("unknown status code in return directive");
 
 		if (redirect.size() == 2)
 			throw HttpException::redirect(code, msg, redirect[1]);
@@ -215,13 +258,8 @@ void    HttpRequest::setPath()
 		m_server->tryGetDirective("root", root);
 
 	m_root = root.front();
-	if (m_location->getName().length() > 1)
-		m_target = m_target.substr(m_location->getName().length());
-	// if (m_target.front() != '/') // annika check this
-	// 	m_target = '/' + m_target;
     m_path = m_root + m_target;
 
-	Logger::log(std::filesystem::current_path());
 	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
 
 	if (!std::filesystem::exists(m_path))
@@ -229,31 +267,14 @@ void    HttpRequest::setPath()
 
 	if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
 	{
-		Logger::log("try index");
 		tryIndex();
 
-		// if after indexing attempts its still a directory,
-		// handle it as such
 		if (std::filesystem::is_directory(m_path))
 			tryAutoindex();
 	}
 
-	const std::vector<std::string> ext = { ".html", ".htm", ".php"};
-	for (auto& it : ext)
-	{
-		if (std::filesystem::exists(m_path + it))
-		{
-			m_path += it;
-			Logger::log("new path: " + m_path);
-			break;
-		}
-	}
-
 	if (!std::filesystem::exists(m_path))
-	{
-		Logger::log("couldnt find");
 		throw HttpException::notFound("requested resource could not be found");
-	}
 
 	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
@@ -265,51 +286,44 @@ void	HttpRequest::tryTry_files()
 {
 	std::vector<std::string>	try_files;
 
-	Logger::log("tryTry_files");
-
 	if (!m_location->tryGetDirective("try_files", try_files))
 			m_server->tryGetDirective("try_files", try_files);
 
-	// first check if try_files directive exists,
-	// then loop through all the directives and test them
-	if (!try_files.empty())
-	{
-		bool success = false;
-
-		for (std::string temp : try_files) {
-
-			std::size_t pos = 0;
-			// search for $url and replace it with target
-			while ((pos = temp.find("$uri", pos)) != std::string::npos)
-			{
-				temp.replace(pos, 4, m_target);
-				pos += m_target.length();
-			}
-
-			Logger::log("try_files: " + temp);
-			if (std::filesystem::exists(m_root + temp)) {
-				m_path = m_root + temp;
-				m_target = temp;
-				success = true;
-				break;
-			}
-		}
-
-		// if none of these passed, we have to check the try_files.back()
-		// and redirect to that error code
-		if (!success)
+		if (!try_files.empty())
 		{
-			std::regex errorValue("^=\\d{3}$");
+			bool success = false;
 
-			if (std::regex_match(try_files.back(), errorValue))
+			for (std::string temp : try_files) {
+
+				std::size_t pos = 0;
+				while ((pos = temp.find("$uri", pos)) != std::string::npos)
+				{
+					temp.replace(pos, 4, m_target);
+					pos += m_target.length();
+				}
+
+				Logger::log("try_files: " + temp);
+				if (std::filesystem::exists(m_root + temp)) {
+					m_path = m_root + temp;
+					m_target = temp;
+					success = true;
+					break;
+				}
+			}
+
+			if (!success)
 			{
-				int code = std::stoi(try_files.back().substr(1));
+				std::regex errorValue("^=\\d{3}$");
 
-				Logger::log("try_files failed use ecode: " + std::to_string(code));
-				throw HttpException::withCode(code);
+				if (std::regex_match(try_files.back(), errorValue))
+				{
+					int code = std::stoi(try_files.back().substr(1));
+
+					Logger::log("try_files failed use ecode: " + std::to_string(code));
+					throw HttpException::withCode(code);
+				}
 			}
 		}
-	}
 }
 
 void	HttpRequest::tryIndex()
@@ -319,8 +333,6 @@ void	HttpRequest::tryIndex()
 	if (!m_location->tryGetDirective("index", index))
 		m_server->tryGetDirective("index", index);
 
-	// we didnt have try_files directive or couldn't find a match,
-	// now try all index directives
 	for (std::string& index : index) {
 
 		std::string temp = m_path;
@@ -348,7 +360,6 @@ void	HttpRequest::tryAutoindex()
 	if (m_target.back() != '/')
 		m_target += "/";
 
-	// if autoindexing is off, throw forbidden
 	if (!m_location->autoindexOn())
 	{
 		Logger::log("autoindex: off, but trying to access directory");
@@ -389,14 +400,15 @@ void	HttpRequest::setBodyType()
 	throw HttpException::notImplemented("unknown content type");
 }
 
-void	HttpRequest::parseChunked() {
-	if (m_unchunked == -1)
+void	HttpRequest::parseChunked()
+{
+	if (!m_unchunked.is_open())
 	{
-		std::filesystem::path	unchunked = std::filesystem::temp_directory_path() / (uniqueId() + "_unchunked");
-		m_unchunked = open(unchunked.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
+		m_unchunkedData = std::filesystem::temp_directory_path() / (uniqueId() + "_unchunked");
+		m_unchunked.open(m_unchunkedData, std::ios::out | std::ios::binary | std::ios::app);
 
-		if (m_unchunked == -1)
-			throw HttpException::internalServerError("error opening a file");
+		if (!m_unchunked.is_open())
+			throw HttpException::internalServerError("error opening a stream");
 	}
 
 	if (m_request.empty())
@@ -418,16 +430,14 @@ void	HttpRequest::parseChunked() {
 
 		if (size == 0)
 		{
-			Logger::log("UNCHUNKING COMPLETE");
+			Logger::log("Unchunking complete");
 			m_state = COMPLETE;
+			m_unchunked.close();
 
-			close(m_unchunked);
-			m_unchunked = -1;
 			return;
 		}
 
 		m_contentLength += size;
-		// Logger::log("MAX SIZE:" + std::to_string(m_maxSize) + " SIZE: " + std::to_string(m_contentLength));
 		if (m_contentLength > m_maxSize)
 			throw HttpException::payloadTooLarge("max body size exceeded");
 
@@ -440,9 +450,7 @@ void	HttpRequest::parseChunked() {
 		if (static_cast<size_t>(endOfContent - endOfSize) != size)
 			throw HttpException::badRequest("invalid chunk size");
 
-		int bytesWritten = write(m_unchunked, &(*endOfSize), size);
-		if (bytesWritten == -1)
-			throw HttpException::internalServerError("error writing to a file");
+		m_unchunked << std::string(endOfSize, endOfContent);
 
 		currentPos = endOfContent + 2;
 	}
@@ -507,19 +515,15 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 		{
 			if (part.filename.empty())
 				part.content.insert(part.content.end(), currentPos, endOfContent - 2);
+
 			else
 			{
-				std::string	tmpPath = std::filesystem::temp_directory_path() / part.filename;
+				std::ofstream out(std::filesystem::temp_directory_path() / part.filename, std::ios::out | std::ios::binary | std::ios::app);
+				if (!out.is_open())
+					throw HttpException::internalServerError("error opening a stream");
 
-				int tmpFile = open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
-				if (tmpFile == -1)
-					throw HttpException::internalServerError("error opening a file");
-
-				int bytesWritten = write(tmpFile, &(*currentPos), std::distance(currentPos, endOfContent - 2));
-				close(tmpFile);
-
-				if (bytesWritten == -1)
-					throw HttpException::internalServerError("error writing to a file");
+				out << std::string(currentPos, endOfContent);
+				out.close();
 			}
 		}
 
@@ -777,8 +781,17 @@ void	HttpRequest::setState(e_state state)
 
 HttpRequest::~HttpRequest()
 {
-	if (m_unchunked != -1)
-		close(m_unchunked);
+	if (m_unchunked.is_open())
+		m_unchunked.close();
+
+	if (!m_unchunkedData.empty())
+	{
+		try {
+			std::filesystem::remove(m_unchunkedData);
+		} catch (std::filesystem::filesystem_error& e) {
+			Logger::log("error removing unchunked data");
+		}
+	}
 
 	for (mpData part: m_multipart)
 	{
@@ -789,14 +802,8 @@ HttpRequest::~HttpRequest()
 			try {
 				std::filesystem::remove(tmpFile);
 			} catch (std::filesystem::filesystem_error& e) {
-				Logger::log("error removing temporary file");
+				Logger::log("error removing multipart data");
 			}
 		}
-	}
-
-	try {
-		std::filesystem::remove(std::filesystem::temp_directory_path() / "unchunked");
-	} catch (std::filesystem::filesystem_error& e) {
-		Logger::log("error removing temporary file");
 	}
 }

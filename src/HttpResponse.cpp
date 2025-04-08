@@ -101,7 +101,7 @@ void	HttpResponse::setHeaders()
 	if (!m_close)
 		m_close = (m_code == 408) || (m_code == 413) || (m_code == 500);
 
-	if (!m_targetUrl.empty())
+	if (m_code == 307)
 		m_headers.emplace("Location", m_targetUrl);
 
 	if (m_close)

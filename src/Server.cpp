@@ -254,16 +254,14 @@ void	Server::handleRequest(int fd)
 	}
 
 	if (bytes_read == 0 && vec.empty())
+	if (bytes_read == 0 && vec.empty())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
 		return ;
 	}
 
-	if (bytes_read == -1)
-	{
-
-	}
+	if (bytes_read == -1) {}
 
 	client->handleRequest(m_config, vec);
 	updateClient(client);
