@@ -159,7 +159,7 @@ void	Server::addClient(int fd)
 {
 	if (m_clients.size() >= m_max_clients)
 	{
-		// server is full, could send 503
+		// server is full
 		return;
 	}
 
@@ -296,8 +296,6 @@ void	Server::handleRequest(int fd)
 	}
 }
 
-// checks clients previous send attept (or the first that failed)
-// returns true if client was disconnected
 bool	Server::checkResponseState(std::shared_ptr<Client> client)
 {
 	if (client->getClientState() <= 0)

@@ -44,7 +44,6 @@ class ConfigNode : public std::exception
 	void	handleBodySize(std::vector<std::string>& d);
 	void	handleTimeout(std::vector<std::string>& d);
 	void	handleReturn(std::vector<std::string>& d);
-	// ...
 
 public:
 	ConfigNode();

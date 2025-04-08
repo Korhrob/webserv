@@ -8,9 +8,9 @@
 #include <ostream>
 #include <vector>
 #include <memory>
-#include <algorithm> // std::find
+#include <algorithm>
 
-#include <utility> // std::pair
+#include <utility>
 
 Config::Config() : Config("config.conf")
 {
@@ -94,7 +94,6 @@ bool	Config::parse(std::ifstream& stream)
 				node_name = trim(node_name);
 			}
 
-			// Test this
 			if (!m_tree.empty() && m_tree.back()->findNode(node_name) != nullptr)
 			{
 				Logger::logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
@@ -130,9 +129,6 @@ bool	Config::parse(std::ifstream& stream)
 			m_tree.pop_back();
 			continue;
 		}
-
-		// if not back != '{' and tree.empty, error
-		// if back == '}' and tree.empty, error
 
 		if (m_tree.empty())
 		{

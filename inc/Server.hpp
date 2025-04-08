@@ -51,7 +51,7 @@ class Server
 
 		int								m_epoll_fd;
 		std::vector<epoll_event>		m_events;
-		std::unordered_map<int, int>	m_port_map; // fd -> port (listeners)
+		std::unordered_map<int, int>	m_port_map;
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
 		Set								m_timeout_set;

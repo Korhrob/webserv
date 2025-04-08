@@ -8,9 +8,9 @@
 #include <iomanip>
 #include <ctime>
 
-std::ofstream Logger::m_log_file;    // Define static log file stream
-std::ofstream Logger::m_log_error;  // Define static error file stream
-bool Logger::m_enabled = true;      // Define and initialize m_enabled (default: true)
+std::ofstream Logger::m_log_file;
+std::ofstream Logger::m_log_error;
+bool Logger::m_enabled = true;
 
 void	Logger::log(const std::string& msg)
 {
