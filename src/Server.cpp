@@ -2,7 +2,6 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Const.hpp"
-#include "HttpHandler.hpp"
 
 #include <string>
 #include <algorithm> // min
@@ -10,7 +9,7 @@
 #include <fstream>
 #include <fcntl.h>
 
-Server::Server() : m_events(EPOLL_POOL)
+Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 {
 }
 
@@ -23,8 +22,10 @@ Server::~Server()
 	}
 	for (auto& [fd, port] : m_port_map)
 	{
-		if (fd > 0)
+		if (fd > 0) {
+			shutdown(fd, SHUT_RDWR);
 			close(fd);
+		}
 	}
 }
 
@@ -32,7 +33,7 @@ bool	Server::startServer()
 {
 	if (!m_config.isValid())
 	{
-		Logger::logError("Error in config file");
+		Logger::logError("invalid config file");
 		return false;
 	}
 
@@ -63,11 +64,12 @@ bool	Server::startServer()
 
 		// port is already validated during config parsing
 		unsigned int port = std::stoul(listen.front());
-		Logger::log("Starting server on " + name + ":" + std::to_string(port) + "...");
+		Logger::log("starting server on " + name + ":" + std::to_string(port) + "...");
 
 		if (!m_port_map.count(port))
 		{
-			createListener(port);
+			if (!createListener(port))
+				return false;
 			m_config.setDefault(port, node);
 		} 
 		else if (listen.back() == "default_server")
@@ -86,15 +88,15 @@ int	Server::createListener(int port)
 	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (fd <= 0)
 	{
-		Logger::logError("Server failed to open socket!");
+		Logger::logError("server failed to open socket!");
 		return false;
 	}
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0)
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
 		Logger::logError("setsockopt failed!");
-        perror("setsockopt failed");
+        perror("setsockopt failed"); // remember to delete
         close(fd);
         return false;
     }
@@ -106,7 +108,7 @@ int	Server::createListener(int port)
 
 	if (bind(fd, (struct sockaddr*)&socket_addr, sizeof(socket_addr)) < 0)
 	{
-		Logger::logError("Bind " + std::to_string(port) + " failed!");
+		Logger::logError("bind " + std::to_string(port) + " failed!");
 		close(fd);
 		closeServer();
 		return false;
@@ -114,7 +116,7 @@ int	Server::createListener(int port)
 
 	if (listen(fd, SOMAXCONN) == -1)
 	{
-		Logger::logError("Listen " + std::to_string(port) + " failed");
+		Logger::logError("listen " + std::to_string(port) + " failed");
 		close(fd);
 		closeServer();
 		return false;
@@ -133,7 +135,7 @@ int	Server::createListener(int port)
 
 	m_port_map[fd] = port;
 
-	Logger::log("Listen port " + std::to_string(port) + " fd " + std::to_string(fd));
+	Logger::log("listen port " + std::to_string(port) + " fd " + std::to_string(fd));
 
 	return true;
 }
@@ -141,9 +143,9 @@ int	Server::createListener(int port)
 /// @brief Handle any logic before deconstruction
 void	Server::closeServer()
 {
-	Logger::log("Closing server...");
+	Logger::log("closing server...");
 	// ...
-	Logger::log("Server closed!");
+	Logger::log("server closed!");
 }
 
 /// @brief Handle epoll events
@@ -195,7 +197,7 @@ void	Server::addClient(int fd)
 	
 	// if we have too many concurrent users
 	int num_clients = 0;
-	int max_clients = 1;
+	int max_clients = 1024;
 	if (num_clients >= max_clients)
 	{
 		// send 503 response and close connection
@@ -210,11 +212,9 @@ void	Server::addClient(int fd)
 	// hard coded value because we dont have a global config like NGINX does
 	std::vector<std::string> timeout;
 
-	if (!node->tryGetDirective("keepalive_timeout", timeout))
-		timeout = { "75" };
-	
-	client->setTimeoutDuration(std::stoi(timeout.front()));
-	Logger::log("Set timeout duration: " + timeout.front());
+	node->tryGetDirective("keepalive_timeout", timeout);
+	client->setTimeoutDuration(std::stoul(timeout.front()));
+	Logger::log("set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
@@ -227,7 +227,7 @@ void	Server::handleTimeouts()
 	{
 		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
 		{
-			Logger::log("Client " + std::to_string(client->fd()) + " timed out!");
+			Logger::log("client " + std::to_string(client->fd()) + " timed out!");
 			client->setClientState(ClientState::TIMEDOUT);
 
 			client->respond(RESPONSE_TIMEOUT);
@@ -267,38 +267,59 @@ void	Server::handleRequest(int fd)
 	}
 
 	std::shared_ptr<Client> client = m_clients.at(fd);
-	HttpResponse httpResponse = m_handler.handleRequest(client, m_config);
 
-	Logger::log(httpResponse.response());
-	
-	if (httpResponse.closeConnection() == 2)
+	std::vector<char>	vec;
+	char				buffer[PACKET_SIZE];
+	ssize_t				bytes_read;
+
+	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
 	{
-		Logger::log("== CLOSE CONNECTION ==");
-		removeClient(client);
-		return ;
+		Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
+	perror("recv"); // remember to delete
+
+	// if (bytes_read == 0)
+	// 	throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
+
+	Logger::log(std::string(vec.begin(), vec.end()));
+	Logger::log("-------------------------------------------------------------");
+
+	client->handleRequest(m_config, vec);
 	updateClient(client);
-	
-	Logger::log("== SEND RESPONSE ==");
-	
-	if (httpResponse.sendType() == TYPE_SINGLE)
-	{
-		client->respond(httpResponse.response());
-		checkResponseState(client);
-	}
-	else if (httpResponse.sendType() == TYPE_CHUNKED)
-	{
-		client->respond(httpResponse.header());
-		client->respondChunked(m_handler.path());
-		checkResponseState(client);
-	}
 
-	if (httpResponse.closeConnection())
+	if (client->requestState() == COMPLETE)
 	{
-		Logger::log("== CLOSE CONNECTION ==");
-		removeClient(client);
-		return ;
+		if (client->closeConnection() == 2)
+		{
+			Logger::log("== CLOSE CONNECTION ==");
+			removeClient(client);
+			return ;
+		}
+
+		Logger::log(client->response());
+
+		Logger::log("== SEND RESPONSE ==");
+		
+		if (client->sendType() == TYPE_SINGLE)
+		{
+			client->respond(client->response());
+			checkResponseState(client);
+		}
+		else if (client->sendType() == TYPE_CHUNKED)
+		{
+			client->respond(client->header());
+			client->respondChunked(client->path());
+			checkResponseState(client);
+		}
+
+		if (client->closeConnection())
+		{
+			Logger::log("== CLOSE CONNECTION ==");
+			removeClient(client);
+			return ;
+		}
 	}
 }
 

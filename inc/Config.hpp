@@ -13,6 +13,7 @@ class Config
 {
 
 private:
+	std::vector<std::shared_ptr<ConfigNode>>	m_tree;
 	bool										m_valid;
 	NodeMap										m_nodes;
 	int											m_server_count;

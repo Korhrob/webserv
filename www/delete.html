@@ -95,7 +95,7 @@
                 return;
             }
 
-            let filePath = "/uploads/" + encodeURIComponent(filename);
+            let filePath = "/upload/" + encodeURIComponent(filename);
 
             fetch(filePath, {
                 method: "DELETE",
@@ -118,6 +118,6 @@
         });
     </script>
 
-	<button class="button" onclick="window.location.href='/index'">Back to Index</button>
+	<button class="button" onclick="window.location.href='/'">Back to Index</button>
 </body>
 </html>

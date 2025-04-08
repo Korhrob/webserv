@@ -12,15 +12,9 @@
 
 #include <utility> // std::pair
 
-Config::Config() : m_valid(false), m_server_count(0)
+Config::Config() : Config("config.conf")
 {
-	std::ifstream	file("config.conf");
-
-	if (!file.is_open() || !file.good())
-		return;
-
-	m_valid = parse(file);
-	file.close();
+	
 }
 
 Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
@@ -45,7 +39,6 @@ bool	Config::isValid()
 
 bool	Config::parse(std::ifstream& stream)
 {
-	std::vector<std::shared_ptr<ConfigNode>>	tree;
 	std::shared_ptr<ConfigNode>	temp;
 	std::string					node_name;
 	std::string					line;
@@ -73,7 +66,7 @@ bool	Config::parse(std::ifstream& stream)
 
 			if (is_server)
 			{
-				if (!tree.empty())
+				if (!m_tree.empty())
 				{
 					Logger::logError("unexpected server node on line " + std::to_string(line_nbr) + ":");
 					Logger::logError(line);
@@ -89,47 +82,62 @@ bool	Config::parse(std::ifstream& stream)
 			// should only allow certain name(s) like location or route
 			// also improve search for cases like 'qwertyu /location/location'
 
+
+			// check if position of location is at the start of the string
 			if (node_name.find("location") != std::string::npos)
 			{
 				node_name = node_name.substr(9);
 				node_name = trim(node_name);
 				//Logger::log("location node = [" + node_name + "]");
+				if (node_name.empty())
+				{
+					Logger::logError("unnamed location block on line " + std::to_string(line_nbr) + ":");
+					Logger::logError(line);
+					return false;
+				}
 			}
 
 			// Test this
-			if (!tree.empty() && tree.back()->findNode(node_name) != nullptr)
+			if (!m_tree.empty() && m_tree.back()->findNode(node_name) != nullptr)
 			{
 				Logger::logError("duplicate node " + node_name + " on line " + std::to_string(line_nbr) + ":");
 				Logger::logError(line);
 				return false;
 			}
 
-			temp = std::make_shared<ConfigNode>(node_name, is_server);
+			try {
+				temp = std::make_shared<ConfigNode>(node_name, is_server);
+			}
+			catch (std::exception& ex)
+			{
+				Logger::log("exception occurred: " + std::string(ex.what()));
+				return false;
+			}
 
-			if (tree.size() > 0)
-				tree.back()->addChild(node_name, temp);
+			if (m_tree.size() > 0)
+				m_tree.back()->addChild(node_name, temp);
 			else
 				m_nodes[node_name] = temp;
 
-			tree.push_back(temp);
+			m_tree.push_back(temp);
 			continue;
 		}
 		else if (line.back() == '}')
 		{
-			if (tree.empty())
+			if (m_tree.empty())
 			{
 				Logger::logError("unexpected end of block on line " + std::to_string(line_nbr) + ":");
 				Logger::logError(line);
 				return false;
 			}
-			tree.pop_back();
+			m_tree.pop_back();
 			continue;
 		}
 
 		// if not back != '{' and tree.empty, error
 		// if back == '}' and tree.empty, error
 
-		if (tree.empty())
+		if (m_tree.empty())
 		{
 			Logger::logError("unexpected directive on line " + std::to_string(line_nbr) + ":");
 			Logger::logError(line);
@@ -149,9 +157,9 @@ bool	Config::parse(std::ifstream& stream)
 
 		try {
 			if (name == "error_page")
-				tree.back()->addErrorPage(directives);
+				m_tree.back()->addErrorPage(directives);
 			else
-				tree.back()->addDirective(name, directives);
+				m_tree.back()->addDirective(name, directives);
 		}
 		catch (std::exception& e)
 		{
@@ -161,7 +169,7 @@ bool	Config::parse(std::ifstream& stream)
 
 	}
 
-	if (!tree.empty())
+	if (!m_tree.empty())
 	{
 		Logger::logError("unexpected end of file, missing } somewhere");
 		return false;
@@ -184,6 +192,16 @@ bool	Config::parse(std::ifstream& stream)
 				return false;
 			}
 		}
+
+		// create default directives
+
+		node->addDefaultDirective("root", { "www/html" });
+		node->addDefaultDirective("index", { "index.html", "index.htm", "index.php" });
+		node->addDefaultDirective("uploadDir", { "upload" });
+		node->addDefaultDirective("keepalive_timeout", { "60" });
+		node->addDefaultDirective("client_max_body_size", { "1048576" });
+		node->addDefaultErrorPages();
+
 	}
 
 	// create default error rules for each server

@@ -17,11 +17,10 @@ void	handleSigint(int sig)
 	is_running = false;
 }
 
-void	program()
+void	program(const std::string& path)
 {
 	Logger::init();
-
-	Server tpc_server;
+	Server tpc_server(path);
 
 	// if creation fails return
 
@@ -33,12 +32,24 @@ void	program()
 	}
 }
 
-int	main()
+int	main(int argc, char** argv)
 {
-	signal(SIGINT, handleSigint);
-	program();
+	if (argc > 2)
+	{
+		Logger::logError("too many arguments");
+		Logger::log("run program with ./server [config path]");
+		return 1;
+	}
 
-	Logger::log("Clean Exit!");
+	signal(SIGINT, handleSigint);
+
+	std::string path = "config.conf";
+	if (argc == 2)
+		path = std::string(argv[1]);
+
+	program(path);
+
+	Logger::log("clean exit!");
 
 	return 0;
 }

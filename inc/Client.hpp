@@ -19,6 +19,9 @@
 
 #include "Logger.hpp" // log,  logError
 #include "Const.hpp"
+#include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
+
 
 #ifndef MSG_NOSIGNAL
 # define MSG_NOSIGNAL 0
@@ -49,6 +52,9 @@ class Client
 		int				m_last_response;
 		t_ms			m_timeout_duration;
 		int				m_port;
+		HttpRequest		m_request;
+		HttpResponse	m_response;
+
 
 	public:
 
@@ -156,7 +162,7 @@ class Client
 			return ((now - m_last_activity) > m_timeout_duration);
 		}
 
-		void	setTimeoutDuration(int seconds)
+		void	setTimeoutDuration(unsigned long seconds)
 		{
 			m_timeout_duration = t_ms(seconds * 1000);
 		}
@@ -184,4 +190,12 @@ class Client
 			return m_last_response;
 		}
 
+		void				handleRequest(Config& config, std::vector<char>& request);
+		const HttpResponse&	remoteClosedConnection();
+		int					closeConnection();
+		e_state				requestState();
+		e_type				sendType();
+		std::string			response();
+		std::string			header();
+		std::string			path();
 };
