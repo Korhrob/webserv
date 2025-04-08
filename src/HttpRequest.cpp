@@ -70,7 +70,7 @@ void	HttpRequest::parseRequest(Config& config)
 			return;
 
 		if (std::distance(m_request.begin(), endOfHeaders) > HEADERS_MAX)
-			throw HttpException::badRequest("Headers too large");
+			throw HttpException::badRequest("Headers too long");
 
 		std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
 
@@ -260,8 +260,6 @@ void    HttpRequest::setPath()
 	m_root = root.front();
     m_path = m_root + m_target;
 
-	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
-
 	if (!std::filesystem::exists(m_path))
 		tryTry_files();
 
@@ -302,7 +300,6 @@ void	HttpRequest::tryTry_files()
 					pos += m_target.length();
 				}
 
-				Logger::log("try_files: " + temp);
 				if (std::filesystem::exists(m_root + temp)) {
 					m_path = m_root + temp;
 					m_target = temp;
@@ -319,7 +316,6 @@ void	HttpRequest::tryTry_files()
 				{
 					int code = std::stoi(try_files.back().substr(1));
 
-					Logger::log("try_files failed use ecode: " + std::to_string(code));
 					throw HttpException::withCode(code);
 				}
 			}
@@ -342,10 +338,8 @@ void	HttpRequest::tryIndex()
 
 		temp += index;
 
-		Logger::log("try index: " + temp);
 		if (std::filesystem::exists(temp))
 		{
-			Logger::log("target has index");
 			m_path = temp;
 			return;
 		}
@@ -361,10 +355,7 @@ void	HttpRequest::tryAutoindex()
 		m_target += "/";
 
 	if (!m_location->autoindexOn())
-	{
-		Logger::log("autoindex: off, but trying to access directory");
 		throw HttpException::forbidden("autoindex: off, but trying to access directory");
-	}
 }
 
 void	HttpRequest::setMaxSize()
@@ -638,19 +629,29 @@ void HttpRequest::handleDelete()
 void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 {
 	std::vector<std::string>	uploadDir;
+	std::string					directory;
 
-	if (!m_location->tryGetDirective("uploadDir", uploadDir))
-		m_server->tryGetDirective("uploadDir", uploadDir);
-
-	std::string	uploads = uploadDir.front();
-
-	if (!std::filesystem::exists(uploads))
+	if (m_location->tryGetDirective("uploadDir", uploadDir))
 	{
-		if (!std::filesystem::create_directory(uploads))
+		directory = m_root + '/' + uploadDir.front();
+	}
+	else
+	{
+		std::vector<std::string> root;
+
+		m_server->tryGetDirective("uploadDir", uploadDir);
+		m_server->tryGetDirective("root", root);
+
+		directory = root.front() + '/' + uploadDir.front();
+	}
+
+	if (!std::filesystem::exists(directory))
+	{
+		if (!std::filesystem::create_directory(directory))
 			throw HttpException::internalServerError("unable to create upload directory");
 	}
 
-	std::filesystem::perms perms = std::filesystem::status(uploads).permissions();
+	std::filesystem::perms perms = std::filesystem::status(directory).permissions();
 
 	if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none)
 		throw HttpException::forbidden("permission denied for upload directory");
@@ -660,7 +661,7 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 		if (!part.filename.empty())
 		{
 			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-			std::filesystem::path destination = uploads + "/" + part.filename;
+			std::filesystem::path destination = directory + "/" + part.filename;
 			std::filesystem::copy_file(tmpFile, destination);
 		}
 		if (!part.nestedData.empty())

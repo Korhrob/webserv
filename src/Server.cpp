@@ -4,10 +4,11 @@
 #include "Const.hpp"
 
 #include <string>
-#include <algorithm> // min
+#include <algorithm>
 #include <sstream>
 #include <fstream>
-#include <fcntl.h>
+#include <cerrno>
+#include <cstring>
 
 Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 {
@@ -158,13 +159,13 @@ void	Server::addClient(int fd)
 {
 	if (m_clients.size() >= m_max_clients)
 	{
-		// server is full, could send 503
+		// server is full
 		return;
 	}
 
 	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
-	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
+	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK);
 
 	if (client_fd < 0)
 	{
@@ -261,7 +262,10 @@ void	Server::handleRequest(int fd)
 		return ;
 	}
 
-	if (bytes_read == -1) {}
+	if (bytes_read == -1)
+	{
+		Logger::log(std::strerror(errno));
+	}
 
 	client->handleRequest(m_config, vec);
 	updateClient(client);
@@ -292,8 +296,6 @@ void	Server::handleRequest(int fd)
 	}
 }
 
-// checks clients previous send attept (or the first that failed)
-// returns true if client was disconnected
 bool	Server::checkResponseState(std::shared_ptr<Client> client)
 {
 	if (client->getClientState() <= 0)

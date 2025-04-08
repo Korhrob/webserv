@@ -13,7 +13,7 @@
 ConfigNode::ConfigNode() {};
 ConfigNode::ConfigNode(const std::string& name, bool is_server) : m_name(name), m_is_server(is_server)
 {
-	(void)m_is_server; // annika
+	(void)m_is_server;
 }
 
 ConfigNode::~ConfigNode() {};
@@ -36,14 +36,12 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directi
 	}
 	else
 	{
-		// legacy code, in the future throw exception without find
 		auto it = std::find(VALID_DIRECTIVES.begin(), VALID_DIRECTIVES.end(), key);
 
 		if (it == VALID_DIRECTIVES.end())
 			throw ConfigException::unknownDirective(key);
 	}
 
-	// only happens if no throw occurs
 	m_directives[key] = directives;
 }
 
@@ -66,7 +64,6 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 
 	for (auto& page : m_error_pages)
 	{
-		// for every existing page, remove the codes we are about to add
 		for (auto& code : codes)
 			page.m_codes.erase(code);
 
@@ -170,7 +167,6 @@ const std::string&	ConfigNode::findErrorPage(int error_code)
 		if (page.m_codes.find(error_code) != page.m_codes.end())
 			return page.m_page;
 	}
-	// get default error pages
 	return EMPTY_STRING;
 }
 

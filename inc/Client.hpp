@@ -1,23 +1,23 @@
 #pragma once
 
 #include <string>
-#include <iostream> // std::cout
-#include <sys/socket.h> // socket
-#include <unistd.h> // close
-#include <netinet/in.h> // sockaddr_in
-#include <arpa/inet.h> // For inet_ntoa and struct in_addr
+#include <iostream>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#include <string.h> // strlen
-#include <poll.h> // pollfd
-#include <chrono> // time
+#include <string.h>
+#include <poll.h>
+#include <chrono>
 #include <sstream>
 #include <unordered_map>
-#include <fstream> // ofstream
+#include <fstream>
 #include <variant>
 #include <vector>
 #include <map>
 
-#include "Logger.hpp" // log,  logError
+#include "Logger.hpp"
 #include "Const.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
