@@ -60,11 +60,11 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 	{
 		case GET:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "GET"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
 			break;
 		case POST:
 			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_path.substr(7), "POST"), timeout);
+				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
 			handlePost(m_multipart);
 			break;
 		case DELETE:
@@ -215,12 +215,8 @@ void    HttpRequest::setPath()
 		m_server->tryGetDirective("root", root);
 
 	m_root = root.front();
-	m_target = m_target.substr(m_location->getName().length());
-	// if (m_target.front() != '/') // annika check this
-	// 	m_target = '/' + m_target;
     m_path = m_root + m_target;
 
-	Logger::log(std::filesystem::current_path());
 	Logger::log("root: " + m_root + ", target: " + m_target + ", path: " + m_path);
 
 	if (!std::filesystem::exists(m_path))
@@ -228,7 +224,6 @@ void    HttpRequest::setPath()
 
 	if (std::filesystem::exists(m_path) && std::filesystem::is_directory(m_path))
 	{
-		Logger::log("try index");
 		tryIndex();
 
 		// if after indexing attempts its still a directory,
@@ -238,10 +233,7 @@ void    HttpRequest::setPath()
 	}
 
 	if (!std::filesystem::exists(m_path))
-	{
-		Logger::log("couldnt find");
 		throw HttpException::notFound("requested resource could not be found");
-	}
 
 	std::filesystem::perms perms = std::filesystem::status(m_path).permissions();
 
@@ -253,51 +245,49 @@ void	HttpRequest::tryTry_files()
 {
 	std::vector<std::string>	try_files;
 
-	Logger::log("tryTry_files");
-
 	if (!m_location->tryGetDirective("try_files", try_files))
 			m_server->tryGetDirective("try_files", try_files);
 
-	// first check if try_files directive exists,
-	// then loop through all the directives and test them
-	if (!try_files.empty())
-	{
-		bool success = false;
-
-		for (std::string temp : try_files) {
-
-			std::size_t pos = 0;
-			// search for $url and replace it with target
-			while ((pos = temp.find("$uri", pos)) != std::string::npos)
-			{
-				temp.replace(pos, 4, m_target);
-				pos += m_target.length();
-			}
-
-			Logger::log("try_files: " + temp);
-			if (std::filesystem::exists(m_root + temp)) {
-				m_path = m_root + temp;
-				m_target = temp;
-				success = true;
-				break;
-			}
-		}
-
-		// if none of these passed, we have to check the try_files.back()
-		// and redirect to that error code
-		if (!success)
+		// first check if try_files directive exists,
+		// then loop through all the directives and test them
+		if (!try_files.empty())
 		{
-			std::regex errorValue("^=\\d{3}$");
+			bool success = false;
 
-			if (std::regex_match(try_files.back(), errorValue))
+			for (std::string temp : try_files) {
+
+				std::size_t pos = 0;
+				// search for $url and replace it with target
+				while ((pos = temp.find("$uri", pos)) != std::string::npos)
+				{
+					temp.replace(pos, 4, m_target);
+					pos += m_target.length();
+				}
+
+				Logger::log("try_files: " + temp);
+				if (std::filesystem::exists(m_root + temp)) {
+					m_path = m_root + temp;
+					m_target = temp;
+					success = true;
+					break;
+				}
+			}
+
+			// if none of these passed, we have to check the try_files.back()
+			// and redirect to that error code
+			if (!success)
 			{
-				int code = std::stoi(try_files.back().substr(1));
+				std::regex errorValue("^=\\d{3}$");
 
-				Logger::log("try_files failed use ecode: " + std::to_string(code));
-				throw HttpException::withCode(code);
+				if (std::regex_match(try_files.back(), errorValue))
+				{
+					int code = std::stoi(try_files.back().substr(1));
+
+					Logger::log("try_files failed use ecode: " + std::to_string(code));
+					throw HttpException::withCode(code);
+				}
 			}
 		}
-	}
 }
 
 void	HttpRequest::tryIndex()
