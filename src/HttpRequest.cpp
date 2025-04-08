@@ -232,6 +232,17 @@ void    HttpRequest::setPath()
 			tryAutoindex();
 	}
 
+	const std::vector<std::string> ext = { ".html", ".htm", ".php"};
+	for (auto& it : ext)
+	{
+		if (std::filesystem::exists(m_path + it))
+		{
+			m_path += it;
+			Logger::log("new path: " + m_path);
+			break;
+		}
+	}
+
 	if (!std::filesystem::exists(m_path))
 		throw HttpException::notFound("requested resource could not be found");
 
