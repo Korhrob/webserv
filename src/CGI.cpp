@@ -39,7 +39,7 @@ static void createEnv(std::vector<char*>& envPtrs, std::string script)
 	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
 	setEnvValue("DOCUMENT_ROOT", currentPath.string(), envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
-	setEnvValue("REQUEST_URI", "/cgi-bin/people.php", envPtrs);
+	setEnvValue("REQUEST_URI", "/cgi-bin" + script, envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
