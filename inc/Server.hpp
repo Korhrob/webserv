@@ -45,14 +45,13 @@ class Server
 	private:
 		Config							m_config;
 		unsigned int					m_addr_len = sizeof(t_sockaddr_in);
-		//int								m_max_backlog = 128; // check config for override
+		const std::size_t 				m_max_clients = 1024;
 
 		t_time							m_time;
 
-		// new stuff
 		int								m_epoll_fd;
 		std::vector<epoll_event>		m_events;
-		std::unordered_map<int, int>	m_port_map; // fd -> port (used to check listeners)
+		std::unordered_map<int, int>	m_port_map; // fd -> port (listeners)
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
 		Set								m_timeout_set;
@@ -64,7 +63,6 @@ class Server
 		~Server();
 
 		bool	startServer();
-		void	closeServer();
 		int		createListener(int port);
 		void	addClient(int fd);
 		void	removeClient(std::shared_ptr<Client> client);

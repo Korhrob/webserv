@@ -75,26 +75,23 @@ bool	Config::parse(std::ifstream& stream)
 				node_name += "_" + std::to_string(m_server_count++);
 			}
 
-			// if node name starts with "location", we treat node as the path
-			// ex. "location /" becomes just "/"
-
-			// TODO:
-			// should only allow certain name(s) like location or route
-			// also improve search for cases like 'qwertyu /location/location'
-
-
-			// check if position of location is at the start of the string
+			if (node_name.empty())
+			{
+				Logger::logError("unnamed block on line " + std::to_string(line_nbr) + ":");
+				Logger::logError(line);
+				return false;
+			}
+			
 			if (node_name.find("location") != std::string::npos)
 			{
-				node_name = node_name.substr(9);
-				node_name = trim(node_name);
-				//Logger::log("location node = [" + node_name + "]");
-				if (node_name.empty())
+				if (node_name.size() < 9)
 				{
 					Logger::logError("unnamed location block on line " + std::to_string(line_nbr) + ":");
 					Logger::logError(line);
 					return false;
 				}
+				node_name = node_name.substr(9);
+				node_name = trim(node_name);
 			}
 
 			// Test this
@@ -144,8 +141,6 @@ bool	Config::parse(std::ifstream& stream)
 			return false;
 		}
 
-		// should while loop until ';'
-
 		std::vector<std::string> directives = parseDirective(line, line_nbr);
 
 		if (directives.empty())
@@ -193,8 +188,6 @@ bool	Config::parse(std::ifstream& stream)
 			}
 		}
 
-		// create default directives
-
 		node->addDefaultDirective("root", { "www/html" });
 		node->addDefaultDirective("index", { "index.html", "index.htm", "index.php" });
 		node->addDefaultDirective("uploadDir", { "upload" });
@@ -203,8 +196,6 @@ bool	Config::parse(std::ifstream& stream)
 		node->addDefaultErrorPages();
 
 	}
-
-	// create default error rules for each server
 
 	return true;
 }
@@ -225,7 +216,6 @@ std::vector<std::string> 	Config::parseDirective(std::string& line, const int &l
 		line = line.substr(0, line.length() - 1);
 	}
 
-	// split
 	for (char& ch : line)
 	{
 		if (WHITESPACE.find(ch) != std::string::npos)

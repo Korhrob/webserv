@@ -15,6 +15,7 @@ Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 
 Server::~Server()
 {
+	Logger::log("closing server...");
 	for (auto& [fd, client] : m_clients)
 	{
 		if (fd > 0)
@@ -55,7 +56,7 @@ bool	Server::startServer()
 			continue;
 		}
 
-		// should always exist at this point, but just incase
+		// should always exist at this point
 		if (listen.empty())
 		{
 			Logger::logError("listen directive is empty, skipping server block");
@@ -63,7 +64,7 @@ bool	Server::startServer()
 		}
 
 		// port is already validated during config parsing
-		unsigned int port = std::stoul(listen.front());
+		unsigned int port = std::stoi(listen.front());
 		Logger::log("starting server on " + name + ":" + std::to_string(port) + "...");
 
 		if (!m_port_map.count(port))
@@ -74,7 +75,6 @@ bool	Server::startServer()
 		} 
 		else if (listen.back() == "default_server")
 		{
-			// override current default
 			m_config.setDefault(port, node);
 		}
 		
@@ -96,7 +96,6 @@ int	Server::createListener(int port)
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
 		Logger::logError("setsockopt failed!");
-        perror("setsockopt failed"); // remember to delete
         close(fd);
         return false;
     }
@@ -110,7 +109,6 @@ int	Server::createListener(int port)
 	{
 		Logger::logError("bind " + std::to_string(port) + " failed!");
 		close(fd);
-		closeServer();
 		return false;
 	}
 
@@ -118,7 +116,6 @@ int	Server::createListener(int port)
 	{
 		Logger::logError("listen " + std::to_string(port) + " failed");
 		close(fd);
-		closeServer();
 		return false;
 	}
 
@@ -140,14 +137,6 @@ int	Server::createListener(int port)
 	return true;
 }
 
-/// @brief Handle any logic before deconstruction
-void	Server::closeServer()
-{
-	Logger::log("closing server...");
-	// ...
-	Logger::log("server closed!");
-}
-
 /// @brief Handle epoll events
 void	Server::handleEvents(int event_count)
 {
@@ -167,6 +156,12 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
+	if (m_clients.size() >= m_max_clients)
+	{
+		// server is full, could send 503
+		return;
+	}
+
 	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
 	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, O_NONBLOCK);
@@ -176,8 +171,6 @@ void	Server::addClient(int fd)
 		Logger::logError("error connecting client, accept");
 		return;
 	}
-
-	// setup non blocking
 
 	epoll_event	event;
 	event.events = EPOLLIN | EPOLLET;
@@ -191,27 +184,13 @@ void	Server::addClient(int fd)
 	}
 
 	int port = m_port_map[fd];
-
 	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
 	client->connect(client_fd, m_time, port);
-	
-	// if we have too many concurrent users
-	int num_clients = 0;
-	int max_clients = 1024;
-	if (num_clients >= max_clients)
-	{
-		// send 503 response and close connection
-		client->disconnect();
-	}
-
-	// count concurrect users up
 	m_clients[client_fd] = client;
 	
 	auto node = m_config.findServerNode(":" + std::to_string(port));
 
-	// hard coded value because we dont have a global config like NGINX does
 	std::vector<std::string> timeout;
-
 	node->tryGetDirective("keepalive_timeout", timeout);
 	client->setTimeoutDuration(std::stoul(timeout.front()));
 	Logger::log("set timeout duration: " + timeout.front());
@@ -220,9 +199,6 @@ void	Server::addClient(int fd)
 /// @brief Handle client timeouts
 void	Server::handleTimeouts()
 {
-	// hard coded grace period
-	//auto grace = m_time + std::chrono::seconds(2);
-
 	for (auto& [fd, client] : m_clients)
 	{
 		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
@@ -235,7 +211,6 @@ void	Server::handleTimeouts()
 			if (checkResponseState(client))
 				continue;
 
-			// calculate timeout time per client
 			auto time = m_time + client->getTimeoutDuration() + std::chrono::seconds(2);
 			client->setDisconnectTime(time);
 			m_timeout_queue.push({time, client});
@@ -278,28 +253,22 @@ void	Server::handleRequest(int fd)
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
-	perror("recv"); // remember to delete
+	if (bytes_read == 0 && vec.empty())
+	if (bytes_read == 0 && vec.empty())
+	{
+		Logger::log("== CLOSE CONNECTION ==");
+		removeClient(client);
+		return ;
+	}
 
-	// if (bytes_read == 0)
-	// 	throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
-
-	Logger::log(std::string(vec.begin(), vec.end()));
-	Logger::log("-------------------------------------------------------------");
+	if (bytes_read == -1) {}
 
 	client->handleRequest(m_config, vec);
 	updateClient(client);
 
 	if (client->requestState() == COMPLETE)
 	{
-		if (client->closeConnection() == 2)
-		{
-			Logger::log("== CLOSE CONNECTION ==");
-			removeClient(client);
-			return ;
-		}
-
-		Logger::log(client->response());
-
+		Logger::log(client->header());
 		Logger::log("== SEND RESPONSE ==");
 		
 		if (client->sendType() == TYPE_SINGLE)
@@ -365,7 +334,6 @@ void	Server::updateClient(std::shared_ptr<Client> client)
 {
 	client->update(m_time);
 
-	// remove client from timeout pool
 	if (m_timeout_set.find(client) != m_timeout_set.end())
 	{
 		Queue new_queue;

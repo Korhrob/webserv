@@ -23,11 +23,10 @@ const std::vector<std::string>	EMPTY_VECTOR;
 const std::vector<std::string>	MANDATORY_DIRECTIVES { "listen", "server_name" };
 const std::vector<std::string>	VALID_METHODS { "GET", "POST", "DELETE" };
 const std::string				RESPONSE_TIMEOUT = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
-const std::vector<int>			ERROR_CODES { 400, 401, 402, 403, 404, 500 };
+const std::vector<int>			ERROR_CODES { 307, 400, 403, 404, 411, 413, 500, 501, 505 };
 
 // because this list is growing quite large,
 // might be better to convert it to unordered_set
 const std::vector<std::string>	VALID_DIRECTIVES { "listen", "host", "server_name", "index", "root", "methods", "cgi", "uploadDir",
-													"client_max_body_size", "access_log", "error_log", "worker_connections",
-													"error_page", "autoindex", "cgi_path", "cgi_ext", "return", "alias", "try_files",
+													"client_max_body_size", "error_page", "autoindex", "return", "try_files",
 													"keepalive_timeout" };
