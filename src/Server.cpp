@@ -283,6 +283,9 @@ void	Server::handleRequest(int fd)
 	// if (bytes_read == 0)
 	// 	throw HttpException::remoteClosedConnetion(); // received an empty request, client closed connection
 
+	if (bytes_read == -1)
+		return;
+
 	Logger::log(std::string(vec.begin(), vec.end()));
 	Logger::log("-------------------------------------------------------------");
 
