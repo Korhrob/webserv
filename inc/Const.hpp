@@ -6,6 +6,8 @@
 static const unsigned int BUFFER_SIZE = 1024;
 static const unsigned int PACKET_SIZE = 8192; // 8 KB
 static const unsigned int EPOLL_POOL = 128;
+static const unsigned int URI_MAX = 8192;
+static const unsigned int HEADERS_MAX = 32000;
 
 #ifndef LOG_ENABLE
 # define LOG_ENABLE true

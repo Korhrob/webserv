@@ -8,7 +8,6 @@
 #include <string>
 #include <chrono>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <unordered_map>
 
 class Client;
@@ -34,7 +33,7 @@ struct	mpData {
 	std::string				filename;
 	std::string				contentType;
 	std::vector<char>		content;
-	std::vector<mpData>	nestedData;
+	std::vector<mpData>		nestedData;
 };
 
 using queryMap = std::unordered_map<std::string, std::vector<std::string>>;
@@ -72,6 +71,7 @@ class HttpRequest {
 		void							setMaxSize();
 		void							setBodyType();
 		void							parseChunked();
+		void							eraseUnchunked(std::vector<char>::iterator	currentPos);
 		size_t							chunkSize(std::string& hex);
 		void							parseMultipart(std::string boundary, std::vector<mpData>& multipartData);
 		void							parseMultipartHeaders(std::string& headerString, mpData& part);
@@ -80,10 +80,10 @@ class HttpRequest {
 		std::string						uniqueId();
 		void							handleDelete();
 		void							handlePost(const std::vector<mpData>& multipart);
-		const std::string&				host();
 		e_method    					method();
-		const queryMap&					query();
+		const std::string&				host();
 		const std::vector<mpData>&		multipart();
+		const queryMap&					query();
 
 	public:
 		HttpRequest();
@@ -92,18 +92,15 @@ class HttpRequest {
 		HttpRequest(const HttpRequest&) = delete;
 		HttpRequest&	operator=(const HttpRequest&) = default;
 
-		void							reset();
 		void							appendRequest(std::vector<char>& request);
 		void							parseRequest(Config& config);
 		HttpResponse					processRequest(t_ms timeout);
+		std::string						ePage(int code);
+		unsigned long					timeoutDuration();
 		bool							closeConnection();
-		int								timeoutDuration();
-		void							setServer(std::shared_ptr<ConfigNode>);
-		void							setState(e_state state);
+		std::string						path();
 		bool							server();
 		e_state							state();
-		std::string						path();
-		std::string						ePage(int code);
-
-
+		void							setServer(std::shared_ptr<ConfigNode>);
+		void							setState(e_state state);
 };

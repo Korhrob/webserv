@@ -190,7 +190,6 @@ class Client
 			return m_last_response;
 		}
 
-		void				appendRequest(std::vector<char>& request);
 		void				handleRequest(Config& config, std::vector<char>& request);
 		const HttpResponse&	remoteClosedConnection();
 		int					closeConnection();
