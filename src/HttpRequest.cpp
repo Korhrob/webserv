@@ -56,8 +56,6 @@ void	HttpRequest::parseRequest(Config& config)
 
 HttpResponse	HttpRequest::processRequest(t_ms timeout)
 {
-	Logger::log(m_target + "\n\n\n\n\n");
-
 	switch (method())
 	{
 		case GET:
