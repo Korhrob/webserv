@@ -443,6 +443,12 @@ void	HttpRequest::parseChunked()
 
 		m_unchunked << std::string(endOfSize, endOfContent);
 
+		if (m_unchunked.fail())
+		{
+			m_unchunked.close();
+			throw HttpException::internalServerError("filestream error");
+		}
+
 		currentPos = endOfContent + 2;
 	}
 }
@@ -514,6 +520,12 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 					throw HttpException::internalServerError("error opening a stream");
 
 				out << std::string(currentPos, endOfContent);
+				if (out.fail())
+				{
+					out.close();
+					throw HttpException::internalServerError("filestream error");
+				}
+
 				out.close();
 			}
 		}
