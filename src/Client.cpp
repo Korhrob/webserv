@@ -15,7 +15,12 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 			setTimeoutDuration(m_request.timeoutDuration());
 
 		if (m_request.state() == COMPLETE)
-			m_response = m_request.processRequest(getTimeoutDuration());
+		{
+			if (m_request.isCgi())
+				m_cgi_pid = m_request.prepareCgi(m_fd, m_server);
+			else
+				m_response = m_request.processRequest(getTimeoutDuration());
+		}
 
 	} catch (HttpException& e) {
 		m_request.setState(COMPLETE);

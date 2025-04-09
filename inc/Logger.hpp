@@ -18,11 +18,6 @@ class Logger {
 		Logger& operator=(const Logger&) = delete;
 		~Logger() {};
 
-	static Logger&	getInstance() {
-		static Logger instance;
-		return instance;
-	}
-
 	static void init()
 	{
 		m_log_file.open("logs/log", std::ios::out | std::ios::app);

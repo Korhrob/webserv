@@ -2,6 +2,7 @@
 #include "Client.hpp"
 #include "Server.hpp"
 #include "Const.hpp"
+#include "CGI.hpp"
 
 #include <string>
 #include <algorithm>
@@ -23,13 +24,14 @@ Server::~Server()
 	}
 	for (auto& [fd, port] : m_port_map)
 	{
-		if (fd > 0) {
-			epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
+		if (fd >= 0) {
+			epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 			shutdown(fd, SHUT_RDWR);
 			close(fd);
 		}
 	}
-	close(m_epoll_fd);
+	if (m_epoll_fd >= 0)
+		close(m_epoll_fd);
 }
 
 bool	Server::startServer()
@@ -46,6 +48,7 @@ bool	Server::startServer()
 		Logger::logError("failed to create epoll instance");
 		return false;
 	}
+	Logger::log("server_fd: " + std::to_string(m_epoll_fd));
 
 	for (auto& [name, node] : m_config.getNodeMap())
 	{
@@ -87,7 +90,7 @@ bool	Server::startServer()
 
 int	Server::createListener(int port)
 {
-	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (fd <= 0)
 	{
 		Logger::logError("server failed to open socket!");
@@ -127,7 +130,7 @@ int	Server::createListener(int port)
 
 	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
 	{
-		Logger::logError("epoll_ctrl failed");
+		Logger::logError("epoll_ctl failed");
 		close(fd);
 		return false;
 	}
@@ -148,8 +151,10 @@ void	Server::handleEvents(int event_count)
 
 		if (m_port_map.count(fd))
 			addClient(fd);
-		else if (m_events[i].events & EPOLLIN)
+		else if (m_client_fd.count(fd) && m_events[i].events & EPOLLIN)
 			handleRequest(fd);
+		else if (m_cgi_fd.count(fd) && m_events[i].events & EPOLLIN)
+			handleCgiResponse(fd);
 	}
 
 }
@@ -160,7 +165,7 @@ void	Server::addClient(int fd)
 {
 	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
-	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK);
+	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
 
 	if (client_fd < 0)
 	{
@@ -169,7 +174,7 @@ void	Server::addClient(int fd)
 	}
 
 	int port = m_port_map[fd];
-	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd, *this);
 	client->connect(fd, client_fd, m_time, port);
 
 	if (m_clients.size() >= m_max_clients)
@@ -182,7 +187,7 @@ void	Server::addClient(int fd)
 	}
 
 	epoll_event	event;
-	event.events = EPOLLIN | EPOLLET;
+	event.events = EPOLLIN | EPOLLOUT;
 	event.data.fd = client_fd;
 
 	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1)
@@ -193,6 +198,7 @@ void	Server::addClient(int fd)
 	}
 
 	m_clients[client_fd] = client;
+	m_client_fd.insert(client_fd);
 	
 	auto node = m_config.findServerNode(":" + std::to_string(port));
 
@@ -254,7 +260,7 @@ void	Server::handleRequest(int fd)
 
 	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
 	{
-		Logger::getInstance().log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		Logger::log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
@@ -262,17 +268,21 @@ void	Server::handleRequest(int fd)
 	{
 		Logger::log("== CLOSE CONNECTION ==");
 		removeClient(client);
-		return ;
+		return;
 	}
 
-	if (bytes_read == -1)
+	if (bytes_read == -1 && vec.empty())
 	{
 		//Logger::logError(std::strerror(errno));
 		Logger::logError("EAGAIN (bytes_read == -1)");
+		return;
 	}
 
-	client->handleRequest(m_config, vec);
-	updateClient(client);
+	if (!vec.empty())
+	{
+		client->handleRequest(m_config, vec);
+		updateClient(client);
+	}
 
 	if (client->requestState() == COMPLETE)
 	{
@@ -298,6 +308,64 @@ void	Server::handleRequest(int fd)
 			return ;
 		}
 	}
+}
+
+void Server::handleCgiResponse(int fd)
+{
+	// shouldn't really happen
+	if (m_cgi_map.find(fd) == m_cgi_map.end())
+	{
+		Logger::logError("cgi fd " + std::to_string(fd) + " doesnt exist in map");
+		return;
+	}
+
+	int client_fd = m_cgi_map.at(fd);
+
+	// shouldn't really happen
+	if (m_clients.find(fd) == m_clients.end())
+	{
+		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
+		return;
+	}
+
+	std::shared_ptr<Client> client = m_clients.at(client_fd);
+
+	std::string			body;
+	char				buffer[PACKET_SIZE];
+	ssize_t				bytes_read;
+
+	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
+	{
+		Logger::log("-- CGI BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		body.append(buffer, bytes_read);
+	}
+
+	if (bytes_read == 0 && body.empty())
+	{
+		Logger::logError("-- CGI OUTPUT EMPTY --");
+		// some kind of error?
+	}
+
+	if (bytes_read == -1 && body.empty())
+	{
+		//Logger::logError(std::strerror(errno));
+		Logger::logError("CGI EAGAIN (bytes_read == -1)");
+	}
+
+	if (!body.empty())
+		client->respond(body);
+	else
+	{
+		Logger::logError("-- CGI TIMEOUT or ERROR --");
+		// response internal server error?
+	}
+
+	Logger::log("closed CGI fd");
+	client->resetCPID();
+	m_cgi_map.erase(fd);
+	m_cgi_fd.erase(fd);
+	epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+	close(fd);
 }
 
 bool	Server::checkResponseState(std::shared_ptr<Client> client)
@@ -333,6 +401,7 @@ void	Server::update()
 void	Server::removeClient(std::shared_ptr<Client> client)
 {
 	m_clients.erase(client->fd());
+	m_client_fd.erase(client->fd());
 	client->disconnect();
 }
 

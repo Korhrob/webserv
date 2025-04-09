@@ -16,6 +16,7 @@ static const unsigned int HEADERS_MAX = 32000;
 # define LOG_STDOUT
 #endif
 
+const std::string				INTERPRETER = "/usr/bin/php";
 const std::string				WHITESPACE = " \t";
 const std::string				EMPTY_STRING;
 const std::vector<std::string>	EMPTY_VECTOR;

@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 class Client;
+class Server;
 class HttpResponse;
 
 enum	e_state
@@ -105,4 +106,6 @@ class HttpRequest {
 		e_state							state();
 		void							setServer(std::shared_ptr<ConfigNode>);
 		void							setState(e_state state);
+		bool							isCgi() { return m_cgi; };
+		int 							prepareCgi(int client_fd, Server& server);
 };

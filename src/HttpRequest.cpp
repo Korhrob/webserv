@@ -3,7 +3,10 @@
 #include "HttpException.hpp"
 #include "Client.hpp"
 #include "CGI.hpp"
+#include "Server.hpp"
 
+#include <fcntl.h>
+#include <unistd.h>
 #include <filesystem>
 #include <algorithm>
 #include <regex>
@@ -102,12 +105,12 @@ HttpResponse	HttpRequest::processRequest(t_ms timeout)
 	switch (method())
 	{
 		case GET:
-			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
+			// if (m_cgi)
+			// 	return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
 			break;
 		case POST:
-			if (m_cgi)
-				return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
+			// if (m_cgi)
+			// 	return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
 			handlePost(m_multipart);
 			break;
 		case DELETE:
@@ -822,4 +825,68 @@ HttpRequest::~HttpRequest()
 			}
 		}
 	}
+}
+
+int HttpRequest::prepareCgi(int client_fd, Server& server)
+{
+	Logger::log("prepare CGI");
+
+	std::vector<mpData> data = m_multipart;
+	queryMap map = m_query;
+	std::string script = m_target;
+	std::string method = m_method;
+	
+	std::vector<char*> 	envPtrs;
+	createEnv(envPtrs, script);
+	setEnvValue("REQUEST_METHOD", method, envPtrs);
+	
+	if (!data.empty())
+		addData(data, envPtrs);
+	else
+		addQuery(map, envPtrs);
+		
+	std::string	tmp_filename = "cgi_file_" + std::to_string(client_fd); // add /tmp to begin
+	int fd = open(tmp_filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666);
+	Logger::log("cgi fd: " + std::to_string(fd));
+
+	if (fd == -1)
+		throw HttpException::internalServerError("open");
+
+	if (fd < 0) {
+		Logger::logError("Failed to open file: " + std::string(std::strerror(errno)));
+		throw HttpException::internalServerError("open");
+	}
+
+	epoll_event	event;
+	event.events = EPOLLIN | EPOLLOUT;
+	event.data.fd = fd;
+
+	int server_fd = server.getEpollFd();
+	Logger::log("server epoll fd: " + std::to_string(server_fd));
+
+	// CURRENTLY FAILS HERE
+	if (epoll_ctl(server_fd, EPOLL_CTL_ADD, fd, &event) == -1)
+	{
+		Logger::logError("error connecting cgi fd, epoll_ctl: " + std::string(std::strerror(errno)));
+		close(fd);
+		throw HttpException::internalServerError("epoll_ctl");
+	}
+
+	pid_t pid = fork();
+
+	if (pid < 0)
+	{
+		freeEnvPtrs(envPtrs);
+		throw HttpException::internalServerError("Fork fail");
+	}
+
+	if (pid == 0)
+	{
+		run(script, fd, envPtrs);
+		kill(0, SIGKILL);
+	}
+
+	freeEnvPtrs(envPtrs);
+	server.mapClientCgi(fd, client_fd);
+	return pid;
 }

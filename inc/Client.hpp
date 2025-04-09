@@ -17,12 +17,12 @@
 #include <vector>
 #include <map>
 #include <sys/epoll.h>
+#include <signal.h>
 
 #include "Logger.hpp"
 #include "Const.hpp"
 #include "HttpRequest.hpp"
 #include "HttpResponse.hpp"
-
 
 #ifndef MSG_NOSIGNAL
 # define MSG_NOSIGNAL 0
@@ -42,11 +42,14 @@ enum ClientState
 	DISCONNECTED
 };
 
+class Server;
+
 class Client
 {
 	private:
 		int				m_epollfd;
 		int				m_fd;
+		Server&			m_server;
 		t_time			m_last_activity;
 		t_time			m_disconnect_time;
 		ClientState		m_state;
@@ -55,11 +58,12 @@ class Client
 		int				m_port;
 		HttpRequest		m_request;
 		HttpResponse	m_response;
-
+		int				m_cgi_pid;
 
 	public:
 
-		Client(int fd) : m_fd(fd)
+		Client() = delete;
+		Client(int fd, Server& server) : m_fd(fd), m_server(server)
 		{
 
 		}
@@ -94,6 +98,9 @@ class Client
 				epoll_ctl(m_epollfd, EPOLL_CTL_DEL, m_fd, NULL);
 				close(m_fd);
 			}
+
+			if (m_cgi_pid > 0)
+				kill(m_cgi_pid, SIGKILL);
 
 			m_state = ClientState::DISCONNECTED;
 			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
@@ -192,6 +199,11 @@ class Client
 		int	getResponseState()
 		{
 			return m_last_response;
+		}
+
+		void	resetCPID()
+		{
+			m_cgi_pid = 0;
 		}
 
 		void				handleRequest(Config& config, std::vector<char>& request);

@@ -51,11 +51,14 @@ class Server
 
 		int								m_epoll_fd;
 		std::vector<epoll_event>		m_events;
-		std::unordered_map<int, int>	m_port_map;
+		std::unordered_map<int, int>	m_port_map; // listen fd -> listen port
+		std::unordered_map<int, int>	m_cgi_map;  // cgi fd -> client fd
 		ClientMap						m_clients;
 		Queue							m_timeout_queue;
 		Set								m_timeout_set;
 
+		std::unordered_set<int>			m_client_fd;
+		std::unordered_set<int>			m_cgi_fd;
 
 	public:
 
@@ -70,6 +73,14 @@ class Server
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
 		void	handleRequest(int fd);
+		void	handleCgiResponse(int fd);
 		bool	checkResponseState(std::shared_ptr<Client> client);
 		void	update();
+		void	mapClientCgi(int cgi_fd, int client_fd)
+		{
+			m_cgi_map[cgi_fd] = client_fd;
+			m_cgi_fd.insert(cgi_fd);
+		};
+
+		int	getEpollFd() { return m_epoll_fd; };
 };
