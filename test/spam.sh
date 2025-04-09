@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE="logs/log"  # Change this to your actual log file
+LOG_FILE="../logs/log"  # Change this to your actual log file
 PYTHON_SCRIPT="chunked.py"  # Change this to your Python script
 
 while true; do
