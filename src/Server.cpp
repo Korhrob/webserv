@@ -19,12 +19,12 @@ Server::~Server()
 	Logger::log("closing server...");
 	for (auto& [fd, client] : m_clients)
 	{
-		if (fd > 0)
-			close(fd);
+		client->disconnect();
 	}
 	for (auto& [fd, port] : m_port_map)
 	{
 		if (fd > 0) {
+			epoll_ctl(fd, EPOLL_CTL_DEL, fd, NULL);
 			shutdown(fd, SHUT_RDWR);
 			close(fd);
 		}
@@ -157,12 +157,6 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
-	if (m_clients.size() >= m_max_clients)
-	{
-		// server is full
-		return;
-	}
-
 	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
 	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK);
@@ -170,6 +164,19 @@ void	Server::addClient(int fd)
 	if (client_fd < 0)
 	{
 		Logger::logError("error connecting client, accept");
+		return;
+	}
+
+	int port = m_port_map[fd];
+	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
+	client->connect(fd, client_fd, m_time, port);
+
+	if (m_clients.size() >= m_max_clients)
+	{
+		Logger::logError("rejected incoming connection, server is full");
+		client->respond(RESPONSE_BUSY);
+		client->respond(EMPTY_STRING);
+		close(client_fd);
 		return;
 	}
 
@@ -184,9 +191,6 @@ void	Server::addClient(int fd)
 		return;
 	}
 
-	int port = m_port_map[fd];
-	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd);
-	client->connect(client_fd, m_time, port);
 	m_clients[client_fd] = client;
 	
 	auto node = m_config.findServerNode(":" + std::to_string(port));
@@ -264,7 +268,7 @@ void	Server::handleRequest(int fd)
 	if (bytes_read == -1)
 	{
 		//Logger::logError(std::strerror(errno));
-		Logger::logError("bytes_read == -1 assume EAGAIN");
+		Logger::logError("EAGAIN (bytes_read == -1)");
 	}
 
 	client->handleRequest(m_config, vec);
