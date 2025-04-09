@@ -194,7 +194,6 @@ void	Server::addClient(int fd)
 	std::vector<std::string> timeout;
 	node->tryGetDirective("keepalive_timeout", timeout);
 	client->setTimeoutDuration(std::stoul(timeout.front()));
-	Logger::log("set timeout duration: " + timeout.front());
 }
 
 /// @brief Handle client timeouts
@@ -264,7 +263,8 @@ void	Server::handleRequest(int fd)
 
 	if (bytes_read == -1)
 	{
-		Logger::log(std::strerror(errno));
+		//Logger::logError(std::strerror(errno));
+		Logger::logError("bytes_read == -1 assume EAGAIN");
 	}
 
 	client->handleRequest(m_config, vec);
