@@ -477,7 +477,10 @@ size_t	HttpRequest::chunkSize(std::string& hex) {
 
 void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& multipart)
 {
-	if (contentLength() != m_request.size())
+	if (contentLength() < m_request.size())
+		throw HttpException::badRequest("Request body size exceeds content-length");
+
+	if (contentLength() > m_request.size())
 		return;
 
 	std::string end = "--\r\n";
