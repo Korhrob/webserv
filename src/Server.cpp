@@ -29,6 +29,7 @@ Server::~Server()
 			close(fd);
 		}
 	}
+	close(m_epoll_fd);
 }
 
 bool	Server::startServer()
@@ -257,7 +258,6 @@ void	Server::handleRequest(int fd)
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
-	if (bytes_read == 0 && vec.empty())
 	if (bytes_read == 0 && vec.empty())
 	{
 		Logger::log("== CLOSE CONNECTION ==");
