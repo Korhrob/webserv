@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 #include <map>
+#include <sys/epoll.h>
 
 #include "Logger.hpp"
 #include "Const.hpp"
@@ -44,6 +45,7 @@ enum ClientState
 class Client
 {
 	private:
+		int				m_epollfd;
 		int				m_fd;
 		t_time			m_last_activity;
 		t_time			m_disconnect_time;
@@ -68,9 +70,9 @@ class Client
 		int	port() { return m_port; }
 
 		// can handle all of these in constructor
-		bool	connect(int fd, t_time& time, int port)
+		bool	connect(int epollfd, int fd, t_time& time, int port)
 		{
-			// technically not required, can remove
+			m_epollfd = epollfd;
 			m_fd = fd;
 			m_last_activity = time;
 			m_state = ClientState::CONNECTED;
@@ -88,7 +90,10 @@ class Client
 				return;
 
 			if (m_fd >= 0)
+			{
+				epoll_ctl(m_epollfd, EPOLL_CTL_DEL, m_fd, NULL);
 				close(m_fd);
+			}
 
 			m_state = ClientState::DISCONNECTED;
 			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");

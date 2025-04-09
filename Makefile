@@ -24,11 +24,13 @@ obj/:
 
 logs:
 	mkdir -p logs
+	@if [ ! -f logs/log ]; then touch logs/log; fi
+	@if [ ! -f logs/error ]; then touch logs/error; fi
 
 clean:
 	rm -f $(SOBJ)
-	if [ -f logs/log ]; then rm logs/log; fi
-	if [ -f logs/error ]; then rm logs/error; fi
+	@if [ -f logs/log ]; then rm logs/log; fi
+	@if [ -f logs/error ]; then rm logs/error; fi
 
 fclean: clean
 	rm -f $(SNAME)
