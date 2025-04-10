@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <regex>
+#include <cstring>
 
 HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_contentLength(0) {}
 
@@ -883,12 +884,15 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 
 	if (pid == 0)
 	{
+		pid_t myPid;
+		read(sockfds[0], &myPid, sizeof(myPid));
 		close(sockfds[0]);
-		run(script, sockfds[1], envPtrs);
+		run(script, sockfds[1], envPtrs, myPid);
 		// child wont return
 	}
 	else
 	{
+		write(sockfds[1], &pid, sizeof(pid));
 		close(sockfds[1]);
 	}
 

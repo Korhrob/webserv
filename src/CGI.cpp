@@ -14,33 +14,30 @@ void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtr
 
 void createEnv(std::vector<char*>& envPtrs, std::string script)
 {
+	std::filesystem::path currentPath = std::filesystem::current_path();
 	setEnvValue("SERVER_NAME", "localhost", envPtrs);
 	setEnvValue("GATEWAY_INTERFACE", "CGI/1.1", envPtrs);
 	setEnvValue("SERVER_PORT", "8080", envPtrs);
 	setEnvValue("SERVER_PROTOCOL", "HTTP/1.1", envPtrs);
 	setEnvValue("REMOTE_ADDR", "127.0.0.1", envPtrs);
 	setEnvValue("SCRIPT_NAME", script, envPtrs);
-	setEnvValue("SCRIPT_FILENAME", "/home/avegis/projects/wwebserver/cgi-bin" + script, envPtrs);
+	setEnvValue("SCRIPT_FILENAME", currentPath.string() + "/cgi-bin" + script, envPtrs);
 	setEnvValue("QUERY_STRING", "", envPtrs);
 	setEnvValue("CONTENT_TYPE", "application/x-www-form-urlencoded", envPtrs);
 	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
-	setEnvValue("DOCUMENT_ROOT", "/home/avegis/projects/wwebserver", envPtrs);
+	setEnvValue("DOCUMENT_ROOT", currentPath.string(), envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
-	setEnvValue("REQUEST_URI", "/cgi-bin/people.php", envPtrs);
+	setEnvValue("REQUEST_URI", "/cgi-bin" + script, envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
-void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs)
+void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs, pid_t myPid)
 {
 	cgi = std::filesystem::current_path().string() + "/cgi-bin" + cgi;
 	char	*args[3] = { const_cast<char*>(INTERPRETER.c_str()), const_cast<char*>(cgi.c_str()), nullptr };
 
 	if (dup2(temp_fd, STDOUT_FILENO) < 0)
-	{
-		Logger::logError("dup2 failed");
-		close(temp_fd);
-		kill(0, SIGKILL);
-	}
+		setEnvValue("DUP", "FAIL", envPtrs);
 	close(temp_fd);
 
 	// int nullfd = open("/dev/null", O_WRONLY);
@@ -62,7 +59,7 @@ void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs)
 	envPtrs.push_back(nullptr); //??
 	execve(args[0], args, envPtrs.data());
 	Logger::logError("execve failed");
-	kill(0, SIGKILL);
+	kill(myPid, SIGTERM);
 }
 
 void setCgiString(FILE *temp, int fdtemp, std::string& body)

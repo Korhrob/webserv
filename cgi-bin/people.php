@@ -3,6 +3,10 @@
 $filename = __DIR__ . '/people.txt';
 $status = 1;
 
+if ($_SERVER['DUP'] === 'FAIL')
+{
+	exit;
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['first_name'], $_SERVER['last_name']))
 {
 	$status = 0;
@@ -14,8 +18,6 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SERVER['search_name'], 
 if ($status === 1)
 	exit;
 
-while (true)
-{}
 echo '<!DOCTYPE html>';
 echo '<html lang="en">';
 echo '<head>';
