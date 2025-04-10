@@ -30,18 +30,39 @@ void createEnv(std::vector<char*>& envPtrs, std::string script)
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
-void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs)
+void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs)
 {
 	cgi = std::filesystem::current_path().string() + "/cgi-bin" + cgi;
 	char	*args[3] = { const_cast<char*>(INTERPRETER.c_str()), const_cast<char*>(cgi.c_str()), nullptr };
 
-	if (dup2(fdtemp, STDOUT_FILENO) < 0)
+	if (dup2(temp_fd, STDOUT_FILENO) < 0)
+	{
+		Logger::logError("dup2 failed");
+		close(temp_fd);
 		kill(0, SIGKILL);
+	}
+	close(temp_fd);
 
-	close(fdtemp);
+	// int nullfd = open("/dev/null", O_WRONLY);
+	// if (nullfd != -1)
+	// {
+	// 	dup2(nullfd, STDERR_FILENO);
+	// 	close(nullfd);
+	// }
 
-	envPtrs.push_back(nullptr);
+	// int devnull = open("/dev/null", O_RDONLY);
+	// if (devnull != -1)
+	// {
+	// 	dup2(devnull, STDIN_FILENO);
+	// 	close(devnull);
+	// }
+	
+	write(STDOUT_FILENO, "Hello from CGI", 15);
+
+	envPtrs.push_back(nullptr); //??
 	execve(args[0], args, envPtrs.data());
+	Logger::logError("execve failed");
+	kill(0, SIGKILL);
 }
 
 void setCgiString(FILE *temp, int fdtemp, std::string& body)
@@ -88,98 +109,3 @@ void freeEnvPtrs(std::vector<char*>& envPtrs)
         free(envPtrs[i]);
     }
 }
-
-// void handleCGI(std::vector<mpData> data, queryMap map, std::string script, std::string method)
-// {
-// 	// fileno isn't allowed
-// 	// FILE				*temp = std::tmpfile();
-// 	// int					fd = fileno(temp);
-// 	//int					timeoutTime = 8;
-// 	// std::string			body;
-	
-// 	int fd = open("tmp_cgi_file", O_CREAT | O_RDWR | O_TRUNC, 0600);
-// 	std::vector<char*> 	envPtrs;
-// 	createEnv(envPtrs, script);
-// 	setEnvValue("REQUEST_METHOD", method, envPtrs);
-	
-// 	if (!data.empty())
-// 		addData(data, envPtrs);
-// 	else
-// 		addQuery(map, envPtrs);
-	
-// 	pid_t				pid;
-// 	int					status;
-
-// 	pid = fork();
-// 	if (pid < 0)
-// 	{
-// 		freeEnvPtrs(envPtrs);
-// 		throw HttpException::internalServerError("Fork fail");
-// 	}
-
-// 	// if (pid == 0)
-// 	// {
-// 	// 	pid_t cgiPid = fork();
-// 	// 	if (cgiPid == 0)
-// 	// 		run(script, fdtemp, envPtrs);
-// 	// 	pid_t timeoutPid = fork();
-// 	// 	if (timeoutPid == 0)
-// 	// 		sleep(timeoutTime);
-// 	// 	pid_t exitedPid = wait(NULL);
-// 	// 	if (exitedPid == cgiPid)
-// 	// 	{
-// 	// 		kill(timeoutPid, SIGKILL);
-// 	// 	}
-// 	// 	else
-// 	// 	{
-// 	// 		kill(cgiPid, SIGKILL);
-// 	// 		write(fdtemp, "TIMEOUT", 7);
-// 	// 	}
-// 	// 	wait(NULL);
-// 	// 	std::exit(0);
-// 	// }
-
-// 	if (pid == 0)
-// 	{
-// 		run(script, fd, envPtrs);
-// 		kill(0, SIGKILL);
-// 	}
-
-// 	// cant wait pid here, this blocks execution
-// 	// waitpid(pid, &status, 0);
-// 	// setCgiString(temp, fdtemp, body);
-// 	// close(fdtemp);
-
-// 	// move timeout logic to server, attach pid to client instance
-// 	// if (body == "TIMEOUT")
-// 	// {
-// 	// 	freeEnvPtrs(envPtrs);
-// 	// 	throw HttpException::internalServerError("Timeout");
-// 	// }
-
-// 	// if (body.empty())
-// 	// {
-// 	// 	freeEnvPtrs(envPtrs);
-// 	// 	throw HttpException::internalServerError("Something went wrong with CGI");
-// 	// }
-
-// 	freeEnvPtrs(envPtrs);
-
-// 	epoll_event	event;
-// 	event.events = EPOLLIN | EPOLLET;
-// 	event.data.fd = fd;
-
-// 	int m_epoll_fd = 0; // should use the epoll_fd from server
-// 	if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
-// 	{
-// 		Logger::logError("error connecting cgi fd, epoll_ctl");
-// 		close(fd);
-// 		return;
-// 	}
-
-// 	// we dont actually need to return anything, because epoll loop will resolve the CGI response
-// 	// just store the cgi fd -> client instance fd to server instance map
-// 	// m_cgi_map[fd] = client->fd();
-
-// 	//return body;
-// }

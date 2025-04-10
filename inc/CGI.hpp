@@ -12,7 +12,7 @@
 
 void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs);
 void createEnv(std::vector<char*>& envPtrs, std::string script);
-void run(std::string cgi, int fdtemp, std::vector<char*> envPtrs);
+void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs);
 void setCgiString(FILE *temp, int fdtemp, std::string& body);
 void addData(std::vector<mpData> data, std::vector<char*>& envPtrs);
 void addQuery(queryMap map, std::vector<char*>& envPtrs);

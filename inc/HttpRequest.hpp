@@ -19,7 +19,8 @@ enum	e_state
 	COMPLETE,
 	HEADERS,
 	CHUNKED,
-	MULTIPART
+	MULTIPART,
+	CGI
 };
 
 enum	e_method

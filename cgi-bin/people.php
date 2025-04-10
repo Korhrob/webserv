@@ -12,8 +12,10 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SERVER['search_name'], 
 	$status = 0;
 }
 if ($status === 1)
-	return;
+	exit;
 
+while (true)
+{}
 echo '<!DOCTYPE html>';
 echo '<html lang="en">';
 echo '<head>';
@@ -123,7 +125,7 @@ echo '    <div id="content">';
 echo '';
 echo '        <!-- Add Person Section -->';
 echo '        <h2>Add Person</h2>';
-echo '        <form action="people.php" method="post" enctype="multipart/form-data">';
+echo '        <form action="" method="post" enctype="multipart/form-data">';
 echo '            <label for="first_name">First Name:</label>';
 echo '            <input type="text" id="first_name" name="first_name" required>';
 echo '';
@@ -185,7 +187,7 @@ echo '        <hr>';
 echo '';
 echo '        <!-- Search for Person Section -->';
 echo '        <h2>Search for Person</h2>';
-echo '        <form action="people.php" method="get" enctype="multipart/form-data">';
+echo '        <form action="" method="get" enctype="multipart/form-data">';
 echo '            <label for="search_name">First or Last Name:</label>';
 echo '            <input type="text" id="search_name" name="search_name" required>';
 echo '';
@@ -238,5 +240,3 @@ echo '        <button class="buttonindex" onclick="window.location.href=\'/index
 echo '    </div>';
 echo '</body>';
 echo '</html>';
-
-?>

@@ -17,7 +17,13 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 		if (m_request.state() == COMPLETE)
 		{
 			if (m_request.isCgi())
+			{
 				m_cgi_pid = m_request.prepareCgi(m_fd, m_server);
+				m_cgi_state = CGI_OPEN;
+				m_child_state = P_RUNNING;
+				Logger::log("set client cpid " + std::to_string(m_cgi_pid));
+				// error check? should be catching throw anyways
+			}
 			else
 				m_response = m_request.processRequest(getTimeoutDuration());
 		}
@@ -35,6 +41,11 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 
 		m_response = HttpResponse(500, "Internal Server Error: unknown error occurred", m_request.ePage(500), "", true, getTimeoutDuration());
 	}
+}
+
+void	Client::appendResponseBody(const std::string& str)
+{
+	m_response.appendBody(str);
 }
 
 int	Client::closeConnection()

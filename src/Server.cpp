@@ -214,13 +214,13 @@ void	Server::handleTimeouts()
 	{
 		if (client->getClientState() == ClientState::CONNECTED && client->timeout(m_time))
 		{
-			Logger::log("client " + std::to_string(client->fd()) + " timed out!");
+			Logger::log("client " + std::to_string(client->fd()) + " is idle");
 			client->setClientState(ClientState::TIMEDOUT);
 
 			client->respond(RESPONSE_TIMEOUT);
 			client->respond(EMPTY_STRING);
-			if (checkResponseState(client))
-				continue;
+			// if (checkResponseState(client))
+			// 	continue;
 
 			auto time = m_time + client->getTimeoutDuration() + std::chrono::seconds(2);
 			client->setDisconnectTime(time);
@@ -235,7 +235,8 @@ void	Server::handleTimeouts()
 		auto c = m_timeout_queue.top();
 		m_timeout_queue.pop();
 		m_timeout_set.erase(c.client);
-		removeClient(c.client);
+		checkResponseState(c.client);
+		//removeClient(c.client);
 		--max;
 	}
 
@@ -253,24 +254,24 @@ void	Server::handleRequest(int fd)
 	}
 
 	std::shared_ptr<Client> client = m_clients.at(fd);
-
+	
 	std::vector<char>	vec;
 	char				buffer[PACKET_SIZE];
 	ssize_t				bytes_read;
-
+	
 	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
 	{
-		Logger::log("-- BYTES READ " + std::to_string(bytes_read) + " --\n\n");
+		Logger::log("-- BYTES READ " + std::to_string(bytes_read) + " --");
 		vec.insert(vec.end(), buffer, buffer + bytes_read);
 	}
 
 	if (bytes_read == 0 && vec.empty())
 	{
-		Logger::log("== CLOSE CONNECTION ==");
+		Logger::log("== REMOTE CLOSE CONNECTION ==");
 		removeClient(client);
 		return;
 	}
-
+	
 	if (bytes_read == -1 && vec.empty())
 	{
 		//Logger::logError(std::strerror(errno));
@@ -280,6 +281,7 @@ void	Server::handleRequest(int fd)
 
 	if (!vec.empty())
 	{
+		Logger::log(vec.data());
 		client->handleRequest(m_config, vec);
 		updateClient(client);
 	}
@@ -292,20 +294,21 @@ void	Server::handleRequest(int fd)
 		if (client->sendType() == TYPE_SINGLE)
 		{
 			client->respond(client->response());
-			checkResponseState(client);
 		}
 		else if (client->sendType() == TYPE_CHUNKED)
 		{
 			client->respond(client->header());
 			client->respondChunked(client->path());
-			checkResponseState(client);
 		}
 
 		if (client->closeConnection())
 		{
 			Logger::log("== CLOSE CONNECTION ==");
 			removeClient(client);
-			return ;
+		}
+		else
+		{
+			updateClient(client);
 		}
 	}
 }
@@ -319,58 +322,91 @@ void Server::handleCgiResponse(int fd)
 		return;
 	}
 
-	int client_fd = m_cgi_map.at(fd);
+	int client_fd = m_cgi_map[fd];
 
 	// shouldn't really happen
-	if (m_clients.find(fd) == m_clients.end())
+	if (m_clients.find(client_fd) == m_clients.end())
 	{
-		Logger::logError("client " + std::to_string(fd) + " doesnt exist in map");
+		Logger::log("client " + std::to_string(client_fd) + " doesnt exist in map");
 		return;
 	}
 
 	std::shared_ptr<Client> client = m_clients.at(client_fd);
 
-	std::string			body;
-	char				buffer[PACKET_SIZE];
+	std::string			str;
+	char				buffer[BUFFER_SIZE];
 	ssize_t				bytes_read;
 
-	while ((bytes_read = recv(fd, buffer, PACKET_SIZE, 0)) > 0)
+	while ((bytes_read = recv(fd, buffer, BUFFER_SIZE, 0)) > 0)
 	{
-		Logger::log("-- CGI BYTES READ " + std::to_string(bytes_read) + " --\n\n");
-		body.append(buffer, bytes_read);
+		Logger::log("-- CGI BYTES READ " + std::to_string(bytes_read) + " --");
+		str.append(buffer, bytes_read);
 	}
 
-	if (bytes_read == 0 && body.empty())
+	Logger::log("-- CGI READ DONE --");
+
+	if (bytes_read == 0 && client->getCGIState() == CGI_OPEN)
 	{
-		Logger::logError("-- CGI OUTPUT EMPTY --");
-		// some kind of error?
+		Logger::log("CGI EOF");
+		client->setCGIState(CGI_CLOSED);
+		kill(client->getCPID(), SIGKILL);
 	}
 
-	if (bytes_read == -1 && body.empty())
+	if (bytes_read == -1 && str.empty())
 	{
 		//Logger::logError(std::strerror(errno));
-		Logger::logError("CGI EAGAIN (bytes_read == -1)");
+		Logger::log("CGI EAGAIN (bytes_read == -1)");
+		return;
 	}
 
-	if (!body.empty())
-		client->respond(body);
-	else
+	if (!str.empty())
 	{
-		Logger::logError("-- CGI TIMEOUT or ERROR --");
-		// response internal server error?
+		client->appendResponseBody(str);
+		updateClient(client);
 	}
 
-	Logger::log("closed CGI fd");
-	client->resetCPID();
-	m_cgi_map.erase(fd);
-	m_cgi_fd.erase(fd);
-	epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-	close(fd);
+	if (client->getCGIState() == CGI_CLOSED && client->getChildState() == P_RUNNING)
+	{
+		int	status;
+		int cpid = client->getCPID();
+		int result = waitpid(cpid, &status, WNOHANG); // check nonblocking
+	
+		if (result == cpid)
+		{
+			Logger::log("CGI process exited");
+			client->setChildState(P_CLOSED);
+		} else {
+			Logger::log("waiting for pid " + std::to_string(cpid));
+		}
+	}
+
+	if (client->getCGIState() == CGI_CLOSED && 
+		(client->getChildState() == P_CLOSED || client->getClientState() == TIMEDOUT))
+	{
+		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + "--");
+		Logger::log("== SEND RESPONSE ==");
+
+		client->setCgiHeaders();
+		//Logger::log(client->response());
+
+		client->respond(client->header());
+		updateClient(client);
+
+		if (client->getClientState() == TIMEDOUT)
+			Logger::log("PHP TIMED OUT");
+
+		client->resetCPID();
+		m_cgi_map.erase(fd);
+		m_cgi_fd.erase(fd);
+		epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+		close(fd);
+	}
+
 }
 
 bool	Server::checkResponseState(std::shared_ptr<Client> client)
 {
-	if (client->getClientState() <= 0)
+	if (client->getClientState() > 0)
 	{
 		removeClient(client);
 		return true;

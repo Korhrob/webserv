@@ -829,13 +829,14 @@ HttpRequest::~HttpRequest()
 
 int HttpRequest::prepareCgi(int client_fd, Server& server)
 {
-	Logger::log("prepare CGI");
+	Logger::log("prepare CGI: " + m_method);
+	m_state = CGI;
 
 	std::vector<mpData> data = m_multipart;
 	queryMap map = m_query;
 	std::string script = m_target;
 	std::string method = m_method;
-	
+
 	std::vector<char*> 	envPtrs;
 	createEnv(envPtrs, script);
 	setEnvValue("REQUEST_METHOD", method, envPtrs);
@@ -845,48 +846,59 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 	else
 		addQuery(map, envPtrs);
 		
-	std::string	tmp_filename = "cgi_file_" + std::to_string(client_fd); // add /tmp to begin
-	int fd = open(tmp_filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0666);
-	Logger::log("cgi fd: " + std::to_string(fd));
+	int sockfds[2];
+    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockfds) == -1) {
+        throw HttpException::internalServerError("socketpair");
+        return 0;
+    }
 
-	if (fd == -1)
-		throw HttpException::internalServerError("open");
+	//close(sockfds[0]);
 
-	if (fd < 0) {
-		Logger::logError("Failed to open file: " + std::string(std::strerror(errno)));
-		throw HttpException::internalServerError("open");
-	}
+	Logger::log("socketpair[1]: " + std::to_string(sockfds[1]));
+
+	int server_fd = server.getEpollFd();
 
 	epoll_event	event;
 	event.events = EPOLLIN | EPOLLOUT;
-	event.data.fd = fd;
+	event.data.fd = sockfds[0];
 
-	int server_fd = server.getEpollFd();
-	Logger::log("server epoll fd: " + std::to_string(server_fd));
-
-	// CURRENTLY FAILS HERE
-	if (epoll_ctl(server_fd, EPOLL_CTL_ADD, fd, &event) == -1)
+	if (epoll_ctl(server_fd, EPOLL_CTL_ADD, sockfds[0], &event) == -1)
 	{
-		Logger::logError("error connecting cgi fd, epoll_ctl: " + std::string(std::strerror(errno)));
-		close(fd);
+		Logger::logError(std::strerror(errno));
+		// close socketpair
+		// free env
 		throw HttpException::internalServerError("epoll_ctl");
 	}
+
+	server.mapClientCgi(sockfds[1], client_fd);
 
 	pid_t pid = fork();
 
 	if (pid < 0)
 	{
+		// close socketpair
 		freeEnvPtrs(envPtrs);
-		throw HttpException::internalServerError("Fork fail");
+		throw HttpException::internalServerError("fork");
 	}
 
 	if (pid == 0)
 	{
-		run(script, fd, envPtrs);
-		kill(0, SIGKILL);
+		close(sockfds[0]);
+		run(script, sockfds[1], envPtrs);
+		// child wont return
+	}
+	else
+	{
+		close(sockfds[1]);
 	}
 
+	// should free both both processes
+	// but atm child process dies without coming back
+	// check fd's and smart pointers
+	// if (pid == 0)
+	// {
+	// 	kill(0, SIGKILL);
+	// }
 	freeEnvPtrs(envPtrs);
-	server.mapClientCgi(fd, client_fd);
 	return pid;
 }

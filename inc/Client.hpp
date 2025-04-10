@@ -42,6 +42,18 @@ enum ClientState
 	DISCONNECTED
 };
 
+enum CGIState
+{
+	CGI_OPEN,
+	CGI_CLOSED
+};
+
+enum ChildState
+{
+	P_RUNNING,
+	P_CLOSED
+};
+
 class Server;
 
 class Client
@@ -59,6 +71,8 @@ class Client
 		HttpRequest		m_request;
 		HttpResponse	m_response;
 		int				m_cgi_pid;
+		CGIState		m_cgi_state;
+		ChildState		m_child_state;
 
 	public:
 
@@ -201,12 +215,43 @@ class Client
 			return m_last_response;
 		}
 
+		int		getCPID()
+		{
+			return m_cgi_pid;
+		}
+
 		void	resetCPID()
 		{
 			m_cgi_pid = 0;
 		}
 
+		void	setCGIState(CGIState state)
+		{
+			m_cgi_state = state;
+		}
+
+		CGIState getCGIState()
+		{
+			return m_cgi_state;
+		}
+
+		void	setChildState(ChildState state)
+		{
+			m_child_state = state;
+		}
+
+		ChildState getChildState()
+		{
+			return m_child_state;
+		}
+
+		void setCgiHeaders()
+		{
+			m_response.setHeaders();
+		}
+
 		void				handleRequest(Config& config, std::vector<char>& request);
+		void				appendResponseBody(const std::string& str);
 		const HttpResponse&	remoteClosedConnection();
 		int					closeConnection();
 		e_state				requestState();
