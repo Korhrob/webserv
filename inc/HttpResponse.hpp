@@ -30,7 +30,7 @@ class HttpResponse {
 		
 	public:
 		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
-		HttpResponse(const std::string& body, t_ms td);
+		HttpResponse(const std::string& body, t_ms timeout);
 		
 		HttpResponse() = default;
 		~HttpResponse() = default;
@@ -40,12 +40,10 @@ class HttpResponse {
 		
 		std::string	response();
 		std::string	header();
+		std::string body();
 		e_type		sendType();
 		int			closeConnection();
 		
 		void		setHeaders();
-		void		appendBody(const std::string& str)
-		{
-			m_body.append(str);
-		}
+		void		appendBody(const std::string& str);
 };

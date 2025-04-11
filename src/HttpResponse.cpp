@@ -11,7 +11,7 @@ HttpResponse::HttpResponse(int code, const std::string& msg, const std::string& 
 	setHeaders();
 }
 
-HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_code(200), m_msg("CGI success"), m_body(""), m_targetUrl(""), m_close(0), m_timeout(td)
+HttpResponse::HttpResponse(const std::string& body, t_ms timeout) : m_code(200), m_msg("OK"), m_body(""), m_targetUrl(""), m_close(0), m_timeout(timeout)
 {
 	size_t size = body.size();
 
@@ -24,6 +24,8 @@ HttpResponse::HttpResponse(const std::string& body, t_ms td) : m_code(200), m_ms
 		m_type = TYPE_CHUNKED;
 
 	setHeaders();
+
+	m_headers.emplace("Content-type", "text/html");
 }
 
 void	HttpResponse::setBody(const std::string& path)
@@ -158,7 +160,17 @@ std::string HttpResponse::header()
 	return statusLine() + headers();
 }
 
+std::string HttpResponse::body()
+{
+	return m_body;
+}
+
 int HttpResponse::closeConnection()
 {
 	return m_close;
+}
+
+void	HttpResponse::appendBody(const std::string& str)
+{
+	m_body.append(str);
 }
