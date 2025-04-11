@@ -404,7 +404,8 @@ void Server::handleCgiResponse(int fd)
 		}
 		else
 		{
-			client->respond(RESPONSE_BUSY);
+			client->cgiResponse();
+			client->respond(client->response());
 		}
 
 		removeClient(client); // test
