@@ -56,6 +56,13 @@ void	Client::cgiResponse()
 		m_response = HttpResponse(m_response.body(), getTimeoutDuration());
 }
 
+std::string Client::errorResponse(int code, const std::string& msg)
+{
+	HttpResponse response(code, msg, m_request.ePage(code), "", true, getTimeoutDuration());
+
+	return response.response();
+}
+
 void	Client::appendResponseBody(const std::string& str)
 {
 	m_response.appendBody(str);

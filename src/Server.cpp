@@ -456,11 +456,11 @@ void	Server::removeClient(Client* client, int type)
 
 	if (type == 1) // server enforced
 	{
-		client->respond(RESPONSE_TIMEOUT);
+		client->respond(client->errorResponse(408, "Request Timeout"));
 	}
 	else if (type == 2) // cgi timeout
 	{
-		client->respond(RESPONSE_BUSY);
+		client->respond(client->errorResponse(500, "Internal Server Error"));
 	}
 
 	client->disconnect();
