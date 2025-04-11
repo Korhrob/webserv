@@ -260,4 +260,5 @@ class Client
 		std::string			response();
 		std::string			header();
 		std::string			path();
+		std::string			errorResponse(int code, const std::string& msg);
 };

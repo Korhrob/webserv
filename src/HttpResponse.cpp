@@ -74,7 +74,7 @@ void	HttpResponse::setBody(const std::string& path)
 	}
 }
 
-std::string	HttpResponse::readBody(const std::string& path)
+const std::string	HttpResponse::readBody(const std::string& path)
 {
 	std::ifstream file(path, std::ios::binary);
 
@@ -120,7 +120,7 @@ void	HttpResponse::setHeaders()
 		m_headers.emplace("Transfer-Encoding", "chunked");
 }
 
-std::string HttpResponse::response()
+const std::string HttpResponse::response()
 {
     std::string response;
 
@@ -131,12 +131,12 @@ std::string HttpResponse::response()
     return response;
 }
 
-std::string HttpResponse::statusLine()
+const std::string HttpResponse::statusLine()
 {
     return "HTTP/1.1 " + std::to_string(m_code) + " " + m_msg + "\r\n";
 }
 
-std::string HttpResponse::headers()
+const std::string HttpResponse::headers()
 {
     std::string headers;
 
@@ -155,12 +155,12 @@ e_type  HttpResponse::sendType()
     return m_type;
 }
 
-std::string HttpResponse::header()
+const std::string HttpResponse::header()
 {
 	return statusLine() + headers();
 }
 
-std::string HttpResponse::body()
+const std::string& HttpResponse::body()
 {
 	return m_body;
 }
