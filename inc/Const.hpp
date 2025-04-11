@@ -24,7 +24,7 @@ const std::vector<std::string>	MANDATORY_DIRECTIVES { "listen", "server_name" };
 const std::vector<std::string>	VALID_METHODS { "GET", "POST", "DELETE" };
 const std::string				RESPONSE_TIMEOUT = "HTTP/1.1 408 Request Timeout\r\nConnection: close\r\n\r\n";
 const std::string				RESPONSE_BUSY = "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n";
-const std::vector<int>			ERROR_CODES { 307, 400, 403, 404, 411, 413, 500, 501, 505 };
+const std::vector<int>			ERROR_CODES { 307, 400, 403, 404, 405, 411, 413, 414, 500, 501, 503, 505 };
 const std::vector<std::string>	VALID_DIRECTIVES { "listen", "host", "server_name", "index", "root", "methods", "cgi", "uploadDir",
 													"client_max_body_size", "error_page", "autoindex", "return", "try_files",
 													"keepalive_timeout" };
