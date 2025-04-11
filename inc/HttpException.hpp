@@ -48,6 +48,10 @@ class HttpException : public std::exception {
             return HttpException(404, "Not Found: " + msg);
         }
 
+		static HttpException    methodNotAllowed(std::string msg = "") {
+            return HttpException(405, "Method Not Allowed: " + msg);
+        }
+
 		static HttpException	lengthRequired(std::string msg = "") {
 			return HttpException(411, "Length Required: " + msg);
 		}
@@ -68,6 +72,10 @@ class HttpException : public std::exception {
             return HttpException(501, "Not Implemented: " + msg);
         }
 
+		static HttpException    serviceUnavailable(std::string msg = "") {
+            return HttpException(503, "Service Unavailable: " + msg);
+        }
+
         static HttpException    httpVersionNotSupported(std::string msg = "") {
             return HttpException(505, "HTTP Version Not Supported: " + msg);
         }
@@ -83,10 +91,13 @@ class HttpException : public std::exception {
 				case 400: return "Bad Request";
 				case 403: return "Forbidden";
 				case 404: return "Not Found";
+				case 405: return "Method Not Allowed";
 				case 411: return "Length Required";
 				case 413: return "Payload Too Large";
+				case 414: return "URI Too Long";
 				case 500: return "Internal Server Error";
 				case 501: return "Not Implemented";
+				case 503: return "Service Unavailable";
 				case 505: return "Http Version Not Supported";
 				default:
 					return "";
@@ -97,10 +108,13 @@ class HttpException : public std::exception {
 			switch (code) {
 				case 400: return badRequest();
 				case 403: return forbidden();
+				case 405: return methodNotAllowed();
 				case 411: return lengthRequired();
 				case 413: return payloadTooLarge();
+				case 414: return URITooLong();
 				case 500: return internalServerError();
 				case 501: return notImplemented();
+				case 503: return serviceUnavailable();
 				case 505: return httpVersionNotSupported();
 				default:
 					return notFound("requested resource could not be found");
