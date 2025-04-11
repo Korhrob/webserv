@@ -407,7 +407,7 @@ void	HttpRequest::parseChunked()
 	}
 }
 
-void	HttpRequest::eraseUnchunked(std::vector<char>::iterator&	currentPos)
+void	HttpRequest::eraseUnchunked(const std::vector<char>::iterator&	currentPos)
 {
 	if (currentPos > m_request.begin())
 		m_request.erase(m_request.begin(), currentPos);

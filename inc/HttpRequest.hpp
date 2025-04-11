@@ -68,7 +68,7 @@ class HttpRequest {
 		void							setMaxSize();
 		void							setBodyType();
 		void							parseChunked();
-		void							eraseUnchunked(std::vector<char>::iterator&	currentPos);
+		void							eraseUnchunked(const std::vector<char>::iterator&	currentPos);
 		size_t							chunkSize(const std::string& hex);
 		void							parseMultipart(const std::string& boundary, std::vector<mpData>& multipartData);
 		void							parseMultipartHeaders(const std::string& headerString, mpData& part);
