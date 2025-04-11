@@ -257,8 +257,8 @@ class Client
 		}
 
 		void				handleRequest(Config& config, std::vector<char>& request);
+		void				cgiResponse();
 		void				appendResponseBody(const std::string& str);
-		const HttpResponse&	remoteClosedConnection();
 		int					closeConnection();
 		e_state				requestState();
 		e_type				sendType();

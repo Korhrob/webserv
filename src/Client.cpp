@@ -24,6 +24,8 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 				Logger::log("set client cpid " + std::to_string(m_cgi_pid));
 				// error check? should be catching throw anyways
 				// m_response = HTTP/1.1 100 Continue\r\n\r\n
+				static const HttpResponse continueResponse(100, "Continue", "", "", m_request.closeConnection(), getTimeoutDuration());
+				m_response = continueResponse;
 			}
 			else
 				m_response = m_request.processRequest(getTimeoutDuration());
@@ -42,6 +44,16 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 
 		m_response = HttpResponse(500, "Internal Server Error: unknown error occurred", m_request.ePage(500), "", true, getTimeoutDuration());
 	}
+}
+
+void	Client::cgiResponse()
+{
+	static const HttpResponse	errorResponse(503, "Service Unavailable", m_request.ePage(503), "", true, getTimeoutDuration());
+
+	if (m_response.body().empty())
+		m_response = errorResponse;
+	else
+		m_response = HttpResponse(m_response.body(), getTimeoutDuration());
 }
 
 void	Client::appendResponseBody(const std::string& str)
