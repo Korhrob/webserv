@@ -23,13 +23,6 @@ enum	e_state
 	CGI
 };
 
-enum	e_method
-{
-	GET,
-	POST,
-	DELETE
-};
-
 struct	mpData {
 	std::string				name;
 	std::string				filename;
@@ -66,6 +59,7 @@ class HttpRequest {
 		void							parseQueryString();
 		void							parseHeaders(std::istringstream& request);
 		void							setLocation(Config& config);
+		void	    					validateMethod();
 		void							setCgi();
 		void							setPath();
 		void							tryTry_files();
@@ -83,7 +77,6 @@ class HttpRequest {
 		std::string						uniqueId();
 		void							handleDelete();
 		void							handlePost(const std::vector<mpData>& multipart);
-		e_method    					method();
 		const std::string&				host();
 		const std::vector<mpData>&		multipart();
 		const queryMap&					query();
@@ -95,7 +88,6 @@ class HttpRequest {
 		HttpRequest(const HttpRequest&) = delete;
 		HttpRequest&	operator=(const HttpRequest&) = delete;
 
-		void							reset();
 		void							appendRequest(std::vector<char>& request);
 		void							parseRequest(Config& config);
 		HttpResponse					processRequest(t_ms timeout);
@@ -108,5 +100,6 @@ class HttpRequest {
 		void							setServer(ConfigNode* node);
 		void							setState(e_state state);
 		bool							isCgi() { return m_cgi; };
+		void							reset();
 		int 							prepareCgi(int client_fd, Server& server);
 };

@@ -14,50 +14,6 @@
 
 HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_contentLength(0) {}
 
-void	HttpRequest::reset()
-{
-	if (m_unchunked.is_open())
-		m_unchunked.close();
-
-	if (!m_unchunkedData.empty())
-	{
-		try {
-			std::filesystem::remove(m_unchunkedData);
-		} catch (std::filesystem::filesystem_error& e) {
-			Logger::log("error removing unchunked data");
-		}
-	}
-
-	for (mpData part: m_multipart)
-	{
-		if (!part.filename.empty())
-		{
-			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
-
-			try {
-				std::filesystem::remove(tmpFile);
-			} catch (std::filesystem::filesystem_error& e) {
-				Logger::log("error removing multipart data");
-			}
-		}
-	}
-
-	m_state = HEADERS;
-	m_server = nullptr;
-	m_location = nullptr;
-	m_method = EMPTY_STRING;
-	m_target = EMPTY_STRING;
-	m_query = {};
-	m_headers = {};
-	m_root = EMPTY_STRING;;
-	m_path = EMPTY_STRING;;
-	m_cgi = false;
-	m_request = {};
-	m_unchunkedData = EMPTY_STRING;
-	m_multipart = {};
-	m_contentLength = 0;
-}
-
 void	HttpRequest::appendRequest(std::vector<char>& request)
 {
 	m_request.insert(m_request.end(), request.begin(), request.end());
@@ -81,6 +37,7 @@ void	HttpRequest::parseRequest(Config& config)
 		parseRequestLine(request);
 		parseHeaders(request);
 		setLocation(config);
+		validateMethod();
 		setCgi();
 		setPath();
 
@@ -103,21 +60,11 @@ void	HttpRequest::parseRequest(Config& config)
 
 HttpResponse	HttpRequest::processRequest(t_ms timeout)
 {
-	switch (method())
-	{
-		case GET:
-			// if (m_cgi)
-			// 	return HttpResponse(handleCGI(m_multipart, m_query, m_target, "GET"), timeout);
-			break;
-		case POST:
-			// if (m_cgi)
-			// 	return HttpResponse(handleCGI(m_multipart, m_query, m_target, "POST"), timeout);
-			handlePost(m_multipart);
-			break;
-		case DELETE:
-			handleDelete();
-			break;
-	}
+	if (m_method == "POST")
+		handlePost(m_multipart);
+
+	else if (m_method == "DELETE")
+		handleDelete();
 
 	return HttpResponse(200, "OK", m_path, m_target, closeConnection(), timeout);
 }
@@ -688,30 +635,18 @@ void	HttpRequest::handlePost(const std::vector<mpData>& multipart)
 	}
 }
 
-e_method    HttpRequest::method()
+void    HttpRequest::validateMethod()
 {
+	if (std::find(VALID_METHODS.begin(), VALID_METHODS.end(), m_method) == VALID_METHODS.end())
+		throw HttpException::notImplemented("unknown method");
+
     std::vector<std::string>    allowedMethods;
 
     if (!m_location->tryGetDirective("methods", allowedMethods))
 		m_server->tryGetDirective("methods", allowedMethods);
 
     if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
-	{
-        throw HttpException::notImplemented("unknown method");
-	}
-
-	std::unordered_map<std::string, e_method>	methodMap = {
-		{"GET", GET},
-		{"POST", POST},
-		{"DELETE", DELETE},
-	};
-
-	auto it = methodMap.find(m_method);
-
-	if (it != methodMap.end())
-		return it->second;
-
-	throw HttpException::notImplemented("unknown method");
+        throw HttpException::methodNotAllowed("method not allowed for the resource");
 }
 
 std::string	HttpRequest::ePage(int code)
@@ -799,6 +734,50 @@ void	HttpRequest::setState(e_state state)
 	m_state = state;
 }
 
+void	HttpRequest::reset()
+{
+	if (m_unchunked.is_open())
+		m_unchunked.close();
+
+	if (!m_unchunkedData.empty())
+	{
+		try {
+			std::filesystem::remove(m_unchunkedData);
+		} catch (std::filesystem::filesystem_error& e) {
+			Logger::log("error removing unchunked data");
+		}
+	}
+
+	for (mpData part: m_multipart)
+	{
+		if (!part.filename.empty())
+		{
+			std::filesystem::path tmpFile = std::filesystem::temp_directory_path() / part.filename;
+
+			try {
+				std::filesystem::remove(tmpFile);
+			} catch (std::filesystem::filesystem_error& e) {
+				Logger::log("error removing multipart data");
+			}
+		}
+	}
+
+	m_state = HEADERS;
+	m_server = nullptr;
+	m_location = nullptr;
+	m_method = EMPTY_STRING;
+	m_target = EMPTY_STRING;
+	m_query = {};
+	m_headers = {};
+	m_root = EMPTY_STRING;;
+	m_path = EMPTY_STRING;;
+	m_cgi = false;
+	m_request = {};
+	m_unchunkedData = EMPTY_STRING;
+	m_multipart = {};
+	m_contentLength = 0;
+}
+
 HttpRequest::~HttpRequest()
 {
 	if (m_unchunked.is_open())
@@ -831,7 +810,6 @@ HttpRequest::~HttpRequest()
 int HttpRequest::prepareCgi(int client_fd, Server& server)
 {
 	Logger::log("prepare CGI: " + m_method);
-	m_state = CGI;
 
 	std::vector<mpData> data = m_multipart;
 	queryMap map = m_query;
