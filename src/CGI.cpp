@@ -48,33 +48,14 @@ void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Serve
 	setEnvValue("DUP", "OK", envPtrs);
 	envPtrs.push_back(nullptr);
 
-	//execlp("egho", "egho", "Hello World", nullptr);
+	//execlp("egho", "egho", "Hello World", nullptr); // for testing failed execve
 	execve(args[0], const_cast<char* const*>(args), envPtrs.data());
-	//Logger::logError("execve failed");
-	//kill(myPid, SIGTERM);
 	freeEnvPtrs(envPtrs);
 	n_cgi.clear();
 	std::string().swap(n_cgi);
 	server.~Server();
+	//kill(myPid, SIGTERM);
 	std::exit(1);
-}
-
-void setCgiString(FILE *temp, int fdtemp, std::string& body)
-{
-	char buffer[4096];
-	std::string string;
-
-	fflush(temp);
-	rewind(temp);
-	while (!feof(temp))
-	{
-		if (fgets(buffer, 4096, temp) == NULL)
-			break ;
-		string += buffer;
-	}
-	close(fdtemp);
-	fclose(temp);
-	body = string;
 }
 
 void addData(std::vector<mpData>& data, std::vector<char*>& envPtrs)
@@ -101,9 +82,6 @@ void addQuery(queryMap& map, std::vector<char*>& envPtrs)
 
 void freeEnvPtrs(std::vector<char*>& envPtrs)
 {
-	// for (size_t i = 0; i < envPtrs.size(); ++i) {
-    //     free(envPtrs[i]);
-    // }
 	for (auto& it : envPtrs)
 	{
 		if (it)
