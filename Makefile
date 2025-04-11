@@ -42,4 +42,4 @@ re: fclean all
 
 .PHONY: all clean fclean re
 
-#valgrind --leak-check=full --track-origins=yes ./server 
+#valgrind --leak-check=full --track-origins=yes --track-fds=yes ./server 

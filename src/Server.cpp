@@ -17,7 +17,16 @@ Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 
 Server::~Server()
 {
-	Logger::log("closing server...");
+	//Logger::log("closing server...");
+	for (auto& fd : m_cgi_fd)
+	{
+		if (fd >= 0)
+		{
+			epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+			close(fd);
+		}
+	}
+
 	for (auto& [fd, client] : m_clients)
 	{
 		if (client)
@@ -35,6 +44,7 @@ Server::~Server()
 			close(fd);
 		}
 	}
+
 	if (m_epoll_fd >= 0)
 		close(m_epoll_fd);
 
@@ -187,7 +197,6 @@ void	Server::addClient(int fd)
 	{
 		Logger::logError("rejected incoming connection, server is full");
 		client->respond(RESPONSE_BUSY);
-		client->respond(EMPTY_STRING);
 		close(client_fd);
 		delete client;
 		return;
@@ -225,11 +234,6 @@ void	Server::handleTimeouts()
 			Logger::log("client " + std::to_string(client->fd()) + " is idle");
 			client->setClientState(ClientState::TIMEDOUT);
 
-			client->respond(RESPONSE_TIMEOUT);
-			client->respond(EMPTY_STRING);
-			// if (checkResponseState(client))
-			// 	continue;
-
 			auto time = m_time + client->getTimeoutDuration() + std::chrono::seconds(2);
 			client->setDisconnectTime(time);
 			m_timeout_queue.push({time, client});
@@ -244,7 +248,6 @@ void	Server::handleTimeouts()
 		m_timeout_queue.pop();
 		m_timeout_set.erase(c.client);
 		checkResponseState(c.client);
-		//removeClient(c.client);
 		--max;
 	}
 
@@ -276,7 +279,7 @@ void	Server::handleRequest(int fd)
 	if (bytes_read == 0 && vec.empty())
 	{
 		Logger::log("== REMOTE CLOSE CONNECTION ==");
-		removeClient(client);
+		removeClient(client, 0);
 		return;
 	}
 	
@@ -312,7 +315,7 @@ void	Server::handleRequest(int fd)
 		if (client->closeConnection())
 		{
 			Logger::log("== CLOSE CONNECTION ==");
-			removeClient(client);
+			removeClient(client, 0);
 		}
 		else
 		{
@@ -390,28 +393,16 @@ void Server::handleCgiResponse(int fd)
 	}
 
 
-	if (client->getCGIState() == CGI_CLOSED && 
-		(client->getChildState() == P_CLOSED || client->getClientState() == TIMEDOUT))
+	if (client->getCGIState() == CGI_CLOSED && client->getChildState() == P_CLOSED)
 	{
 		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + " --");
 
 		updateClient(client);
+		client->setCgiHeaders();
+		client->respond(client->response());
 
-		if (client->getClientState() == TIMEDOUT)
-		{
-			client->respond(RESPONSE_TIMEOUT);
-			Logger::logError("PHP TIMED OUT");
-		}
-		else
-		{
-			client->respond(RESPONSE_BUSY);
-		}
-
-		removeClient(client); // test
-		m_cgi_map.erase(fd);
-		m_cgi_fd.erase(fd);
-		epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-		close(fd);
+		//removeClient(client); // test
+		removeCGI(fd);
 	}
 
 }
@@ -420,7 +411,7 @@ bool	Server::checkResponseState(Client* client)
 {
 	if (client->getClientState() > 0)
 	{
-		removeClient(client);
+		removeClient(client, 1);
 		return true;
 	}
 	return false;
@@ -446,13 +437,42 @@ void	Server::update()
 	handleTimeouts();
 }
 
-void	Server::removeClient(Client* client)
+void	Server::removeClient(Client* client, int type)
 {
 	updateClient(client);
 	m_clients.erase(client->fd());
 	m_client_fd.erase(client->fd());
+	Logger::log("Client fd " + std::to_string(client->fd()) + " disconnected!");
+
+	for (auto [cgifd, clientfd] : m_cgi_map)
+	{
+		if (clientfd == client->fd())
+		{
+			type = 2;
+			removeCGI(cgifd);
+			break;
+		}
+	}
+
+	if (type == 1) // server enforced
+	{
+		client->respond(RESPONSE_TIMEOUT);
+	}
+	else if (type == 2) // cgi timeout
+	{
+		client->respond(RESPONSE_BUSY);
+	}
+
 	client->disconnect();
 	delete client;
+}
+
+void	Server::removeCGI(int fd)
+{
+	m_cgi_map.erase(fd);
+	m_cgi_fd.erase(fd);
+	epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+	close(fd);
 }
 
 void	Server::updateClient(Client* client)

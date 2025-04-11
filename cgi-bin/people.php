@@ -18,6 +18,8 @@ else if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SERVER['search_name'], 
 if ($status === 1)
 	exit;
 
+while(1) {};
+
 echo '<!DOCTYPE html>';
 echo '<html lang="en">';
 echo '<head>';

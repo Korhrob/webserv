@@ -120,7 +120,7 @@ class Client
 			}
 
 			m_state = ClientState::DISCONNECTED;
-			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
+			//Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
 		}
 
 		void	update(t_time& time)
@@ -133,6 +133,9 @@ class Client
 		{
 			if (m_state != ClientState::CONNECTED)
 				return 0;
+
+			// if (m_state == ClientState::DISCONNECTED)
+			// 	return 0;
 
 			m_last_response = send(m_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
 			Logger::log("-- BYTES SENT " + std::to_string(m_last_response) + " --\n\n");

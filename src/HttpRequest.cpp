@@ -61,6 +61,8 @@ void	HttpRequest::reset()
 void	HttpRequest::appendRequest(std::vector<char>& request)
 {
 	m_request.insert(m_request.end(), request.begin(), request.end());
+	request.clear();
+	std::vector<char>().swap(request);
 }
 
 void	HttpRequest::parseRequest(Config& config)
@@ -142,6 +144,7 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 		throw HttpException::httpVersionNotSupported(version);
 
 	parseURI();
+	requestLine.clear();
 }
 
 void	HttpRequest::parseURI()
@@ -830,36 +833,19 @@ HttpRequest::~HttpRequest()
 
 int HttpRequest::prepareCgi(int client_fd, Server& server)
 {
-	Logger::log("prepare CGI: " + m_method);
+	// Logger::log("prepare CGI: " + m_method);
 	m_state = CGI;
 
-	std::vector<mpData> data = m_multipart;
-	queryMap map = m_query;
-	std::string script = m_target;
-	std::string method = m_method;
-
-	std::vector<char*> 	envPtrs;
-	createEnv(envPtrs, script);
-	setEnvValue("REQUEST_METHOD", method, envPtrs);
 	
-	if (!data.empty())
-		addData(data, envPtrs);
-	else
-		addQuery(map, envPtrs);
-		
+	
 	int sockfds[2];
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockfds) == -1) {
         throw HttpException::internalServerError("socketpair");
         return 0;
     }
-
-	//close(sockfds[0]);
-
-	Logger::log("socketpair[0]: " + std::to_string(sockfds[0]));
-	Logger::log("socketpair[1]: " + std::to_string(sockfds[1]));
-
+	
 	int server_fd = server.getEpollFd();
-
+	
 	epoll_event	event;
 	event.events = EPOLLIN | EPOLLOUT;
 	event.data.fd = sockfds[0];
@@ -867,38 +853,43 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 	if (epoll_ctl(server_fd, EPOLL_CTL_ADD, sockfds[0], &event) == -1)
 	{
 		Logger::logError(std::strerror(errno));
-		// close socketpair
-		freeEnvPtrs(envPtrs);
+		close(sockfds[0]);
+		close(sockfds[1]);
 		throw HttpException::internalServerError("epoll_ctl");
 	}
 	
 	server.mapClientCgi(sockfds[0], client_fd);
-	Logger::log("attached to epoll OK");
-
+	// Logger::log("attached to epoll OK");
+	
 	pid_t pid = fork();
-
+	
 	if (pid < 0)
 	{
-		// close socketpair
-		freeEnvPtrs(envPtrs);
+		close(sockfds[0]);
+		close(sockfds[1]);
 		throw HttpException::internalServerError("fork");
 	}
-
+	
 	if (pid == 0)
 	{
-		//pid_t myPid;
-		//read(sockfds[0], &myPid, sizeof(myPid));
+		std::vector<char*> 	envPtrs;
+		createEnv(envPtrs, static_cast<const std::string>(m_target));
+		setEnvValue("REQUEST_METHOD", static_cast<const std::string>(m_method), envPtrs);
+		
+		if (!m_multipart.empty())
+			addData(m_multipart, envPtrs);
+		else
+			addQuery(m_query, envPtrs);
+		// server.~Server();
 		close(sockfds[0]);
-		run(script, sockfds[1], envPtrs);
+		run(static_cast<const std::string>(m_target), sockfds[1], envPtrs, server);
 		// child wont return
 	}
 	else
 	{
-		//write(sockfds[1], &pid, sizeof(pid));
 		close(sockfds[1]);
 	}
 
-	freeEnvPtrs(envPtrs);
-	Logger::log("return to wait epoll loop");
+	// Logger::log("return to wait epoll loop");
 	return pid;
 }

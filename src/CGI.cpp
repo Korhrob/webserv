@@ -1,18 +1,19 @@
 #include "CGI.hpp"
 #include "Client.hpp"
 #include "HttpException.hpp"
+#include "Server.hpp"
 
 #include <fcntl.h>
 #include <unistd.h>
 
-void setEnvValue(std::string envp, std::string value, std::vector<char*>& envPtrs)
+void setEnvValue(const std::string &envp, const std::string &value, std::vector<char*>& envPtrs)
 {
-	std::string env = envp + "=" + value;
+	const std::string env = envp + "=" + value;
 	char* newEnv = strdup(env.c_str());
 	envPtrs.push_back(newEnv);
 }
 
-void createEnv(std::vector<char*>& envPtrs, std::string script)
+void createEnv(std::vector<char*>& envPtrs, const std::string& script)
 {
 	std::filesystem::path currentPath = std::filesystem::current_path();
 	setEnvValue("SERVER_NAME", "localhost", envPtrs);
@@ -31,39 +32,30 @@ void createEnv(std::vector<char*>& envPtrs, std::string script)
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
-void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs) // , pid_t myPid
+void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Server& server) // , pid_t myPid
 {
-	cgi = std::filesystem::current_path().string() + "/cgi-bin" + cgi;
-	char	*args[3] = { const_cast<char*>(INTERPRETER.c_str()), const_cast<char*>(cgi.c_str()), nullptr };
-	(void)cgi;
-	(void)args;
+	std::string n_cgi = std::filesystem::current_path().string();
+	n_cgi.append("/cgi-bin");
+	n_cgi.append(cgi);
+
+	const char	*args[3] = { INTERPRETER.c_str(), n_cgi.c_str(), nullptr };
 
 	if (dup2(temp_fd, STDOUT_FILENO) < 0)
+	{
 		setEnvValue("DUP", "FAIL", envPtrs);
+	}
 	close(temp_fd);
 	setEnvValue("DUP", "OK", envPtrs);
 	envPtrs.push_back(nullptr);
 
-	// int nullfd = open("/dev/null", O_WRONLY);
-	// if (nullfd != -1)
-	// {
-	// 	dup2(nullfd, STDERR_FILENO);
-	// 	close(nullfd);
-	// }
-
-	// int devnull = open("/dev/null", O_RDONLY);
-	// if (devnull != -1)
-	// {
-	// 	dup2(devnull, STDIN_FILENO);
-	// 	close(devnull);
-	// }
-	
-	//write(STDOUT_FILENO, "Hello from CGI", 15);
-
-	execlp("echo", "echo", "Hello World", nullptr);
-	//execve(args[0], args, envPtrs.data());
-	Logger::logError("execve failed");
+	//execlp("egho", "egho", "Hello World", nullptr);
+	execve(args[0], const_cast<char* const*>(args), envPtrs.data());
+	//Logger::logError("execve failed");
 	//kill(myPid, SIGTERM);
+	freeEnvPtrs(envPtrs);
+	n_cgi.clear();
+	std::string().swap(n_cgi);
+	server.~Server();
 	std::exit(1);
 }
 
@@ -85,7 +77,7 @@ void setCgiString(FILE *temp, int fdtemp, std::string& body)
 	body = string;
 }
 
-void addData(std::vector<mpData> data, std::vector<char*>& envPtrs)
+void addData(std::vector<mpData>& data, std::vector<char*>& envPtrs)
 {
 	for (mpData part: data) {
 		std::string str(part.content.begin(), part.content.end());
@@ -93,9 +85,10 @@ void addData(std::vector<mpData> data, std::vector<char*>& envPtrs)
 		if (!part.nestedData.empty())
 			addData(part.nestedData, envPtrs);
 	}
+	data.clear();
 }
 
-void addQuery(queryMap map, std::vector<char*>& envPtrs)
+void addQuery(queryMap& map, std::vector<char*>& envPtrs)
 {
 	for (auto it = map.begin(); it != map.end(); ++it)
 	{
@@ -103,11 +96,19 @@ void addQuery(queryMap map, std::vector<char*>& envPtrs)
 			throw HttpException::badRequest("Invalid Query");
 		setEnvValue(it->first, it->second[0], envPtrs);
 	}
+	map.clear();
 }
 
 void freeEnvPtrs(std::vector<char*>& envPtrs)
 {
-	for (size_t i = 0; i < envPtrs.size(); ++i) {
-        free(envPtrs[i]);
-    }
+	// for (size_t i = 0; i < envPtrs.size(); ++i) {
+    //     free(envPtrs[i]);
+    // }
+	for (auto& it : envPtrs)
+	{
+		if (it)
+			free(it);
+	}
+	envPtrs.clear();
+	std::vector<char*>().swap(envPtrs);
 }

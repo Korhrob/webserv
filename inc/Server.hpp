@@ -68,7 +68,8 @@ class Server
 		bool	startServer();
 		int		createListener(int port);
 		void	addClient(int fd);
-		void	removeClient(Client* client);
+		void	removeClient(Client* client, int type);
+		void	removeCGI(int fd);
 		void	updateClient(Client* client);
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
