@@ -398,7 +398,7 @@ void Server::handleCgiResponse(int fd)
 		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + " --");
 
 		updateClient(client);
-		client->setCgiHeaders();
+		client->cgiResponse();
 		client->respond(client->response());
 
 		//removeClient(client); // test

@@ -251,11 +251,6 @@ class Client
 			return m_child_state;
 		}
 
-		void setCgiHeaders()
-		{
-			m_response.setHeaders();
-		}
-
 		void				handleRequest(Config& config, std::vector<char>& request);
 		void				cgiResponse();
 		void				appendResponseBody(const std::string& str);
