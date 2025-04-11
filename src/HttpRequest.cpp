@@ -407,13 +407,13 @@ void	HttpRequest::parseChunked()
 	}
 }
 
-void	HttpRequest::eraseUnchunked(std::vector<char>::iterator	currentPos)
+void	HttpRequest::eraseUnchunked(std::vector<char>::iterator&	currentPos)
 {
 	if (currentPos > m_request.begin())
 		m_request.erase(m_request.begin(), currentPos);
 }
 
-size_t	HttpRequest::chunkSize(std::string& hex) {
+size_t	HttpRequest::chunkSize(const std::string& hex) {
 	size_t	size;
 	size_t	idx;
 
@@ -429,7 +429,7 @@ size_t	HttpRequest::chunkSize(std::string& hex) {
 	return size;
 }
 
-void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& multipart)
+void	HttpRequest::parseMultipart(const std::string& boundary, std::vector<mpData>& multipart)
 {
 	if (contentLength() < m_request.size())
 		throw HttpException::badRequest("Request body size exceeds content-length");
@@ -494,7 +494,7 @@ void	HttpRequest::parseMultipart(std::string boundary, std::vector<mpData>& mult
 	m_state = COMPLETE;
 }
 
-void	HttpRequest::parseMultipartHeaders(std::string& headerString, mpData& part)
+void	HttpRequest::parseMultipartHeaders(const std::string& headerString, mpData& part)
 {
 	std::istringstream	headers(headerString);
 	size_t				startPos;
@@ -571,7 +571,7 @@ size_t	HttpRequest::contentLength()
 	return size;
 }
 
-std::string	HttpRequest::boundary(std::string& contentType)
+std::string	HttpRequest::boundary(std::string contentType)
 {
 	size_t startOfBoundary = contentType.find("boundary=");
 
@@ -581,7 +581,7 @@ std::string	HttpRequest::boundary(std::string& contentType)
 	return "--" + contentType.substr(startOfBoundary + 9);
 }
 
-std::string		HttpRequest::uniqueId()
+const std::string		HttpRequest::uniqueId()
 {
 	auto now = std::chrono::system_clock::now();
 	auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
@@ -652,7 +652,7 @@ void    HttpRequest::validateMethod()
         throw HttpException::methodNotAllowed("method not allowed for the resource");
 }
 
-std::string	HttpRequest::ePage(int code)
+const std::string	HttpRequest::ePage(int code)
 {
 	std::vector<std::string>	root;
 	std::string					errorPage;
@@ -712,7 +712,7 @@ const queryMap&	HttpRequest::query()
 	return m_query;
 }
 
-std::string	HttpRequest::path()
+const std::string&	HttpRequest::path()
 {
 	return m_path;
 }
@@ -735,6 +735,11 @@ void	HttpRequest::setServer(ConfigNode* server)
 void	HttpRequest::setState(e_state state)
 {
 	m_state = state;
+}
+
+bool	HttpRequest::isCgi()
+{
+	return m_cgi;
 }
 
 void	HttpRequest::reset()

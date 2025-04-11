@@ -23,10 +23,10 @@ class HttpResponse {
 		int												m_close;
 		t_ms											m_timeout;
 
-		void		setBody(const std::string& path);
-		std::string	readBody(const std::string& path);
-		std::string	statusLine();
-		std::string	headers();
+		void				setBody(const std::string& path);
+		const std::string	readBody(const std::string& path);
+		const std::string	statusLine();
+		const std::string	headers();
 		
 	public:
 		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
@@ -38,12 +38,12 @@ class HttpResponse {
 		HttpResponse&	operator=(const HttpResponse&) = default;
 		HttpResponse(const HttpResponse&) = default;
 		
-		std::string	response();
-		std::string	header();
-		std::string body();
-		e_type		sendType();
-		int			closeConnection();
+		const std::string	response();
+		const std::string	header();
+		const std::string&	body();
+		e_type				sendType();
+		int					closeConnection();
 		
-		void		setHeaders();
-		void		appendBody(const std::string& str);
+		void				setHeaders();
+		void				appendBody(const std::string& str);
 };
