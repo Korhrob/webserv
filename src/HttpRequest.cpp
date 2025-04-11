@@ -88,7 +88,7 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 		throw HttpException::badRequest("invalid request line");
 
 	if (version != "HTTP/1.1")
-		throw HttpException::httpVersionNotSupported(version);
+		throw HttpException::HTTPVersionNotSupported(version);
 
 	parseURI();
 	requestLine.clear();
@@ -817,11 +817,6 @@ HttpRequest::~HttpRequest()
 
 int HttpRequest::prepareCgi(int client_fd, Server& server)
 {
-	// Logger::log("prepare CGI: " + m_method);
-	m_state = CGI;
-
-	
-	
 	int sockfds[2];
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sockfds) == -1) {
         throw HttpException::internalServerError("socketpair");
@@ -843,7 +838,6 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 	}
 	
 	server.mapClientCgi(sockfds[0], client_fd);
-	// Logger::log("attached to epoll OK");
 	
 	pid_t pid = fork();
 	
@@ -864,16 +858,14 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 			addData(m_multipart, envPtrs);
 		else
 			addQuery(m_query, envPtrs);
-		// server.~Server();
+
 		close(sockfds[0]);
 		run(static_cast<const std::string>(m_target), sockfds[1], envPtrs, server);
-		// child wont return
 	}
 	else
 	{
 		close(sockfds[1]);
 	}
 
-	// Logger::log("return to wait epoll loop");
 	return pid;
 }

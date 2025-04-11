@@ -7,7 +7,6 @@
 #include <istream>
 #include <map>
 #include <vector>
-#include <memory>
 
 class Config
 {

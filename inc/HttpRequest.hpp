@@ -19,8 +19,7 @@ enum	e_state
 	COMPLETE,
 	HEADERS,
 	CHUNKED,
-	MULTIPART,
-	CGI
+	MULTIPART
 };
 
 struct	mpData {

@@ -5,7 +5,6 @@
 #include <string>
 #include <sys/wait.h>
 #include <signal.h>
-#include <memory>
 #include <filesystem>
 
 #include "HttpResponse.hpp"

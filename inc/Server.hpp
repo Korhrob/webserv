@@ -10,7 +10,6 @@
 #include <sstream>
 #include <chrono>
 #include <vector>
-#include <memory>
 #include <unordered_map>
 #include <sys/epoll.h>
 #include <queue>

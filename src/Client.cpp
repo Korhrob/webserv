@@ -21,9 +21,6 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 				m_cgi_pid = m_request.prepareCgi(m_fd, m_server);
 				m_cgi_state = CGI_OPEN;
 				m_child_state = P_RUNNING;
-				Logger::log("set client cpid " + std::to_string(m_cgi_pid));
-				// error check? should be catching throw anyways
-				// m_response = HTTP/1.1 100 Continue\r\n\r\n
 				static const HttpResponse continueResponse(100, "Continue", "", "", m_request.closeConnection(), getTimeoutDuration());
 				m_response = continueResponse;
 			}

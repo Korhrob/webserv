@@ -17,7 +17,6 @@ Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
 
 Server::~Server()
 {
-	//Logger::log("closing server...");
 	for (auto& fd : m_cgi_fd)
 	{
 		if (fd >= 0)
@@ -196,7 +195,7 @@ void	Server::addClient(int fd)
 	if (m_clients.size() >= m_max_clients)
 	{
 		Logger::logError("rejected incoming connection, server is full");
-		client->respond(RESPONSE_BUSY);
+		client->respond(client->errorResponse(503, "Service Unavailable"));
 		close(client_fd);
 		delete client;
 		return;
@@ -354,28 +353,22 @@ void Server::handleCgiResponse(int fd)
 		str.append(buffer, bytes_read);
 	}
 
-	Logger::log("-- CGI READ DONE --");
-
 	if (bytes_read == 0 && client->getCGIState() == CGI_OPEN)
 	{
 		Logger::log("CGI EOF");
 		client->setCGIState(CGI_CLOSED);
-		//kill(client->getCPID(), SIGKILL);
 	}
 
 	if (client->getChildState() == P_RUNNING)
 	{
 		int	status;
 		int cpid = client->getCPID();
-		int result = waitpid(cpid, &status, WNOHANG); // check nonblocking
+		int result = waitpid(cpid, &status, WNOHANG);
 	
 		if (result == cpid)
 		{
-			Logger::log("CGI process exited");
 			client->setChildState(P_CLOSED);
 			client->resetCPID();
-		} else {
-			Logger::log("waiting for pid " + std::to_string(cpid));
 		}
 	}
 
@@ -401,7 +394,6 @@ void Server::handleCgiResponse(int fd)
 		client->cgiResponse();
 		client->respond(client->response());
 
-		//removeClient(client); // test
 		removeCGI(fd);
 	}
 

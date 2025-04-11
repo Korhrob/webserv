@@ -52,6 +52,10 @@ class HttpException : public std::exception {
             return HttpException(405, "Method Not Allowed: " + msg);
         }
 
+		static HttpException    requestTimeout(std::string msg = "") {
+            return HttpException(408, "Request Timeout: " + msg);
+        }
+
 		static HttpException	lengthRequired(std::string msg = "") {
 			return HttpException(411, "Length Required: " + msg);
 		}
@@ -76,7 +80,7 @@ class HttpException : public std::exception {
             return HttpException(503, "Service Unavailable: " + msg);
         }
 
-        static HttpException    httpVersionNotSupported(std::string msg = "") {
+        static HttpException    HTTPVersionNotSupported(std::string msg = "") {
             return HttpException(505, "HTTP Version Not Supported: " + msg);
         }
 
@@ -92,6 +96,7 @@ class HttpException : public std::exception {
 				case 403: return "Forbidden";
 				case 404: return "Not Found";
 				case 405: return "Method Not Allowed";
+				case 408: return "Request Timeout";
 				case 411: return "Length Required";
 				case 413: return "Payload Too Large";
 				case 414: return "URI Too Long";
@@ -109,13 +114,14 @@ class HttpException : public std::exception {
 				case 400: return badRequest();
 				case 403: return forbidden();
 				case 405: return methodNotAllowed();
+				case 408: return requestTimeout();
 				case 411: return lengthRequired();
 				case 413: return payloadTooLarge();
 				case 414: return URITooLong();
 				case 500: return internalServerError();
 				case 501: return notImplemented();
 				case 503: return serviceUnavailable();
-				case 505: return httpVersionNotSupported();
+				case 505: return HTTPVersionNotSupported();
 				default:
 					return notFound("requested resource could not be found");
         }

@@ -3,7 +3,6 @@
 #include "Logger.hpp"
 #include "ConfigException.hpp"
 
-#include <memory>
 #include <exception>
 #include <string>
 #include <algorithm>
