@@ -13,11 +13,11 @@ class Config
 {
 
 private:
-	std::vector<std::shared_ptr<ConfigNode>>	m_tree;
+	std::vector<ConfigNode*>	m_tree;
 	bool										m_valid;
 	NodeMap										m_nodes;
 	int											m_server_count;
-	std::map<int, std::shared_ptr<ConfigNode>>	m_default_node;
+	std::map<int, ConfigNode*>					m_default_node;
 
 public:
 	Config();
@@ -29,8 +29,8 @@ public:
 	bool								isValid();
 	std::vector<std::string> 			parseDirective(std::string& line, const int &line_nbr);
 		
-	const std::shared_ptr<ConfigNode>	findServerNode(const std::string& host);
-	void								setDefault(int port, std::shared_ptr<ConfigNode> node) { m_default_node[port] = node; };
+	ConfigNode*							findServerNode(const std::string& host);
+	void								setDefault(int port, ConfigNode* node) { m_default_node[port] = node; };
 
 	int									getServerCount();
 	const NodeMap&						getNodeMap();

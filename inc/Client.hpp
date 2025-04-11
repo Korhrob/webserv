@@ -77,7 +77,7 @@ class Client
 	public:
 
 		Client() = delete;
-		Client(int fd, Server& server) : m_fd(fd), m_server(server)
+		Client(int fd, Server& server) : m_fd(fd), m_server(server), m_state(ClientState::DISCONNECTED), m_cgi_pid(0)
 		{
 
 		}
@@ -114,7 +114,10 @@ class Client
 			}
 
 			if (m_cgi_pid > 0)
-				kill(m_cgi_pid, SIGKILL);
+			{
+				kill(m_cgi_pid, SIGTERM);
+				m_cgi_pid = 0;
+			}
 
 			m_state = ClientState::DISCONNECTED;
 			Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
@@ -137,7 +140,7 @@ class Client
 			if (m_last_response <= 0)
 			{
 				m_state = ClientState::DISCONNECTED;
-				Logger::log(m_last_response == 0 ? "remote closed connection" : "critical error");
+				Logger::logError(m_last_response == 0 ? "remote closed connection" : "critical error");
 			}
 
 			return m_last_response;

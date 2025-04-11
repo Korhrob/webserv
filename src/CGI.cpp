@@ -31,14 +31,18 @@ void createEnv(std::vector<char*>& envPtrs, std::string script)
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
-void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs, pid_t myPid)
+void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs) // , pid_t myPid
 {
 	cgi = std::filesystem::current_path().string() + "/cgi-bin" + cgi;
 	char	*args[3] = { const_cast<char*>(INTERPRETER.c_str()), const_cast<char*>(cgi.c_str()), nullptr };
+	(void)cgi;
+	(void)args;
 
 	if (dup2(temp_fd, STDOUT_FILENO) < 0)
 		setEnvValue("DUP", "FAIL", envPtrs);
 	close(temp_fd);
+	setEnvValue("DUP", "OK", envPtrs);
+	envPtrs.push_back(nullptr);
 
 	// int nullfd = open("/dev/null", O_WRONLY);
 	// if (nullfd != -1)
@@ -54,12 +58,13 @@ void run(std::string cgi, int temp_fd, std::vector<char*> envPtrs, pid_t myPid)
 	// 	close(devnull);
 	// }
 	
-	write(STDOUT_FILENO, "Hello from CGI", 15);
+	//write(STDOUT_FILENO, "Hello from CGI", 15);
 
-	envPtrs.push_back(nullptr); //??
-	execve(args[0], args, envPtrs.data());
+	execlp("echo", "echo", "Hello World", nullptr);
+	//execve(args[0], args, envPtrs.data());
 	Logger::logError("execve failed");
-	kill(myPid, SIGTERM);
+	//kill(myPid, SIGTERM);
+	std::exit(1);
 }
 
 void setCgiString(FILE *temp, int fdtemp, std::string& body)

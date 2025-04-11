@@ -30,6 +30,11 @@ Config::Config(const std::string& filename) : m_valid(false), m_server_count(0)
 
 Config::~Config()
 {
+	for (auto [key, node] : m_nodes)
+	{
+		if (node)
+			delete node;
+	}
 }
 
 bool	Config::isValid()
@@ -39,7 +44,7 @@ bool	Config::isValid()
 
 bool	Config::parse(std::ifstream& stream)
 {
-	std::shared_ptr<ConfigNode>	temp;
+	ConfigNode*					temp;
 	std::string					node_name;
 	std::string					line;
 	size_t						line_nbr = 0;
@@ -102,7 +107,7 @@ bool	Config::parse(std::ifstream& stream)
 			}
 
 			try {
-				temp = std::make_shared<ConfigNode>(node_name, is_server);
+				temp = new ConfigNode(node_name, is_server);
 			}
 			catch (std::exception& ex)
 			{
@@ -262,7 +267,7 @@ const NodeMap&	Config::getNodeMap()
 /// @brief find server block with host 
 /// @param host ex. "127.0.0.1:8080"
 /// @return server block or default block for port
-const std::shared_ptr<ConfigNode>	Config::findServerNode(const std::string& host)
+ConfigNode*	Config::findServerNode(const std::string& host)
 {
 	size_t pos = host.find(":");
 	std::string host_name = host.substr(0, pos);

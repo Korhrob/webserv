@@ -20,8 +20,13 @@ Server::~Server()
 	Logger::log("closing server...");
 	for (auto& [fd, client] : m_clients)
 	{
-		client->disconnect();
+		if (client)
+		{
+			client->disconnect();
+			delete client;
+		}
 	}
+
 	for (auto& [fd, port] : m_port_map)
 	{
 		if (fd >= 0) {
@@ -32,6 +37,7 @@ Server::~Server()
 	}
 	if (m_epoll_fd >= 0)
 		close(m_epoll_fd);
+
 }
 
 bool	Server::startServer()
@@ -174,7 +180,7 @@ void	Server::addClient(int fd)
 	}
 
 	int port = m_port_map[fd];
-	std::shared_ptr<Client> client = std::make_shared<Client>(client_fd, *this);
+	Client* client = new Client(client_fd, *this);
 	client->connect(fd, client_fd, m_time, port);
 
 	if (m_clients.size() >= m_max_clients)
@@ -183,6 +189,7 @@ void	Server::addClient(int fd)
 		client->respond(RESPONSE_BUSY);
 		client->respond(EMPTY_STRING);
 		close(client_fd);
+		delete client;
 		return;
 	}
 
@@ -194,6 +201,7 @@ void	Server::addClient(int fd)
 	{
 		Logger::logError("error connecting client, epoll_ctl");
 		close(client_fd);
+		delete client;
 		return;
 	}
 
@@ -253,7 +261,7 @@ void	Server::handleRequest(int fd)
 		return;
 	}
 
-	std::shared_ptr<Client> client = m_clients.at(fd);
+	Client* client = m_clients.at(fd);
 	
 	std::vector<char>	vec;
 	char				buffer[PACKET_SIZE];
@@ -281,7 +289,7 @@ void	Server::handleRequest(int fd)
 
 	if (!vec.empty())
 	{
-		Logger::log(vec.data());
+		//Logger::log(vec.data());
 		client->handleRequest(m_config, vec);
 		updateClient(client);
 	}
@@ -331,7 +339,7 @@ void Server::handleCgiResponse(int fd)
 		return;
 	}
 
-	std::shared_ptr<Client> client = m_clients.at(client_fd);
+	Client* client = m_clients.at(client_fd);
 
 	std::string			str;
 	char				buffer[BUFFER_SIZE];
@@ -349,7 +357,23 @@ void Server::handleCgiResponse(int fd)
 	{
 		Logger::log("CGI EOF");
 		client->setCGIState(CGI_CLOSED);
-		kill(client->getCPID(), SIGKILL);
+		//kill(client->getCPID(), SIGKILL);
+	}
+
+	if (client->getChildState() == P_RUNNING)
+	{
+		int	status;
+		int cpid = client->getCPID();
+		int result = waitpid(cpid, &status, WNOHANG); // check nonblocking
+	
+		if (result == cpid)
+		{
+			Logger::log("CGI process exited");
+			client->setChildState(P_CLOSED);
+			client->resetCPID();
+		} else {
+			Logger::log("waiting for pid " + std::to_string(cpid));
+		}
 	}
 
 	if (bytes_read == -1 && str.empty())
@@ -365,37 +389,25 @@ void Server::handleCgiResponse(int fd)
 		updateClient(client);
 	}
 
-	if (client->getCGIState() == CGI_CLOSED && client->getChildState() == P_RUNNING)
-	{
-		int	status;
-		int cpid = client->getCPID();
-		int result = waitpid(cpid, &status, WNOHANG); // check nonblocking
-	
-		if (result == cpid)
-		{
-			Logger::log("CGI process exited");
-			client->setChildState(P_CLOSED);
-		} else {
-			Logger::log("waiting for pid " + std::to_string(cpid));
-		}
-	}
 
 	if (client->getCGIState() == CGI_CLOSED && 
 		(client->getChildState() == P_CLOSED || client->getClientState() == TIMEDOUT))
 	{
-		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + "--");
-		Logger::log("== SEND RESPONSE ==");
+		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + " --");
 
-		client->setCgiHeaders();
-		//Logger::log(client->response());
-
-		client->respond(client->header());
 		updateClient(client);
 
 		if (client->getClientState() == TIMEDOUT)
-			Logger::log("PHP TIMED OUT");
+		{
+			client->respond(RESPONSE_TIMEOUT);
+			Logger::logError("PHP TIMED OUT");
+		}
+		else
+		{
+			client->respond(RESPONSE_BUSY);
+		}
 
-		client->resetCPID();
+		removeClient(client); // test
 		m_cgi_map.erase(fd);
 		m_cgi_fd.erase(fd);
 		epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
@@ -404,7 +416,7 @@ void Server::handleCgiResponse(int fd)
 
 }
 
-bool	Server::checkResponseState(std::shared_ptr<Client> client)
+bool	Server::checkResponseState(Client* client)
 {
 	if (client->getClientState() > 0)
 	{
@@ -434,14 +446,16 @@ void	Server::update()
 	handleTimeouts();
 }
 
-void	Server::removeClient(std::shared_ptr<Client> client)
+void	Server::removeClient(Client* client)
 {
+	updateClient(client);
 	m_clients.erase(client->fd());
 	m_client_fd.erase(client->fd());
 	client->disconnect();
+	delete client;
 }
 
-void	Server::updateClient(std::shared_ptr<Client> client)
+void	Server::updateClient(Client* client)
 {
 	client->update(m_time);
 

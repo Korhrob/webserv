@@ -27,7 +27,7 @@ using t_time = std::chrono::steady_clock::time_point;
 struct TimeoutClient
 {
 	t_time					time;
-	std::shared_ptr<Client>	client;
+	Client*					client;
 
 	bool operator>(const TimeoutClient& other) const
 	{
@@ -36,8 +36,8 @@ struct TimeoutClient
 };
 
 using Queue = std::priority_queue<TimeoutClient, std::vector<TimeoutClient>, std::greater<>>;
-using Set = std::unordered_set<std::shared_ptr<Client>>;
-using ClientMap = std::unordered_map<int, std::shared_ptr<Client>>;
+using Set = std::unordered_set<Client*>;
+using ClientMap = std::unordered_map<int, Client*>;
 
 class Server
 {
@@ -68,13 +68,13 @@ class Server
 		bool	startServer();
 		int		createListener(int port);
 		void	addClient(int fd);
-		void	removeClient(std::shared_ptr<Client> client);
-		void	updateClient(std::shared_ptr<Client> client);
+		void	removeClient(Client* client);
+		void	updateClient(Client* client);
 		void	handleEvents(int event_count);
 		void	handleTimeouts();
 		void	handleRequest(int fd);
 		void	handleCgiResponse(int fd);
-		bool	checkResponseState(std::shared_ptr<Client> client);
+		bool	checkResponseState(Client* client);
 		void	update();
 		void	mapClientCgi(int cgi_fd, int client_fd)
 		{

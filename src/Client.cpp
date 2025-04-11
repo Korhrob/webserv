@@ -23,6 +23,7 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 				m_child_state = P_RUNNING;
 				Logger::log("set client cpid " + std::to_string(m_cgi_pid));
 				// error check? should be catching throw anyways
+				// m_response = HTTP/1.1 100 Continue\r\n\r\n
 			}
 			else
 				m_response = m_request.processRequest(getTimeoutDuration());

@@ -789,7 +789,7 @@ e_state	HttpRequest::state()
 	return m_state;
 }
 
-void	HttpRequest::setServer(std::shared_ptr<ConfigNode> server)
+void	HttpRequest::setServer(ConfigNode* server)
 {
 	m_server = server;
 }
@@ -855,6 +855,7 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 
 	//close(sockfds[0]);
 
+	Logger::log("socketpair[0]: " + std::to_string(sockfds[0]));
 	Logger::log("socketpair[1]: " + std::to_string(sockfds[1]));
 
 	int server_fd = server.getEpollFd();
@@ -867,11 +868,12 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 	{
 		Logger::logError(std::strerror(errno));
 		// close socketpair
-		// free env
+		freeEnvPtrs(envPtrs);
 		throw HttpException::internalServerError("epoll_ctl");
 	}
-
-	server.mapClientCgi(sockfds[1], client_fd);
+	
+	server.mapClientCgi(sockfds[0], client_fd);
+	Logger::log("attached to epoll OK");
 
 	pid_t pid = fork();
 
@@ -884,25 +886,19 @@ int HttpRequest::prepareCgi(int client_fd, Server& server)
 
 	if (pid == 0)
 	{
-		pid_t myPid;
-		read(sockfds[0], &myPid, sizeof(myPid));
+		//pid_t myPid;
+		//read(sockfds[0], &myPid, sizeof(myPid));
 		close(sockfds[0]);
-		run(script, sockfds[1], envPtrs, myPid);
+		run(script, sockfds[1], envPtrs);
 		// child wont return
 	}
 	else
 	{
-		write(sockfds[1], &pid, sizeof(pid));
+		//write(sockfds[1], &pid, sizeof(pid));
 		close(sockfds[1]);
 	}
 
-	// should free both both processes
-	// but atm child process dies without coming back
-	// check fd's and smart pointers
-	// if (pid == 0)
-	// {
-	// 	kill(0, SIGKILL);
-	// }
 	freeEnvPtrs(envPtrs);
+	Logger::log("return to wait epoll loop");
 	return pid;
 }

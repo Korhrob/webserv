@@ -44,8 +44,8 @@ using t_ms = std::chrono::milliseconds;
 class HttpRequest {
 	private:
 		e_state											m_state;
-		std::shared_ptr<ConfigNode>						m_server;
-		std::shared_ptr<ConfigNode>						m_location;
+		ConfigNode*										m_server;
+		ConfigNode*										m_location;
 		std::string										m_method;
 		std::string										m_target;
 		queryMap										m_query;
@@ -105,7 +105,7 @@ class HttpRequest {
 		std::string						path();
 		bool							server();
 		e_state							state();
-		void							setServer(std::shared_ptr<ConfigNode>);
+		void							setServer(ConfigNode* node);
 		void							setState(e_state state);
 		bool							isCgi() { return m_cgi; };
 		int 							prepareCgi(int client_fd, Server& server);

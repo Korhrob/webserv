@@ -16,7 +16,14 @@ ConfigNode::ConfigNode(const std::string& name, bool is_server) : m_name(name), 
 	(void)m_is_server;
 }
 
-ConfigNode::~ConfigNode() {};
+ConfigNode::~ConfigNode()
+{
+	for (auto [key, node] : m_children)
+	{
+		if (node)
+			delete node;
+	}
+};
 
 void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directives)
 {
@@ -83,7 +90,7 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 
 }
 
-void	ConfigNode::addChild(std::string key, std::shared_ptr<ConfigNode> node)
+void	ConfigNode::addChild(std::string key, ConfigNode* node)
 {
 	m_children[key] = node;
 }
@@ -104,7 +111,7 @@ const std::vector<std::string>&	ConfigNode::findDirective(const std::string& key
 	return EMPTY_VECTOR;
 }
 
-const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
+ConfigNode*	ConfigNode::findNode(const std::string& key)
 {
 	auto it = m_children.find(key);
 
@@ -113,25 +120,26 @@ const std::shared_ptr<ConfigNode>	ConfigNode::findNode(const std::string& key)
 
 	for (const auto& child : m_children)
 	{
-		const std::shared_ptr<ConfigNode> temp = child.second->findNode(key);
+		ConfigNode* temp = child.second->findNode(key);
 		if (temp != nullptr)
 			return temp;
 	}
 	return nullptr;
 }
 
-const	std::shared_ptr<ConfigNode>	ConfigNode::findClosestMatch(const std::string& key)
+ConfigNode*	ConfigNode::findClosestMatch(const std::string& key)
 {
 	auto it = m_children.find(key);
 
 	if (it != m_children.end())
 		return it->second;
 
-	std::shared_ptr<ConfigNode> closest_match = nullptr;
+	ConfigNode* closest_match = nullptr;
 	size_t highest = 0;
-
+		
 	for (auto& [index, child] : m_children)
 	{
+
 		if (index.size() > key.size())
 			continue;
 		

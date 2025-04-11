@@ -16,7 +16,7 @@ struct ErrorPage
 
 class ConfigNode;
 
-using NodeMap = std::map<std::string, std::shared_ptr<ConfigNode>>;
+using NodeMap = std::map<std::string, ConfigNode*>;
 using DirectiveMap = std::unordered_map<std::string, std::vector<std::string>>;
 
 class ConfigNode : public std::exception
@@ -54,10 +54,10 @@ public:
 	void								addDirective(std::string key, std::vector<std::string>& value);
 	void								addDefaultErrorPages();
 	void								addErrorPage(std::vector<std::string>& value);
-	void								addChild(std::string key, std::shared_ptr<ConfigNode> node);
+	void								addChild(std::string key, ConfigNode* node);
 	const std::vector<std::string>&		findDirective(const std::string& key);
-	const std::shared_ptr<ConfigNode>	findNode(const std::string& key);
-	const std::shared_ptr<ConfigNode>	findClosestMatch(const std::string& key);
+	ConfigNode*							findNode(const std::string& key);
+	ConfigNode*							findClosestMatch(const std::string& key);
 	const std::string&					findErrorPage(int error_code);
 	bool								tryGetDirective(const std::string&key, std::vector<std::string>& out);
 	const std::string&					getName() { return m_name; };
