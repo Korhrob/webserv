@@ -196,7 +196,7 @@ void	Server::addClient(int fd)
 	if (m_clients.size() >= m_max_clients)
 	{
 		Logger::logError("rejected incoming connection, server is full");
-		client->respond(RESPONSE_BUSY);
+		client->respond(client->errorResponse(503, "Server Busy")));
 		close(client_fd);
 		delete client;
 		return;
