@@ -302,7 +302,8 @@ void	ConfigNode::addDefaultDirective(const std::string& key, std::vector<std::st
 		return;
 
 	addDirective(key, directives);
-	Logger::log("added default directive " + key);
+
+	
 }
 
 void	ConfigNode::addDefaultErrorPages()
@@ -318,7 +319,7 @@ void	ConfigNode::addDefaultErrorPages()
 	ErrorPage error_page;
 
 	emplaceCodes(error_page, temp);
-	error_page.m_page = "500.html";
+	error_page.m_page = "/error/500.html";
 	m_error_pages.push_back(error_page);
 }
 

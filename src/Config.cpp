@@ -188,12 +188,21 @@ bool	Config::parse(std::ifstream& stream)
 			}
 		}
 
-		node->addDefaultDirective("root", { "www/html" });
+		node->addDefaultDirective("root", { "www" });
 		node->addDefaultDirective("index", { "index.html", "index.htm", "index.php" });
+		node->addDefaultDirective("try_files", { "$uri", "$uri/", "$uri.html", "$uri.htm", "$uri.php", "=404" });
 		node->addDefaultDirective("uploadDir", { "upload" });
 		node->addDefaultDirective("keepalive_timeout", { "60" });
 		node->addDefaultDirective("client_max_body_size", { "1048576" });
+		node->addDefaultDirective("methods", { "GET" });
 		node->addDefaultErrorPages();
+
+		if (node->findNode("/") == nullptr)
+		{
+			ConfigNode* n = new ConfigNode("/", false);
+			node->addChild("/", n);
+
+		}
 	}
 
 	return true;
