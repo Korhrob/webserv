@@ -48,7 +48,6 @@ void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Serve
 	setEnvValue("DUP", "OK", envPtrs);
 	envPtrs.push_back(nullptr);
 
-	//execlp("egho", "egho", "Hello World", nullptr); // for testing failed execve
 	execve(args[0], const_cast<char* const*>(args), envPtrs.data());
 	freeEnvPtrs(envPtrs);
 	n_cgi.clear();

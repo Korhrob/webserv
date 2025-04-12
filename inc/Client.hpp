@@ -118,7 +118,6 @@ class Client
 			}
 
 			m_state = ClientState::DISCONNECTED;
-			//Logger::log("Client fd " + std::to_string(m_fd) + " disconnected!");
 		}
 
 		void	update(t_time& time)

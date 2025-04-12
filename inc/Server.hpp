@@ -59,6 +59,8 @@ class Server
 		std::unordered_set<int>			m_client_fd;
 		std::unordered_set<int>			m_cgi_fd;
 
+		int								m_cleanup;
+
 	public:
 
 		Server(const std::string& path);
@@ -81,6 +83,7 @@ class Server
 			m_cgi_map[cgi_fd] = client_fd;
 			m_cgi_fd.insert(cgi_fd);
 		};
+		void	setCleanFlag(int i) { m_cleanup = i; }
 
 		int	getEpollFd() { return m_epoll_fd; };
 };

@@ -665,8 +665,6 @@ const std::string	HttpRequest::ePage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
-	Logger::log("ePage: " + std::to_string(code));
-
 	if (m_location)
 	{
 		errorPage = m_location->findErrorPage(code);

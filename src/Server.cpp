@@ -11,21 +11,23 @@
 #include <cerrno>
 #include <cstring>
 
-Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL)
+Server::Server(const std::string& path) : m_config(path), m_events(EPOLL_POOL), m_cleanup(0)
 {
 }
 
 Server::~Server()
 {
+	
 	for (auto& fd : m_cgi_fd)
 	{
 		if (fd >= 0)
 		{
-			epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+			if (!m_cleanup)
+				epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 			close(fd);
 		}
 	}
-
+	
 	for (auto& [fd, client] : m_clients)
 	{
 		if (client)
@@ -38,15 +40,15 @@ Server::~Server()
 	for (auto& [fd, port] : m_port_map)
 	{
 		if (fd >= 0) {
-			epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+			if (!m_cleanup)
+				epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 			shutdown(fd, SHUT_RDWR);
 			close(fd);
 		}
 	}
-
+	
 	if (m_epoll_fd >= 0)
 		close(m_epoll_fd);
-
 }
 
 bool	Server::startServer()
@@ -178,6 +180,8 @@ void	Server::handleEvents(int event_count)
 /// @param fd listener file descriptor
 void	Server::addClient(int fd)
 {
+	Logger::log("server event");
+
 	t_sockaddr_in client_addr = { };
 	m_addr_len = sizeof(client_addr);
 	int client_fd = accept4(fd, (struct sockaddr*)&client_addr, &m_addr_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -385,7 +389,6 @@ void Server::handleCgiResponse(int fd)
 		updateClient(client);
 	}
 
-
 	if (client->getCGIState() == CGI_CLOSED && client->getChildState() == P_CLOSED)
 	{
 		Logger::log("-- CGI DONE, RESPOND TO CLIENT " + std::to_string(client_fd) + " --");
@@ -395,6 +398,7 @@ void Server::handleCgiResponse(int fd)
 		client->respond(client->response());
 
 		removeCGI(fd);
+
 	}
 
 }
@@ -432,27 +436,33 @@ void	Server::update()
 void	Server::removeClient(Client* client, int type)
 {
 	updateClient(client);
-	m_clients.erase(client->fd());
-	m_client_fd.erase(client->fd());
-	Logger::log("Client fd " + std::to_string(client->fd()) + " disconnected!");
 
-	for (auto [cgifd, clientfd] : m_cgi_map)
+	if (client->fd() >= 0)
 	{
-		if (clientfd == client->fd())
+		m_clients.erase(client->fd());
+		m_client_fd.erase(client->fd());
+		Logger::log("Client fd " + std::to_string(client->fd()) + " disconnected!");
+	
+		for (auto [cgifd, clientfd] : m_cgi_map)
 		{
-			type = 2;
-			removeCGI(cgifd);
-			break;
+			if (clientfd == client->fd())
+			{
+				type = 2;
+				Logger::log("remove cgi fd");
+				removeCGI(cgifd);
+				break;
+			}
 		}
-	}
+	
+		if (type == 1) // server enforced
+		{
+			client->respond(client->errorResponse(408, "Request Timeout"));
+		}
+		else if (type == 2) // cgi timeout
+		{
+			client->respond(client->errorResponse(500, "Internal Server Error"));
+		}
 
-	if (type == 1) // server enforced
-	{
-		client->respond(client->errorResponse(408, "Request Timeout"));
-	}
-	else if (type == 2) // cgi timeout
-	{
-		client->respond(client->errorResponse(500, "Internal Server Error"));
 	}
 
 	client->disconnect();
@@ -461,10 +471,12 @@ void	Server::removeClient(Client* client, int type)
 
 void	Server::removeCGI(int fd)
 {
-	m_cgi_map.erase(fd);
-	m_cgi_fd.erase(fd);
+	if (fd < 0)
+		return; 
 	epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
 	close(fd);
+	m_cgi_map.erase(fd);
+	m_cgi_fd.erase(fd);
 }
 
 void	Server::updateClient(Client* client)

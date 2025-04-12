@@ -45,7 +45,7 @@ void	Client::handleRequest(Config& config, std::vector<char>& vec)
 
 void	Client::cgiResponse()
 {
-	static const HttpResponse	errorResponse(503, "Service Unavailable", m_request.ePage(503), "", true, getTimeoutDuration());
+	static const HttpResponse	errorResponse(503, "Service Unavailable", m_request.ePage(503), "", 1, getTimeoutDuration());
 
 	if (m_response.body().empty())
 		m_response = errorResponse;
