@@ -51,12 +51,13 @@ void	ConfigNode::addDirective(std::string key, std::vector<std::string>& directi
 	m_directives[key] = directives;
 }
 
+//	400 /error/400.html
 void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 {
 	if (directives.size() < 2)
 		throw ConfigException::invalidErrorPage();
 
-	std::unordered_set<int>	codes;
+	std::unordered_set<int>	codes; // 400
 	for (std::size_t i = 0; i < (directives.size() - 1); i++)
 	{
 		int j = std::stoi(directives[i]);
@@ -65,13 +66,17 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 		codes.insert(j);
 	}
 
-	if (isNumerical(directives.back()))
+	if (isNumerical(directives.back())) ///error/400.html
 		throw ConfigException::invalidErrorPage();
 
 	for (auto& page : m_error_pages)
 	{
 		for (auto& code : codes)
-			page.m_codes.erase(code);
+		{
+			//page.m_codes.erase(code);
+			if (page.m_codes.count(code))
+				throw ConfigException::duplicateErrorPage();
+		}
 
 		if (page.m_page == directives.back())
 		{
@@ -80,7 +85,7 @@ void	ConfigNode::addErrorPage(std::vector<std::string>& directives)
 		}
 	}
 
-	ErrorPage error_page;
+	ErrorPage error_page {};
 
 	emplaceCodes(error_page, codes);
 	error_page.m_page = directives.back();
@@ -169,9 +174,13 @@ bool	ConfigNode::tryGetDirective(const std::string&key, std::vector<std::string>
 
 const std::string&	ConfigNode::findErrorPage(int error_code)
 {
+	if (m_error_pages.empty())
+		return EMPTY_STRING;
 	for (auto& page : m_error_pages)
 	{
-		if (page.m_codes.find(error_code) != page.m_codes.end())
+		if (page.m_codes.empty())
+			continue;
+		if (page.m_codes.count(error_code))
 			return page.m_page;
 	}
 	return EMPTY_STRING;
@@ -280,8 +289,7 @@ void	ConfigNode::emplaceCodes(ErrorPage& error_page, std::unordered_set<int>& co
 		auto result = error_page.m_codes.emplace(code);
 		if (!(result.second))
 		{
-			Logger::logError("duplicate error code " + std::to_string(code));
-			return;
+			throw ConfigException::duplicateErrorPage();
 		}
 	}
 }
@@ -323,4 +331,16 @@ bool	ConfigNode::isNumerical(const std::string& str)
 			++i;
 	}
 	return (i == str.length());
+}
+
+void	ConfigNode::debugErrorPages()
+{
+	for (auto& it : m_error_pages)
+	{
+		Logger::log(it.m_page);
+		std::string a;
+		for (auto& code : it.m_codes)
+			a.append(std::to_string(code) + ", ");
+		Logger::log(a);
+	}
 }

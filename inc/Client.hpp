@@ -77,7 +77,7 @@ class Client
 	public:
 
 		Client() = delete;
-		Client(int fd, Server& server) : m_fd(fd), m_server(server), m_state(ClientState::DISCONNECTED), m_cgi_pid(0)
+		Client(int epollfd, int fd, Server& server) : m_epollfd(epollfd), m_fd(fd), m_server(server), m_state(ClientState::DISCONNECTED), m_last_response(0), m_timeout_duration(5), m_port(0), m_cgi_pid(0)
 		{
 
 		}
@@ -88,16 +88,14 @@ class Client
 		int	port() { return m_port; }
 
 		// can handle all of these in constructor
-		bool	connect(int epollfd, int fd, t_time& time, int port)
+		bool	connect(t_time& time, int port)
 		{
-			m_epollfd = epollfd;
-			m_fd = fd;
 			m_last_activity = time;
 			m_state = ClientState::CONNECTED;
 			m_last_response = 0;
 			m_port = port;
 
-			Logger::log("Client id " + std::to_string(fd) + ", fd " + std::to_string(m_fd) + " connected!");
+			Logger::log("Client id " + std::to_string(m_fd) + ", fd " + std::to_string(m_fd) + " connected!");
 
 			return true;
 		}

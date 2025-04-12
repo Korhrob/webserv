@@ -29,10 +29,10 @@ class HttpResponse {
 		const std::string	headers();
 		
 	public:
+		HttpResponse() : m_code(0), m_msg(""), m_body(""),  m_type(TYPE_SINGLE), m_targetUrl(""), m_close(0), m_timeout(0) {};
 		HttpResponse(int code, const std::string& msg, const std::string& path, const std::string& targetUrl, int close, t_ms timeout);
 		HttpResponse(const std::string& body, t_ms timeout);
 		
-		HttpResponse() : m_code(0), m_type(TYPE_SINGLE), m_close(0), m_timeout(0) {};
 		~HttpResponse() = default;
 		
 		HttpResponse&	operator=(const HttpResponse&) = default;

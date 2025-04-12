@@ -194,7 +194,6 @@ bool	Config::parse(std::ifstream& stream)
 		node->addDefaultDirective("keepalive_timeout", { "60" });
 		node->addDefaultDirective("client_max_body_size", { "1048576" });
 		node->addDefaultErrorPages();
-
 	}
 
 	return true;

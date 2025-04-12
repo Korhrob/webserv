@@ -12,7 +12,10 @@
 #include <regex>
 #include <cstring>
 
-HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_contentLength(0) {}
+HttpRequest::HttpRequest() : m_state(HEADERS), m_cgi(false), m_contentLength(0)
+{
+	reset();
+}
 
 void	HttpRequest::appendRequest(std::vector<char>& request)
 {
@@ -443,7 +446,7 @@ void	HttpRequest::parseMultipart(const std::string& boundary, std::vector<mpData
 
 	auto	firstBoundary = std::search(m_request.begin(), m_request.end(), boundary.begin(), boundary.end());
 	if (firstBoundary != m_request.begin())
-		throw HttpException::badRequest("invalid multipart/form-data content");
+		throw HttpException::badRequest("invalid multipart/form-data content 1");
 	
 	auto	currentPos = m_request.begin() + boundaryLen;
 
@@ -453,7 +456,7 @@ void	HttpRequest::parseMultipart(const std::string& boundary, std::vector<mpData
 
 		auto	endOfHeaders = std::search(currentPos, m_request.end(), emptyLine.begin(), emptyLine.end());
 		if (endOfHeaders == m_request.end())
-			throw HttpException::badRequest("invalid multipart/form-data content");
+			throw HttpException::badRequest("invalid multipart/form-data content 2");
 
 		mpData		part;
 		std::string	headers(currentPos, endOfHeaders);
@@ -463,7 +466,7 @@ void	HttpRequest::parseMultipart(const std::string& boundary, std::vector<mpData
 
 		auto	endOfContent = std::search(currentPos, m_request.end(), boundary.begin(), boundary.end());
 		if (endOfContent == m_request.end())
-			throw HttpException::badRequest("invalid multipart/form-data content");
+			throw HttpException::badRequest("invalid multipart/form-data content 3");
 
 		if (currentPos != endOfContent)
 		{
@@ -657,6 +660,8 @@ const std::string	HttpRequest::ePage(int code)
 	std::vector<std::string>	root;
 	std::string					errorPage;
 
+	Logger::log("ePage: " + std::to_string(code));
+
 	if (m_location)
 	{
 		errorPage = m_location->findErrorPage(code);
@@ -667,6 +672,12 @@ const std::string	HttpRequest::ePage(int code)
 
 			return root.front() + errorPage;
 		}
+	}
+
+	if (!m_server)
+	{
+		Logger::logError("null server");
+		return "";
 	}
 
 	errorPage = m_server->findErrorPage(code);

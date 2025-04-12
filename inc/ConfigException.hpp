@@ -76,4 +76,9 @@ class ConfigException : public std::exception
 			return ConfigException("error_page missing code(s) or path");
 		}
 
+		static ConfigException	duplicateErrorPage()
+		{
+			return ConfigException("duplicate error_page code");
+		}
+
 };

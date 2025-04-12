@@ -43,3 +43,4 @@ re: fclean all
 .PHONY: all clean fclean re
 
 #valgrind --leak-check=full --track-origins=yes --track-fds=yes ./server 
+#curl -X POST http://localhost:8080/people.php -F "first_name=bob" -F "last_name=marley" --trace-ascii -

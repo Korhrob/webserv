@@ -189,8 +189,8 @@ void	Server::addClient(int fd)
 	}
 
 	int port = m_port_map[fd];
-	Client* client = new Client(client_fd, *this);
-	client->connect(fd, client_fd, m_time, port);
+	Client* client = new Client(fd, client_fd, *this);
+	client->connect(m_time, port); // fd, client_fd,
 
 	if (m_clients.size() >= m_max_clients)
 	{
@@ -291,7 +291,7 @@ void	Server::handleRequest(int fd)
 
 	if (!vec.empty())
 	{
-		//Logger::log(vec.data());
+		Logger::log(std::string(vec.begin(), vec.end()));
 		client->handleRequest(m_config, vec);
 		updateClient(client);
 	}
