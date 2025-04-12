@@ -32,7 +32,7 @@ void createEnv(std::vector<char*>& envPtrs, const std::string& script)
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
 
-void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Server& server) // , pid_t myPid
+void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Server& server)
 {
 	std::string n_cgi = std::filesystem::current_path().string();
 	n_cgi.append("/cgi-bin");
@@ -54,7 +54,6 @@ void run(const std::string& cgi, int temp_fd, std::vector<char*>& envPtrs, Serve
 	n_cgi.clear();
 	std::string().swap(n_cgi);
 	server.~Server();
-	//kill(myPid, SIGTERM);
 	std::exit(1);
 }
 
