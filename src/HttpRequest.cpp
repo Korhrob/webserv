@@ -32,15 +32,20 @@ void	HttpRequest::parseRequest(Config& config)
 		auto		endOfHeaders = std::search(m_request.begin(), m_request.end(), emptyLine.begin(), emptyLine.end());
 
 		if (endOfHeaders == m_request.end())
-			return;
+		{
+			if (m_request.size() > HEADERS_MAX)
+				throw HttpException::badRequest("Headers too long");
 
-		if (std::distance(m_request.begin(), endOfHeaders) > HEADERS_MAX)
+			return;
+		}
+
+		std::istringstream	headers(std::string(m_request.begin(), endOfHeaders));
+		parseRequestLine(headers);
+
+		if (headers.str().length() > HEADERS_MAX)
 			throw HttpException::badRequest("Headers too long");
 
-		std::istringstream	request(std::string(m_request.begin(), endOfHeaders));
-
-		parseRequestLine(request);
-		parseHeaders(request);
+		parseHeaders(headers);
 		setLocation(config);
 		validateMethod();
 		setCgi();
@@ -82,13 +87,13 @@ void	HttpRequest::parseRequestLine(std::istringstream& request)
 
 	getline(request, line);
 
-	if (line.length() > URI_MAX)
-		throw HttpException::URITooLong("requested URI too long");
-
 	std::istringstream	requestLine(line);
 
 	if (!(requestLine >> m_method >> m_target >> version) || requestLine >> excess)
 		throw HttpException::badRequest("invalid request line");
+
+	if (m_target.length() > URI_MAX)
+		throw HttpException::URITooLong("requested URI too long");
 
 	if (version != "HTTP/1.1")
 		throw HttpException::HTTPVersionNotSupported(version);
