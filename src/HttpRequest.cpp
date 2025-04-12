@@ -656,10 +656,6 @@ void    HttpRequest::validateMethod()
     if (!m_location->tryGetDirective("methods", allowedMethods))
 		m_server->tryGetDirective("methods", allowedMethods);
 
-	Logger::log("allowed methods for " + m_server->getName());
-	for (auto& it : allowedMethods)
-		Logger::log(it);
-
     if (std::find(allowedMethods.begin(), allowedMethods.end(), m_method) == allowedMethods.end())
         throw HttpException::methodNotAllowed("method not allowed for the resource");
 }
