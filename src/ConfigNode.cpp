@@ -332,15 +332,3 @@ bool	ConfigNode::isNumerical(const std::string& str)
 	}
 	return (i == str.length());
 }
-
-void	ConfigNode::debugErrorPages()
-{
-	for (auto& it : m_error_pages)
-	{
-		Logger::log(it.m_page);
-		std::string a;
-		for (auto& code : it.m_codes)
-			a.append(std::to_string(code) + ", ");
-		Logger::log(a);
-	}
-}
