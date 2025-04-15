@@ -10,11 +10,17 @@ void setEnvValue(const std::string &envp, const std::string &value, std::vector<
 {
 	const std::string env = envp + "=" + value;
 	char* newEnv = strdup(env.c_str());
+	if (newEnv == nullptr)
+	{
+		freeEnvPtrs(envPtrs);
+		throw HttpException::internalServerError("Malloc fail");
+	}
 	envPtrs.push_back(newEnv);
 }
 
 void createEnv(std::vector<char*>& envPtrs, const std::string& script)
 {
+	std::filesystem::path currentPath = std::filesystem::current_path();
 	std::filesystem::path currentPath = std::filesystem::current_path();
 	setEnvValue("SERVER_NAME", "localhost", envPtrs);
 	setEnvValue("GATEWAY_INTERFACE", "CGI/1.1", envPtrs);
@@ -23,11 +29,14 @@ void createEnv(std::vector<char*>& envPtrs, const std::string& script)
 	setEnvValue("REMOTE_ADDR", "127.0.0.1", envPtrs);
 	setEnvValue("SCRIPT_NAME", script, envPtrs);
 	setEnvValue("SCRIPT_FILENAME", currentPath.string() + "/cgi-bin" + script, envPtrs);
+	setEnvValue("SCRIPT_FILENAME", currentPath.string() + "/cgi-bin" + script, envPtrs);
 	setEnvValue("QUERY_STRING", "", envPtrs);
 	setEnvValue("CONTENT_TYPE", "application/x-www-form-urlencoded", envPtrs);
 	setEnvValue("PHP_SELF", "../cgi-bin" + script, envPtrs);
 	setEnvValue("DOCUMENT_ROOT", currentPath.string(), envPtrs);
+	setEnvValue("DOCUMENT_ROOT", currentPath.string(), envPtrs);
 	setEnvValue("HTTP_USER_AGENT", "Mozilla/5.0", envPtrs);
+	setEnvValue("REQUEST_URI", "/cgi-bin" + script, envPtrs);
 	setEnvValue("REQUEST_URI", "/cgi-bin" + script, envPtrs);
 	setEnvValue("HTTP_REFERER", "http://localhost/", envPtrs);
 }
@@ -72,7 +81,10 @@ void addQuery(queryMap& map, std::vector<char*>& envPtrs)
 	for (auto it = map.begin(); it != map.end(); ++it)
 	{
 		if(it->first.empty() || it->second.empty())
+		{
+			freeEnvPtrs(envPtrs);
 			throw HttpException::badRequest("Invalid Query");
+		}
 		setEnvValue(it->first, it->second[0], envPtrs);
 	}
 	map.clear();
